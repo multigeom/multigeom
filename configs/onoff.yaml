@@ -1,0 +1,22 @@
+# ON-OFF encoder configuration.
+# Frozen Berardino-2017 ON-OFF front-end from the plenoptic library
+# (12-scalar cascade of difference-of-Gaussians + luminance/contrast gain
+# control) followed by a 50-neuron Gaussian spatial-attention readout
+# matching the deep-CNN encoders.
+
+encoder:
+  name: onoff
+  backbone: plenoptic_onoff
+  kernel_size: 31            # → output shape (2, 64, 64) for 64x64 input
+  n_neurons: 50
+  dropout: 0.25
+
+train:
+  optimizer: adamw
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  batch_size: 64
+  epochs: 100
+  validation_fraction: 0.1
+  seed: 42

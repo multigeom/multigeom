@@ -1,0 +1,32 @@
+# G(x) estimator configuration (shared across encoders/areas).
+#
+# IMPORTANT: this is the conditional-pair (CC) estimator of Algorithm 1 in
+# the paper, NOT the unconditional-conditional (UC) form.  Per Eq. (eq:cc):
+#
+#   D_{(j,s),:} = sqrt(w_j / (2 N_MC)) * ( ε_θ(x_t, t, r_1) - ε_θ(x_t, t, r_2) )
+#
+# with r_1, r_2 i.i.d. from p(r | x̂(x_t)) at every (x_t, t).
+
+estimator: conditional_pair
+n_test_images: 200
+top_k: 50
+
+monte_carlo:
+  n_samples: 200             # N_MC
+  batch_size: 25             # B in Algorithm 1
+  timestep_grid:
+    start: 40                # t_1
+    stop: 960                # t_J
+    step: 40                 # → J = 24 timesteps, evenly spaced on DDPM index
+  observation_noise_sigma: 0.22
+
+device: cuda:0
+seed: 42
+
+# Closed-form Fisher baseline J(x) = (1/σ²) J_f^T J_f, computed via
+# PyTorch reverse-mode autograd.  Top-50 eigenpairs from SVD of J_f
+# directly (rank n=50 << P=4096 pixels makes the outer product
+# unnecessary).
+fisher_baseline:
+  enabled: true
+  top_k: 50

@@ -1,0 +1,20 @@
+# ResNet-50 encoder configuration.
+# Frozen torchvision ResNet-50 (ImageNet weights) truncated at layer1.0,
+# followed by a 50-neuron Gaussian spatial-attention readout.
+
+encoder:
+  name: resnet50
+  backbone: resnet50
+  layer: layer1.0            # → output shape (256, 16, 16) for 64x64 input
+  n_neurons: 50
+  dropout: 0.25
+
+train:
+  optimizer: adamw
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  batch_size: 64
+  epochs: 100
+  validation_fraction: 0.1
+  seed: 42
