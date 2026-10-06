@@ -1,7 +1,10 @@
-torch>=2.0,<3.0
-torchvision>=0.15
-diffusers>=0.20,<0.30
-plenoptic>=1.0
+# Declared ranges (same as pyproject.toml). For the exact tested versions use
+#   pip install -r requirements-lock.txt
+torch>=2.1,<2.9
+torchvision>=0.16,<0.24
+diffusers>=0.30,<0.38
+huggingface_hub>=0.25,<1.0
+plenoptic>=1.1,<2.0
 numpy>=1.24
 scipy>=1.10
 matplotlib>=3.7

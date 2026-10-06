@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# End-to-end pipeline runner for one (encoder, area) configuration.
-# Default: (Inception-V3, V1).  Override via $ENCODER and $AREA env vars.
+# Stages 1-4 for one (encoder, area) configuration.
+# Default: (Inception-V3, V1). Override via $ENCODER and $AREA env vars.
 #
 #   bash reproduce.sh                     # Inception, V1
 #   ENCODER=resnet50 AREA=V4 bash reproduce.sh
 #   ENCODER=onoff    AREA=V1 bash reproduce.sh
 #
-# Total wall-clock: ~16h on 1×A100 (mostly Stage 3 diffusion training).
+# Cost: ~30 A100-hours, almost all of it Stage 3 (200 diffusion epochs).
+# Stages 5-6 and the figures run once all six configurations are done
+# (see README.md).
 
 set -euo pipefail
 
@@ -49,12 +51,12 @@ python stages/04_estimate_gx.py \
     --config configs/estimator.yaml \
     --encoder-cfg "configs/${ENCODER}.yaml" \
     --encoder-ckpt "${ENC_DIR}/best_model.pt" \
-    --diffusion-ckpt "${DIFF_DIR}/best_model.pt" \
+    --diffusion-ckpt "${DIFF_DIR}/final_model.pt" \
     --area "${AREA}" \
     --device "${DEVICE}" \
     --out-dir "${GX_DIR}"
 
-echo "--- Stage 5: compute cross-encoder metrics (run after all 6 configs done) ---"
+echo "--- Next, once all six configurations are done: ---"
 echo "    python stages/05_compute_metrics.py --runs-dir ${RUN_ROOT} --out-dir ${RUN_ROOT}/metrics"
 
 echo "=== Done: ${ENCODER} × ${AREA} ==="

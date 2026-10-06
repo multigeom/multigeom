@@ -2,7 +2,7 @@
 Stage 3: Train a conditional DDPM on TinyImageNet, conditioned on the
 synthetic responses produced in Stage 2.
 
-Training recipe (from Appendix C.1 of the paper):
+Training recipe (paper appendix "Diffusion model architecture and training"):
   - DDPM linear β schedule, T = 1000, ε-prediction objective.
   - AdamW with lr 1e-4, weight decay 1e-4, cosine schedule with 500-step warmup.
   - Batch size 128 in bfloat16, gradient clipping at norm 1.0.
@@ -29,14 +29,14 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, TensorDataset, ConcatDataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data_loaders import TinyImageNetDataset, CANONICAL_TRANSFORM
 from src.diffusion_model import build_diffusion_model, build_scheduler
-from src.utils import count_parameters, get_device, load_config, set_seed
+from src.utils import count_parameters, get_device, load_config, provenance, set_seed
 
 
 def parse_args():
@@ -150,6 +150,7 @@ def main():
     sigma = float(cfg.conditioning.observation_noise_sigma)
     p_drop = float(cfg.conditioning.cfg_dropout_rate)
 
+    prov = provenance({"diffusion": args.config}, seed=cfg.train.seed)
     history = {"epoch": [], "loss": []}
     print(f"[Stage 3] Training for {cfg.train.epochs} epochs "
           f"({total_steps} steps, batch={cfg.train.batch_size}) ...")
@@ -205,23 +206,26 @@ def main():
         history["loss"].append(epoch_loss)
         print(f"  epoch {epoch:3d}/{cfg.train.epochs}: mean loss = {epoch_loss:.4f}")
 
-        # Save the latest model + a periodic checkpoint
-        torch.save({
+        # Overwrite the latest model every epoch (so a crash loses at most one
+        # epoch) and keep a periodic snapshot. After the last epoch,
+        # final_model.pt is the checkpoint used for every figure.
+        ckpt = {
             "model_state_dict": model.state_dict(),
             "epoch": epoch,
-            "config": {"diffusion": str(args.config), "responses_path": str(args.responses)},
             "loss": epoch_loss,
-        }, out_dir / "best_model.pt")
+            "config": {"diffusion": str(args.config), "responses_path": str(args.responses)},
+            "encoder_name": resp_pkg.get("encoder_name"),
+            "area": resp_pkg.get("area"),
+            "provenance": prov,
+        }
+        torch.save(ckpt, out_dir / "final_model.pt")
         if epoch % args.save_every == 0:
-            torch.save({
-                "model_state_dict": model.state_dict(),
-                "epoch": epoch,
-            }, out_dir / f"model_epoch_{epoch:03d}.pt")
+            torch.save(ckpt, out_dir / f"model_epoch_{epoch:03d}.pt")
+        with open(out_dir / "train_log.json", "w") as f:
+            json.dump(history, f, indent=2)
 
-    # ── Final dump ───────────────────────────────────────────────────────
-    with open(out_dir / "train_log.json", "w") as f:
-        json.dump(history, f, indent=2)
-    print(f"[Stage 3] Saved checkpoint to {out_dir / 'best_model.pt'}")
+    print(f"[Stage 3] Saved checkpoint to {out_dir / 'final_model.pt'} "
+          f"(epoch {cfg.train.epochs})")
 
 
 if __name__ == "__main__":

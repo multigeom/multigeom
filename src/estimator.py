@@ -85,6 +85,7 @@ def conditional_pair_estimate(
     alphas_cumprod: torch.Tensor,
     cfg,
     device: torch.device,
+    generator: torch.Generator | None = None,
 ) -> EstimatorOutput:
     """
     Compute top-k eigenpairs of G(x) for a single image via the
@@ -98,6 +99,9 @@ def conditional_pair_estimate(
         alphas_cumprod: scheduler.alphas_cumprod, shape [T] on device.
         cfg: estimator config namespace (see configs/estimator.yaml).
         device: torch device.
+        generator: optional torch.Generator on `device` for all Monte-Carlo
+                   draws (z, ξ_1, ξ_2). Stage 4 seeds one per image so each
+                   image's estimate is reproducible on its own.
 
     Returns:
         EstimatorOutput with `eigenvalues` [k] and `eigenvectors` [k, 4096].
@@ -144,7 +148,7 @@ def conditional_pair_estimate(
 
         for _ in range(n_batches_per_t):
             # Line 5-6: forward diffusion from clean image
-            z = torch.randn(B, 1, H, W, device=device)
+            z = torch.randn(B, 1, H, W, device=device, generator=generator)
             x_t = sqrt_ab * image + sqrt_1m * z
 
             # Line 7-9: unconditional posterior mean via Tweedie + null-token pass
@@ -154,8 +158,8 @@ def conditional_pair_estimate(
 
             # Line 10-12: sample r_1, r_2 ~ N(f_φ(x̂), σ² I)
             mu = encoder(x_hat)                                    # [B, n_neurons]
-            xi1 = torch.randn_like(mu)
-            xi2 = torch.randn_like(mu)
+            xi1 = torch.randn(mu.shape, device=device, dtype=mu.dtype, generator=generator)
+            xi2 = torch.randn(mu.shape, device=device, dtype=mu.dtype, generator=generator)
             r1 = mu + sigma * xi1
             r2 = mu + sigma * xi2
 
@@ -169,8 +173,8 @@ def conditional_pair_estimate(
     assert write_idx == total_rows, f"row mismatch: {write_idx} vs {total_rows}"
 
     # ── Lines 16-18: thin SVD → top-k eigenpairs of G ≈ DᵀD ──────────────
-    # We do SVD of D ∈ ℝ^{(J·N_MC) × P}. Since J·N_MC = 4800 ≪ P = 4096 here
-    # (well, J·N_MC = 24·200 = 4800 and P = 4096, comparable), we do thin SVD.
+    # Thin SVD of D ∈ ℝ^{(J·N_MC) × P}; with the paper's settings
+    # J·N_MC = 24·200 = 4800 rows and P = 64² = 4096 columns.
     U, S, Vh = torch.linalg.svd(D, full_matrices=False)
     eigenvalues = S ** 2  # G ≈ DᵀD has eigenvalues = singular values of D, squared
     eigenvectors = Vh     # rows of Vh are right singular vectors of D = eigvecs of DᵀD

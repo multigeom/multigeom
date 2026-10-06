@@ -16,5 +16,5 @@ train:
   scheduler: cosine
   batch_size: 64
   epochs: 100
-  validation_fraction: 0.1
+  validation_fraction: 0.05  # 95/5 image-level train/val split (paper App. C.2)
   seed: 42

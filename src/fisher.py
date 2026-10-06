@@ -67,22 +67,23 @@ def fisher_eigendecomposition(
     # parameters have requires_grad = False (frozen), but gradients of the
     # output w.r.t. the *input* flow through it just fine.
     x = image.detach().clone().requires_grad_(True)
-    x_bb = encoder._to_backbone_input(x)
     with torch.enable_grad():
-        # Bypass the `with torch.no_grad():` inside encoder.forward — we
-        # genuinely need the gradient of responses w.r.t. x.
+        # Build the graph explicitly (input conversion → backbone → readout)
+        # rather than through encoder.forward, which runs the backbone under
+        # torch.no_grad(). enable_grad also makes this work when the caller
+        # is itself inside a no_grad block.
+        x_bb = encoder._to_backbone_input(x)
         features = encoder.backbone(x_bb)
         responses = encoder.readout(features)        # [1, n_neurons]
 
-    n_neurons = responses.shape[1]
-    P = x[0].numel()
-    J_f = torch.zeros(n_neurons, P, device=device)
-
-    for i in range(n_neurons):
-        if x.grad is not None:
-            x.grad.zero_()
-        responses[0, i].backward(retain_graph=(i < n_neurons - 1))
-        J_f[i] = x.grad.detach().reshape(-1).clone()
+        n_neurons = responses.shape[1]
+        P = x[0].numel()
+        J_f = torch.zeros(n_neurons, P, device=device)
+        for i in range(n_neurons):
+            if x.grad is not None:
+                x.grad.zero_()
+            responses[0, i].backward(retain_graph=(i < n_neurons - 1))
+            J_f[i] = x.grad.detach().reshape(-1).clone()
 
     # SVD of the n × P Jacobian (n ≪ P → "thin" SVD).
     # If J_f = U S Vᵀ, then J_fᵀ J_f = V S² Vᵀ.

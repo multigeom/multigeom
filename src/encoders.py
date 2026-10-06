@@ -9,12 +9,16 @@ The canonical input is a [B, 1, 64, 64] tensor in [-1, 1] (matching the
 diffusion-process input convention).  Each encoder rescales / replicates
 channels internally to its backbone's expected input format.
 
-  - InceptionEncoder: [-1, 1] → [0, 1] → 3-channel → InceptionV3 → readout
-  - ResNet50Encoder:  [-1, 1] → [0, 1] → 3-channel → ResNet50 → readout
+  - InceptionEncoder: [-1, 1] → 3-channel → InceptionV3 → readout
+                      (torchvision's Inception weights expect [-1, 1] input)
+  - ResNet50Encoder:  [-1, 1] → [0, 1] → 3-channel → ImageNet mean/std
+                      standardisation → ResNet50 → readout
   - OnOffEncoder:     [-1, 1] → [0, 1] → 1-channel → plenoptic OnOff → readout
 
-Trainable parameters live only in the readout. Backbones are frozen at their
-pretrained weights and run inside `torch.no_grad()` blocks.
+Trainable parameters live only in the readout. Backbone parameters are frozen
+(requires_grad = False). `forward` runs the backbone under `torch.no_grad()`
+for speed; `src.fisher` calls the backbone directly so that gradients with
+respect to the input image can flow.
 
 Readout parameter counts (n_neurons = 50):
   - Inception (C=192): 50 * (2 + 1 + 192 + 1) =  9,800
@@ -90,7 +94,15 @@ class GaussianReadout(nn.Module):
 # ────────────────────────────────────────────────────────────────────────────
 # Backbones
 # ────────────────────────────────────────────────────────────────────────────
-class InceptionBackbone(nn.Module):
+class _FrozenBackbone(nn.Module):
+    """Backbone that stays in eval mode (BatchNorm statistics fixed) even when
+    a parent module is switched to training mode."""
+
+    def train(self, mode: bool = True):  # noqa: A003 (shadows nn.Module.train)
+        return super().train(False)
+
+
+class InceptionBackbone(_FrozenBackbone):
     """
     Frozen InceptionV3 truncated at `Conv2d_4a_3x3`.
 
@@ -104,7 +116,6 @@ class InceptionBackbone(nn.Module):
     def __init__(self, layer: str = "Conv2d_4a_3x3"):
         super().__init__()
         net = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1, aux_logits=True)
-        net.eval()
         # Build a sequential of the modules up to and including `layer`.
         self.features = nn.Sequential()
         for name, mod in net.named_children():
@@ -113,6 +124,7 @@ class InceptionBackbone(nn.Module):
                 break
         for p in self.parameters():
             p.requires_grad = False
+        self.eval()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: [B, 3, 64, 64] in [-1, 1] (Inception accepts ImageNet-normalised
@@ -122,20 +134,23 @@ class InceptionBackbone(nn.Module):
         return self.features(x)
 
 
-class ResNet50Backbone(nn.Module):
+class ResNet50Backbone(_FrozenBackbone):
     """
     Frozen ResNet-50 truncated at `layer1.0`.
 
-    Expects 3-channel input in [-1, 1]. Produces [B, 256, 16, 16] for 64x64 input.
+    Expects 3-channel input in [0, 1] and standardises it with the ImageNet
+    mean and standard deviation internally (paper App. C.3). Produces
+    [B, 256, 16, 16] for 64x64 input.
     """
 
     out_channels = 256
     out_spatial = 16
+    IMAGENET_MEAN = (0.485, 0.456, 0.406)
+    IMAGENET_STD = (0.229, 0.224, 0.225)
 
     def __init__(self, layer: str = "layer1.0"):
         super().__init__()
         net = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
-        net.eval()
         self.features = nn.Sequential()
         # ResNet's children up to the requested layer.
         target_block, target_idx = layer.split(".")
@@ -152,12 +167,15 @@ class ResNet50Backbone(nn.Module):
             self.features.add_module(name, mod)
         for p in self.parameters():
             p.requires_grad = False
+        self.register_buffer("norm_mean", torch.tensor(self.IMAGENET_MEAN).view(1, 3, 1, 1))
+        self.register_buffer("norm_std", torch.tensor(self.IMAGENET_STD).view(1, 3, 1, 1))
+        self.eval()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.features(x)
+        return self.features((x - self.norm_mean) / self.norm_std)
 
 
-class OnOffBackbone(nn.Module):
+class OnOffBackbone(_FrozenBackbone):
     """
     Frozen Berardino-2017 ON-OFF front-end from the `plenoptic` library.
 
@@ -172,17 +190,19 @@ class OnOffBackbone(nn.Module):
 
     def __init__(self, kernel_size: int = 31):
         super().__init__()
-        from plenoptic.simulate.models.frontend import OnOff
+        try:
+            from plenoptic.simulate.models.frontend import OnOff   # plenoptic 1.x
+        except ImportError:
+            from plenoptic.models import OnOff                     # plenoptic 2.x
         self.frontend = OnOff(kernel_size=kernel_size, pretrained=True, cache_filt=True)
         for p in self.parameters():
             p.requires_grad = False
-        self.frontend.eval()
-
-    def train(self, mode: bool = True):  # noqa: A003 (shadow torch.nn)
-        """Always keep the frontend in eval mode regardless of parent mode."""
-        super().train(mode)
-        self.frontend.eval()
-        return self
+        self.eval()
+        # With cache_filt=True plenoptic registers its filters as `_filt`
+        # buffers on the first forward pass. Run one now so that a freshly
+        # built encoder has the same state_dict keys as a trained checkpoint.
+        with torch.no_grad():
+            self.frontend(torch.zeros(1, 1, 64, 64))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.frontend(x)
@@ -250,7 +270,7 @@ class InceptionEncoder(_BaseEncoder):
 
 class ResNet50Encoder(_BaseEncoder):
     backbone_input_channels = 3
-    backbone_input_range = (-1.0, 1.0)
+    backbone_input_range = (0.0, 1.0)
 
     def __init__(self, n_neurons: int = 50, layer: str = "layer1.0", dropout: float = 0.25):
         super().__init__(ResNet50Backbone(layer=layer), n_neurons, dropout)

@@ -1,151 +1,179 @@
 # Multi-scale information geometry of neural population codes
 
-Code accompanying the NeurIPS 2026 submission *"Multi-scale information geometry uncovers the structure of mutual information in neural population codes"* (anonymous).
+Code for the NeurIPS 2026 paper
 
-This repository implements the full pipeline used in the paper: training image-to-response encoders on macaque V1 / V4 recordings, training conditional diffusion models on natural images, estimating the **multi-scale Fisher information matrix** $G(x)$ via the **conditional-pair estimator** (Algorithm 1 of the paper), and computing the cross-encoder subspace-alignment and Bures-Wasserstein metrics that make up Fig. 4.
+> **A multi-scale information geometry reveals the structure of mutual information in neural populations**
+> Simone Azeglio, Steeve Laquitaine, Ulisse Ferrari, Matthew Chalk
 
-## Pipeline
+The paper defines the *multi-scale Fisher information matrix*
 
-The pipeline is organised in five numbered stages, run as standalone scripts in `stages/`:
+$$G(x) = \int_0^\infty [\phi_t * J_t](x)\,dt ,$$
 
-| # | Script | Purpose |
-|---|--------|---------|
-| 1 | `stages/01_train_encoder.py` | Fit per-neuron Gaussian spatial-attention readout on a frozen backbone (Inception-V3, ResNet-50, or ON-OFF), targeting the 50 most reliable channels of macaque V1 or V4 from the THINGS Ventral-stream Spiking Dataset. |
-| 2 | `stages/02_precompute_responses.py` | Generate synthetic neural responses for every TinyImageNet image by evaluating the trained encoder; these form the conditioning vectors for the diffusion model. |
-| 3 | `stages/03_train_diffusion.py` | Train a conditional UNet (`UNet2DConditionModel` from `diffusers`) on TinyImageNet conditioned on the responses from Stage 2, with classifier-free-guidance dropout. |
-| 4 | `stages/04_estimate_gx.py` | Compute the top-$k$ eigenpairs of $G(x)$ on a held-out test set of $200$ images using the **conditional-pair estimator** of Algorithm 1, and the closed-form Fisher baseline $J(x) = \sigma^{-2} J_{f_\phi}^\top J_{f_\phi}$ via PyTorch autograd. |
-| 5 | `stages/05_compute_metrics.py` | Aggregate cross-encoder subspace alignment $\mathcal{A}_k = \frac{1}{k}\|V_A^\top V_B\|_F^2$ and Bures-Wasserstein distance $d_{\mathrm{BW}}$ across (encoder, area) pairs (Fig. 4D-E and Fig. App-BW). |
+the Fisher information of the stimulus-diffused likelihood integrated over all
+diffusion scales, and shows that it is directly related to the mutual
+information between stimulus and response. This repository estimates the
+leading eigenvectors of $G(x)$ for natural images from a conditional diffusion
+model, compares them with those of the classical Fisher information
+$J(x)$, and reproduces the macaque V1/V4 analyses of the paper (Figs. 3-5,
+Table 1 and the Bures-Wasserstein appendix figure).
 
-The whole pipeline for one (encoder, area) configuration runs end-to-end in `reproduce.sh`.
+## What the pipeline does
 
-## Quick start
+1. **Encoders** (`stages/01_train_encoder.py`). A frozen backbone
+   (InceptionV3 truncated at `Conv2d_4a_3x3`, ResNet-50 truncated at
+   `layer1.0`, or the ON-OFF front-end of Berardino et al.) followed by a
+   per-neuron Gaussian spatial-attention readout, fitted to the trial-averaged
+   responses of the 50 most reliable V1 or V4 channels of the THINGS
+   Ventral-stream Spiking Dataset (Papale et al., 2025).
+2. **Synthetic responses** (`stages/02_precompute_responses.py`). The encoder
+   $f_\phi$ is evaluated on every TinyImageNet training image; these 50-d
+   vectors condition the diffusion model.
+3. **Conditional diffusion model** (`stages/03_train_diffusion.py`). A
+   `UNet2DConditionModel` (64×64 grayscale, ~68M parameters) conditioned on
+   the responses through a 3-layer MLP and cross-attention. Training follows the
+   Gaussian observation model $p(r\mid x)=\mathcal N(f_\phi(x),\sigma^2 I)$
+   with $\sigma=0.22$, and uses classifier-free-guidance dropout (rate 0.1) so
+   that the same network also gives the unconditional denoiser. 200 epochs.
+4. **G(x) and J(x)** (`stages/04_estimate_gx.py`). The top-50 eigenpairs of
+   $G(x)$ from the conditional-pair estimator (Algorithm 1 of the paper,
+   `src/estimator.py`), and of $J(x)=\sigma^{-2}J_{f_\phi}^\top J_{f_\phi}$ by
+   autograd (`src/fisher.py`), on 200 held-out TinyImageNet validation images.
+5. **Cross-model comparison** (`stages/05_compute_metrics.py`). Subspace
+   alignment $\mathcal A_k=\tfrac1k\|V_A^\top V_B\|_F^2$ and Bures-Wasserstein
+   distance between every pair of (encoder, area) configurations, for
+   $k=1,\dots,50$, averaged over images.
+6. **Local metric field** (`stages/06_metric_field.py`). The 2×2 projection of
+   $G$ and $J$ onto the leading two eigenvectors at a reference image, on a grid
+   of images perturbed along those eigenvectors (Fig. 5).
 
-```bash
-# 1. Install
-pip install -r requirements.txt
+Figures and the encoder table are drawn from these outputs by the scripts in
+`figures/`. Supporting analyses quoted in the paper's appendices (calibration
+of $\sigma$, Monte-Carlo variance of the conditional-pair versus the
+unconditional-conditional estimator, backbone layer sweep) are in `analysis/`.
 
-# 2. Download data (one-time; see data/README.md for sources & instructions)
-#    - Papale TVSD: monkeyN_THINGS_normMUA.mat + things_imgs.mat
-#    - THINGS images
-#    - TinyImageNet
-# Place under data/ as described.
-
-# 3. Run the canonical (Inception, V1) configuration end-to-end:
-bash reproduce.sh
-```
-
-The full pipeline takes roughly **30 A100-GPU-hours** for one (encoder, area) configuration: ~0.5h encoder readout + ~0.1h response extraction + ~15h diffusion training + ~0.3h G(x) estimation. The metrics script is sub-minute.
-
-To reproduce Fig. 4D-E in full you need all 6 configurations: `{Inception, ResNet-50, ON-OFF} × {V1, V4}`. Each can be launched independently, in parallel.
-
-## Layout
-
-```
-neurips_code/
-├── README.md                     <- this file
-├── requirements.txt
-├── LICENSE                       <- MIT
-├── reproduce.sh                  <- end-to-end driver for one (encoder, area)
-├── configs/
-│   ├── inception.yaml            <- Inception-V3 / Conv2d_4a_3x3 backbone
-│   ├── resnet50.yaml             <- ResNet-50 / layer1.0 backbone
-│   ├── onoff.yaml                <- frozen Berardino ON-OFF front-end
-│   ├── diffusion.yaml            <- DDPM hyperparameters (shared)
-│   └── estimator.yaml            <- conditional-pair estimator config (shared)
-├── data/
-│   └── README.md                 <- where to obtain each dataset
-├── src/                          <- importable library
-│   ├── data_loaders.py           <- TVSD + TinyImageNet loaders
-│   ├── encoders.py               <- backbone + Gaussian-readout encoder classes
-│   ├── diffusion_model.py        <- conditional UNet + scheduler wrapper
-│   ├── estimator.py              <- conditional-pair G(x) estimator (Alg. 1)
-│   ├── fisher.py                 <- closed-form Fisher J(x) baseline
-│   ├── metrics.py                <- subspace alignment + Bures-Wasserstein
-│   └── utils.py                  <- config loader, seeding, device
-└── stages/
-    ├── 01_train_encoder.py
-    ├── 02_precompute_responses.py
-    ├── 03_train_diffusion.py
-    ├── 04_estimate_gx.py
-    └── 05_compute_metrics.py
-```
-
-## Reproducing Figure 4D-E
-
-Fig. 4D-E shows cross-encoder agreement of $G(x)$ vs $J(x)$ for V1 and V4. To reproduce:
+## Installation
 
 ```bash
-# (a) Train all 6 encoders
+git clone https://github.com/sazio/MultiscaleInformationGeometry.git
+cd MultiscaleInformationGeometry
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-lock.txt   # exact versions we ran (Python 3.11, CUDA 12.6)
+pip install -e .                       # or: pip install -r requirements.txt
+```
+
+`requirements-lock.txt` pins the versions the pipeline and tests were run
+with; `requirements.txt` / `pyproject.toml` declare the supported ranges.
+
+## Data
+
+See [`data/README.md`](data/README.md) for the three datasets (TVSD, THINGS
+images, TinyImageNet) and the expected layout. Pretrained backbone weights are
+downloaded automatically.
+
+## Running
+
+One (encoder, area) configuration end to end:
+
+```bash
+ENCODER=inception AREA=V1 bash reproduce.sh       # also: resnet50, onoff × V1, V4
+```
+
+All six configurations of the paper, then the comparisons and figures:
+
+```bash
 for area in V1 V4; do
-  for cfg in inception resnet50 onoff; do
-    python stages/01_train_encoder.py \
-      --config configs/$cfg.yaml --area $area \
-      --out-dir runs/encoders/$cfg/$area
+  for enc in inception resnet50 onoff; do
+    ENCODER=$enc AREA=$area bash reproduce.sh
   done
 done
-
-# (b) Precompute TinyImageNet responses for all 6
-for area in V1 V4; do
-  for cfg in inception resnet50 onoff; do
-    python stages/02_precompute_responses.py \
-      --config configs/$cfg.yaml --area $area \
-      --encoder-ckpt runs/encoders/$cfg/$area/best_model.pt \
-      --out-dir runs/responses/$cfg/$area
-  done
-done
-
-# (c) Train all 6 diffusion models (~15h each on 1 A100)
-for area in V1 V4; do
-  for cfg in inception resnet50 onoff; do
-    python stages/03_train_diffusion.py \
-      --config configs/diffusion.yaml \
-      --responses runs/responses/$cfg/$area/train_responses.pt \
-      --out-dir runs/diffusion/$cfg/$area
-  done
-done
-
-# (d) Estimate G(x) and J(x) on the 200 test images
-for area in V1 V4; do
-  for cfg in inception resnet50 onoff; do
-    python stages/04_estimate_gx.py \
-      --config configs/estimator.yaml \
-      --encoder-cfg configs/$cfg.yaml \
-      --encoder-ckpt runs/encoders/$cfg/$area/best_model.pt \
-      --diffusion-ckpt runs/diffusion/$cfg/$area/best_model.pt \
-      --out-dir runs/per_image/$cfg/$area
-  done
-done
-
-# (e) Aggregate metrics for the figure
 python stages/05_compute_metrics.py --runs-dir runs --out-dir runs/metrics
+python stages/06_metric_field.py --img-idx 0 --out-dir runs/metric_field/img0000
+python figures/table1.py     --runs-dir runs --out-dir figures/out
+python figures/fig3.py       --runs-dir runs --out-dir figures/out --img-idx 0
+python figures/fig4.py       --runs-dir runs --out-dir figures/out --img-idx 0
+python figures/fig5.py       --runs-dir runs --out-dir figures/out --img-idx 0
+python figures/fig_app_bw.py --runs-dir runs --out-dir figures/out
 ```
 
-## Compute requirements
+Stage 4 accepts `--start/--end` to split the 200 test images across GPUs.
+Each image is seeded independently (`seed + image index`), so the split does
+not change the results. Every checkpoint and output file stores a provenance
+record (git commit, command line, seed, config files, package versions).
 
-All training and inference fits comfortably on one **NVIDIA A100 (40GB)**. Multi-GPU is not required.
+## Where each result comes from
 
-| Stage | Per-config wall time on 1×A100 |
-|-------|---------------------------------|
-| 01 (encoder readout) | ~30 min |
-| 02 (response precompute) | ~5 min |
-| 03 (diffusion training, 200 epochs) | ~15 hours |
-| 04 ($G(x)$ + $J(x)$ on 200 images) | ~20 min |
-| 05 (metrics aggregation) | <1 min |
-| **Total per (encoder, area)** | **~16 hours** |
-| **Full Fig. 4 (6 configs)** | **~96 GPU-hours** |
+| Paper item | Script | Inputs |
+|---|---|---|
+| Table 1 (encoder performance) | `figures/table1.py` | `runs/encoders/*/*/best_model.pt` |
+| Fig. 3B-C (measured vs predicted responses) | `figures/fig3.py` | stage 1 |
+| Fig. 3D (receptive fields) | `figures/fig3.py` | stage 1 readout parameters |
+| Fig. 3E-F (eigenvectors of G and J) | `figures/fig3.py` | stage 4 |
+| Fig. 4A (performance of the three encoders) | `figures/fig4.py` | stage 1 |
+| Fig. 4B-C (eigenvectors per encoder) | `figures/fig4.py` | stage 4 |
+| Fig. 4D-E (subspace alignment vs k) | `figures/fig4.py` | stage 5 |
+| Fig. 5 (local metric field) | `figures/fig5.py` | stage 6 |
+| Bures-Wasserstein figure (appendix) | `figures/fig_app_bw.py` | stage 5 |
+| σ = 0.22 calibration (appendix) | `analysis/calibrate_sigma.py` | TVSD |
+| CC vs UC estimator variance (appendix) | `analysis/estimator_variance.py` | stages 1, 3 |
+| Backbone layer choice (appendix) | `analysis/layer_sweep.py` | TVSD, THINGS |
+
+Fig. 3A (model schematic) and the illustrative one- and two-dimensional
+examples of Figs. 1 and 2 are not produced by this code.
+
+## Compute
+
+Measured on NVIDIA A100-SXM4-40GB GPUs, per (encoder, area) configuration:
+
+| Stage | Time |
+|---|---|
+| 1. encoder readout (features cached once) | minutes |
+| 2. TinyImageNet responses | minutes |
+| 3. diffusion training, 200 epochs | ~30 A100-hours (~15 h on 2 GPUs) |
+| 4. G(x) and J(x), 200 images | ~2 A100-hours |
+| 5. metrics | minutes (CPU) |
+
+## Tests
+
+```bash
+pytest                       # fast suite, CPU, no downloads
+pytest -m "slow or pretrained"
+```
+
+## Checkpoints
+
+Trained encoder and diffusion checkpoints, and the per-image G(x)/J(x)
+eigendecompositions behind the figures, will be released with a persistent
+identifier; this section will link to them.
+
+## Repository layout
+
+```
+configs/      encoder, diffusion and estimator settings (one YAML per component)
+src/          library: data loading, encoders, diffusion model, estimator, Fisher, metrics
+stages/       numbered pipeline scripts 01-06
+figures/      figure and table scripts
+analysis/     supporting analyses quoted in the appendices
+tests/        pytest suite
+data/         dataset location (see data/README.md)
+reproduce.sh  stages 1-4 for one (encoder, area) configuration
+```
+
+## Citation
+
+See [`CITATION.cff`](CITATION.cff).
+
+```bibtex
+@inproceedings{azeglio2026multiscale,
+  title     = {A multi-scale information geometry reveals the structure of mutual information in neural populations},
+  author    = {Azeglio, Simone and Laquitaine, Steeve and Ferrari, Ulisse and Chalk, Matthew},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2026}
+}
+```
 
 ## License
 
-MIT — see `LICENSE`.
-
-## Datasets and dependencies
-
-External assets used under their published licenses:
-
-- **THINGS Ventral-stream Spiking Dataset** (Papale et al.) — macaque V1/V4 normMUA.
-- **THINGS image database** (Hebart et al.) — natural-image stimuli.
-- **TinyImageNet** — diffusion training images.
-- **`plenoptic`** library — provides the Berardino-2017 ON-OFF frontend.
-- **HuggingFace `diffusers`** — provides `UNet2DConditionModel`.
-
-See `data/README.md` for download instructions.
+Code: MIT (see `LICENSE`). The datasets keep their own licenses: TVSD
+(Papale et al.), THINGS images (Hebart et al.), TinyImageNet. The ON-OFF
+front-end and its pretrained parameters come from `plenoptic`; the
+conditional UNet from Hugging Face `diffusers`.

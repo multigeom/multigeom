@@ -1,0 +1,24 @@
+# Data (see data/README.md) and run outputs
+data/*
+!data/README.md
+runs/
+figures/out/
+*.pt
+*.pth
+*.ckpt
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+build/
+dist/
+
+# Environment and editor files
+.env
+.DS_Store
+.ipynb_checkpoints/
+.vscode/
+.idea/

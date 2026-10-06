@@ -92,29 +92,35 @@ def bures_wasserstein(
             f"Mismatched k: {tuple(eigvals_A.shape)} vs {tuple(eigvals_B.shape)}"
         )
 
-    # Cast to float64 for numerical stability of the matrix square root.
-    eigvals_A = eigvals_A.to(torch.float64)
-    eigvals_B = eigvals_B.to(torch.float64)
-    eigvecs_A = eigvecs_A.to(torch.float64)
-    eigvecs_B = eigvecs_B.to(torch.float64)
+    C = eigvecs_A.to(torch.float64) @ eigvecs_B.to(torch.float64).T   # [k, k]
+    return bures_wasserstein_from_overlap(eigvals_A, eigvals_B, C)
 
-    # Truncated eigendecomposition convention here: rows of eigvecs_* are
-    # eigenvectors. Then A ≈ V_Aᵀ Λ_A V_A; the orientation flips compared to
-    # the columns convention, but the cross term is unchanged because
-    # V_Aᵀ V_B and (V_Aᵀ)ᵀ (V_Bᵀ) = V_A V_Bᵀ both have the same singular values.
-    C = eigvecs_A @ eigvecs_B.T                                  # [k, k]
-    sqrt_LA = eigvals_A.clamp(min=0).sqrt()                      # [k]
-    LB = eigvals_B.clamp(min=0)                                  # [k]
-    # M = Λ_A^{1/2} C Λ_B Cᵀ Λ_A^{1/2}, computed without forming the diagonals
-    M = (sqrt_LA.unsqueeze(1) * C) * LB.unsqueeze(0)             # = Λ_A^{1/2} C Λ_B
-    M = M @ C.T                                                  # × Cᵀ
-    M = M * sqrt_LA.unsqueeze(0)                                 # × Λ_A^{1/2}
-    M = 0.5 * (M + M.T)                                          # symmetrise
 
-    mu = torch.linalg.eigvalsh(M)                                # real eigenvalues
-    cross_term = mu.clamp(min=0).sqrt().sum()
+def bures_wasserstein_from_overlap(
+    eigvals_A: torch.Tensor,
+    eigvals_B: torch.Tensor,
+    overlap: torch.Tensor,
+) -> float:
+    """
+    Bures-Wasserstein distance from eigenvalues and the overlap matrix
+    C = V_Aᵀ V_B (eigenvectors as columns; with the rows convention used in
+    this package, C = eigvecs_A @ eigvecs_Bᵀ). Lets callers compute C once
+    and slice C[:k, :k] for every rank k.
 
-    tr_A = eigvals_A.clamp(min=0).sum()
-    tr_B = eigvals_B.clamp(min=0).sum()
-    d_sq = (tr_A + tr_B - 2.0 * cross_term).clamp(min=0)
+    Rows convention: A ≈ eigvecs_Aᵀ Λ_A eigvecs_A. The cross term
+    tr[(A^{1/2} B A^{1/2})^{1/2}] equals Σ_i √μ_i, with μ_i the eigenvalues of
+    M = Λ_A^{1/2} C Λ_B Cᵀ Λ_A^{1/2} (paper App. "Comparing different
+    geometries"). M is symmetrised before diagonalisation.
+    """
+    la = eigvals_A.to(torch.float64).clamp(min=0)
+    lb = eigvals_B.to(torch.float64).clamp(min=0)
+    C = overlap.to(torch.float64)
+    if C.shape != (la.shape[0], lb.shape[0]):
+        raise ValueError(f"overlap shape {tuple(C.shape)} does not match "
+                         f"eigenvalue counts {la.shape[0]}, {lb.shape[0]}")
+    sqrt_la = la.sqrt()
+    M = (sqrt_la.unsqueeze(1) * C * lb.unsqueeze(0)) @ C.T * sqrt_la.unsqueeze(0)
+    M = 0.5 * (M + M.T)
+    cross_term = torch.linalg.eigvalsh(M).clamp(min=0).sqrt().sum()
+    d_sq = (la.sum() + lb.sum() - 2.0 * cross_term).clamp(min=0)
     return float(d_sq.sqrt())

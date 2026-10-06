@@ -11,15 +11,19 @@ eigendecompositions and metadata. Stage 5 reads these to produce the
 cross-encoder figures.
 
 Test images: the first `n_test_images` images of the TinyImageNet validation
-split, in sorted-class / sorted-file order. This makes the test set
-deterministic across runs and identical for every (encoder, area) configuration.
+split (held out from diffusion training), in sorted file order. The set is
+deterministic and identical for every (encoder, area) configuration.
+
+Seeding: image i uses its own generator seeded with `seed + i`, so its
+estimate does not depend on how images are split across parallel runs
+(--start/--end).
 
 Usage:
     python stages/04_estimate_gx.py \\
         --config configs/estimator.yaml \\
         --encoder-cfg configs/inception.yaml \\
         --encoder-ckpt runs/encoders/inception/V1/best_model.pt \\
-        --diffusion-ckpt runs/diffusion/inception/V1/best_model.pt \\
+        --diffusion-ckpt runs/diffusion/inception/V1/final_model.pt \\
         --area V1 \\
         --out-dir runs/per_image/inception/V1
 """
@@ -41,7 +45,7 @@ from src.diffusion_model import build_diffusion_model, build_scheduler
 from src.encoders import build_encoder
 from src.estimator import conditional_pair_estimate
 from src.fisher import fisher_eigendecomposition
-from src.utils import get_device, load_config, set_seed
+from src.utils import get_device, load_config, make_generator, provenance, set_seed
 
 
 def parse_args():
@@ -104,14 +108,24 @@ def main():
     # ── Load deterministic test images ───────────────────────────────────
     n_test = int(cfg.n_test_images)
     test_dataset = TinyImageNetDataset(split="val", transform=CANONICAL_TRANSFORM)
-    if len(test_dataset) < n_test:
-        raise ValueError(f"TinyImageNet val has {len(test_dataset)} images, need {n_test}")
     end = args.end if args.end is not None else n_test
     if not (0 <= args.start < end <= n_test):
         raise ValueError(f"Invalid index range start={args.start}, end={end}, n_test={n_test}")
+    if len(test_dataset) < end:
+        raise ValueError(f"TinyImageNet val has {len(test_dataset)} images, need {end}")
     print(f"[Stage 4] Test images: {args.start}–{end - 1} of first {n_test} val images.")
 
     sigma = float(cfg.monte_carlo.observation_noise_sigma)
+    sigma_train = float(diff_cfg.conditioning.observation_noise_sigma)
+    if sigma != sigma_train:
+        raise ValueError(
+            f"Estimator σ={sigma} differs from the σ={sigma_train} the diffusion model "
+            "was trained with; the observation model must be the same in both."
+        )
+    prov = provenance(
+        {"estimator": args.config, "encoder": args.encoder_cfg, "diffusion": diff_cfg_path},
+        seed=int(cfg.seed),
+    )
     fisher_top_k = int(cfg.fisher_baseline.top_k) if cfg.fisher_baseline.enabled else 0
 
     # ── Per-image loop ───────────────────────────────────────────────────
@@ -133,6 +147,7 @@ def main():
             alphas_cumprod=alphas_cumprod,
             cfg=cfg,
             device=device,
+            generator=make_generator(int(cfg.seed) + img_idx, device),
         )
 
         # Closed-form Fisher baseline J(x)
@@ -151,6 +166,7 @@ def main():
 
         torch.save({
             "img_idx": img_idx,
+            "image": x.cpu(),                              # [1, 1, 64, 64] in [-1, 1]
             "encoder_name": enc_cfg.encoder.name,
             "area": args.area,
             "G_eigenvalues": g_out.eigenvalues.cpu(),
@@ -160,6 +176,8 @@ def main():
             "estimator": "conditional_pair",
             "sigma": sigma,
             "elapsed_seconds": elapsed,
+            "diffusion_epoch": diff_ckpt.get("epoch"),
+            "provenance": prov,
         }, out_path)
 
     print(f"[Stage 4] Done. Per-image outputs in {out_dir}")

@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below."
+title: "MultiscaleInformationGeometry"
+type: software
+license: MIT
+repository-code: "https://github.com/sazio/MultiscaleInformationGeometry"
+authors:
+  - family-names: Azeglio
+    given-names: Simone
+  - family-names: Laquitaine
+    given-names: Steeve
+  - family-names: Ferrari
+    given-names: Ulisse
+  - family-names: Chalk
+    given-names: Matthew
+preferred-citation:
+  type: conference-paper
+  title: "A multi-scale information geometry reveals the structure of mutual information in neural populations"
+  authors:
+    - family-names: Azeglio
+      given-names: Simone
+    - family-names: Laquitaine
+      given-names: Steeve
+    - family-names: Ferrari
+      given-names: Ulisse
+    - family-names: Chalk
+      given-names: Matthew
+  collection-title: "Advances in Neural Information Processing Systems (NeurIPS)"
+  year: 2026

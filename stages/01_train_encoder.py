@@ -33,10 +33,10 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.data_loaders import (
-    CANONICAL_TRANSFORM, ONOFF_TRANSFORM, TVSDDataset, load_tvsd, data_dir
+    CANONICAL_TRANSFORM, TVSDDataset, data_dir, existing_image_mask, load_tvsd
 )
 from src.encoders import build_encoder
-from src.utils import count_parameters, get_device, load_config, set_seed
+from src.utils import count_parameters, get_device, load_config, provenance, set_seed
 
 
 def parse_args():
@@ -103,20 +103,28 @@ def main():
     print(f"  Parameters: {n_train:,} trainable / {n_total:,} total")
 
     # ── 3. Pre-extract frozen features over train + test sets ──
+    # Every encoder receives the canonical [-1, 1] image and converts it to
+    # its backbone's range internally (src/encoders.py).
     print("[Stage 1] Pre-extracting frozen-backbone features (one-time) ...")
     images_root = data_dir() / "things_images" / "object_images"
-    transform = ONOFF_TRANSFORM if cfg.encoder.name == "onoff" else CANONICAL_TRANSFORM
-    train_feats, train_resp = preextract(
-        encoder, tvsd["train_paths"], tvsd["train_responses"],
-        images_root, transform, device,
-    )
-    test_feats, test_resp = preextract(
-        encoder, tvsd["test_paths"], tvsd["test_responses"],
-        images_root, transform, device,
-    )
+    splits = {}
+    for split in ("train", "test"):
+        paths = tvsd[f"{split}_paths"]
+        keep = existing_image_mask(paths, images_root)
+        if not keep.any():
+            raise FileNotFoundError(f"No THINGS images found under {images_root}")
+        if not keep.all():
+            print(f"  {split}: {int((~keep).sum())}/{len(paths)} images missing on disk, skipped")
+        idx = np.flatnonzero(keep)
+        splits[split] = preextract(
+            encoder, [paths[i] for i in idx], tvsd[f"{split}_responses"][idx],
+            images_root, CANONICAL_TRANSFORM, device,
+        )
+    train_feats, train_resp = splits["train"]
+    test_feats, test_resp = splits["test"]
     print(f"  Feature shape (train): {tuple(train_feats.shape)}")
 
-    # ── 4. Train/val split (90/10 image-level, fixed seed) ──
+    # ── 4. Train/val split (image-level, fixed seed; 5% validation) ──
     n = len(train_feats)
     n_val = int(round(cfg.train.validation_fraction * n))
     n_tr = n - n_val
@@ -124,7 +132,7 @@ def main():
     tr_idx, val_idx = perm[:n_tr], perm[n_tr:]
     print(f"  train/val split: {n_tr}/{n_val}")
 
-    # Move cached features to GPU for fast iteration (≤200 MB at 100k×192×12×12)
+    # Move cached features to GPU for fast iteration
     train_feats = train_feats.to(device)
     train_resp = train_resp.to(device)
     test_feats = test_feats.to(device)
@@ -191,9 +199,13 @@ def main():
     with torch.no_grad():
         test_pred = encoder.readout(test_feats)
         test_corrs = correlation_per_neuron(test_pred, test_resp)
+    # Noise-corrected correlation r_n / ρ_n (Table 1), with ρ_n the
+    # split-half oracle reliability of neuron n.
+    test_corrs_nc = test_corrs / tvsd["oracle"]
     print(f"\n[Stage 1] Test correlation: mean={test_corrs.mean():.3f}  "
           f"median={np.median(test_corrs):.3f}  "
-          f"range=[{test_corrs.min():.3f}, {test_corrs.max():.3f}]")
+          f"range=[{test_corrs.min():.3f}, {test_corrs.max():.3f}]  "
+          f"noise-corrected mean={test_corrs_nc.mean():.3f}")
 
     # ── 8. Save checkpoint + training log ──
     ckpt_path = out_dir / "best_model.pt"
@@ -204,11 +216,17 @@ def main():
             "train": vars(cfg.train),
             "area": args.area,
         },
+        "best_epoch": int(np.argmax(history["val_corr"]) + 1),
         "val_corr": float(best_val_corr),
         "test_corr": float(test_corrs.mean()),
+        "test_corr_noise_corrected": float(test_corrs_nc.mean()),
         "per_neuron_test_corr": test_corrs,
+        "per_neuron_test_corr_noise_corrected": test_corrs_nc,
+        "test_predictions": test_pred.cpu(),      # [n_test, n_neurons] (Fig. 3B-C)
+        "test_responses": test_resp.cpu(),        # [n_test, n_neurons]
         "neuron_indices": tvsd["neuron_indices"],
         "oracle": tvsd["oracle"],
+        "provenance": provenance({"encoder": args.config}, seed=cfg.train.seed),
     }, ckpt_path)
     with open(out_dir / "train_log.json", "w") as f:
         json.dump(history, f, indent=2)

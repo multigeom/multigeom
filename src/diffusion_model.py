@@ -56,9 +56,11 @@ class NeuralConditionedUNet(nn.Module):
     """
     Conditional UNet for the multi-scale-Fisher diffusion estimator.
 
-    The UNet itself is a `UNet2DConditionModel` from `diffusers` with a single
-    cross-attention block at the deepest spatial scale (matching the
-    reference implementation of Laquitaine et al.). Classifier-free guidance
+    The UNet itself is a `UNet2DConditionModel` from `diffusers`. The response
+    token enters through cross-attention in the 8x8 bottleneck (mid block)
+    and in the 16x16 down/up blocks; all other blocks are plain residual
+    blocks. With the conditioning MLP the model has ~68.4M parameters
+    (paper App. B.1). Classifier-free guidance
     is implemented at the data-loading level: with prob `cfg_dropout_rate`
     during training, the conditioning vector is replaced by zeros, so the
     network learns both p(r | x_t, r) and p(r | x_t, ∅).
@@ -71,8 +73,9 @@ class NeuralConditionedUNet(nn.Module):
         u = cfg.unet
         c = cfg.conditioning
 
-        # Block layout: matches the paper's appendix description (single
-        # cross-attention block at the deepest spatial scale).
+        # Resolutions of the four blocks for 64x64 input: 64, 32, 16, 8.
+        # Cross-attention at 16x16 (down/up) plus the default cross-attention
+        # mid block at 8x8.
         down_blocks = ("DownBlock2D", "DownBlock2D", "CrossAttnDownBlock2D", "DownBlock2D")
         up_blocks = ("UpBlock2D", "CrossAttnUpBlock2D", "UpBlock2D", "UpBlock2D")
 
@@ -99,7 +102,7 @@ class NeuralConditionedUNet(nn.Module):
         """
         x_t : [B, 1, 64, 64]   noisy image at DDPM step t
         t   : [B]              integer DDPM timesteps
-        r   : [B, n_neurons]   conditioning vector (or zero for null token)
+        r   : [B, n_neurons]   conditioning vector (zeros = null token)
         returns ε̂_θ : [B, 1, 64, 64]
         """
         encoder_hidden_states = self.conditioning(r)  # [B, 1, 256]

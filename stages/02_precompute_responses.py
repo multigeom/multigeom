@@ -29,11 +29,9 @@ from torch.utils.data import DataLoader
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.data_loaders import (
-    CANONICAL_TRANSFORM, ONOFF_TRANSFORM, TinyImageNetDataset
-)
+from src.data_loaders import CANONICAL_TRANSFORM, TinyImageNetDataset
 from src.encoders import build_encoder
-from src.utils import get_device, load_config
+from src.utils import get_device, load_config, provenance
 
 
 def parse_args():
@@ -60,8 +58,8 @@ def precompute_split(encoder, split: str, transform, device, batch_size: int):
     for batch_idx, x in enumerate(loader):
         x = x.to(device, non_blocking=True)
         responses.append(encoder(x).cpu())
-        if (batch_idx + 1) * batch_size % (50 * batch_size) == 0:
-            print(f"    {(batch_idx + 1) * batch_size:6d}/{len(dataset)}")
+        if (batch_idx + 1) % 50 == 0:
+            print(f"    {min((batch_idx + 1) * batch_size, len(dataset)):6d}/{len(dataset)}")
     return torch.cat(responses, dim=0)
 
 
@@ -84,10 +82,12 @@ def main():
     print(f"  Loaded checkpoint with test_corr = {ckpt['test_corr']:.3f}")
 
     # ── Generate responses for each requested split ──
-    transform = ONOFF_TRANSFORM if cfg.encoder.name == "onoff" else CANONICAL_TRANSFORM
+    # Responses are computed on exactly the [-1, 1] images the diffusion model
+    # is trained on (Stage 3); every encoder converts to its backbone's range
+    # internally.
     for split in args.splits:
         print(f"[Stage 2] Generating synthetic responses for TinyImageNet '{split}' ...")
-        responses = precompute_split(encoder, split, transform, device, args.batch_size)
+        responses = precompute_split(encoder, split, CANONICAL_TRANSFORM, device, args.batch_size)
         out_path = out_dir / f"{split}_responses.pt"
         torch.save({
             "responses": responses,
@@ -95,6 +95,7 @@ def main():
             "area": args.area,
             "encoder_name": cfg.encoder.name,
             "encoder_ckpt": str(args.encoder_ckpt),
+            "provenance": provenance({"encoder": args.config}),
         }, out_path)
         print(f"  saved {tuple(responses.shape)} → {out_path}")
 

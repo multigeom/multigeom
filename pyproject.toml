@@ -1,0 +1,44 @@
+[project]
+name = "multiscale-information-geometry"
+version = "1.0.0"
+description = "Multi-scale Fisher information geometry of neural population codes, estimated with conditional diffusion models (NeurIPS 2026)."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10,<3.13"
+authors = [
+  { name = "Simone Azeglio", email = "simone.azeglio@gmail.com" },
+  { name = "Steeve Laquitaine" },
+  { name = "Ulisse Ferrari" },
+  { name = "Matthew Chalk", email = "matthew.chalk@inserm.fr" },
+]
+# Declared ranges. The exact versions the pipeline was tested with are in
+# requirements-lock.txt.
+dependencies = [
+  "torch>=2.1,<2.9",
+  "torchvision>=0.16,<0.24",
+  "diffusers>=0.30,<0.38",
+  "huggingface_hub>=0.25,<1.0",
+  "plenoptic>=1.1,<2.0",
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "matplotlib>=3.7",
+  "h5py>=3.8",
+  "Pillow>=9.0",
+  "PyYAML>=6.0",
+  "tqdm>=4.65",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+  "slow: takes more than a few seconds (deselect with -m 'not slow')",
+  "pretrained: downloads pretrained backbone weights (torchvision / plenoptic)",
+  "gpu: needs a CUDA device",
+]
