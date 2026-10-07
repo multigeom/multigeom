@@ -9,10 +9,21 @@ optimised. To keep training fast we pre-extract backbone features once over
 the full TVSD train + test split, then fit the readout on the cached
 [N, C, H, W] features with AdamW + cosine schedule.
 
+With --evaluate-only, an existing encoder (--encoder-ckpt) is not trained: it
+is run on the TVSD test images, and its test-set predictions and per-neuron
+correlations (raw and noise-corrected) are added to a copy of the checkpoint
+written to --out-dir. These are the fields the figure and table scripts read
+(Fig. 3B-C, Fig. 4A, Table 1). Only the test images are needed.
+
 Usage:
     python stages/01_train_encoder.py \\
         --config configs/inception.yaml --area V1 \\
         --device cuda:0 \\
+        --out-dir runs/encoders/inception/V1
+
+    python stages/01_train_encoder.py \\
+        --config configs/inception.yaml --area V1 --evaluate-only \\
+        --encoder-ckpt runs/encoders/inception/V1/best_model.pt \\
         --out-dir runs/encoders/inception/V1
 """
 from __future__ import annotations
@@ -46,7 +57,15 @@ def parse_args():
     p.add_argument("--out-dir", required=True, help="checkpoint + log directory")
     p.add_argument("--device", default=None, help="torch device (default: auto)")
     p.add_argument("--data-dir", default=None, help="override NEURIPS_DATA_DIR")
-    return p.parse_args()
+    p.add_argument("--evaluate-only", action="store_true",
+                   help="do not train: evaluate --encoder-ckpt on the TVSD test images and "
+                        "write it, with the test-set fields added, to <out-dir>/best_model.pt")
+    p.add_argument("--encoder-ckpt", default=None,
+                   help="existing encoder checkpoint (with --evaluate-only)")
+    args = p.parse_args()
+    if args.evaluate_only and not args.encoder_ckpt:
+        p.error("--evaluate-only needs --encoder-ckpt")
+    return args
 
 
 def correlation_per_neuron(pred: torch.Tensor, target: torch.Tensor) -> np.ndarray:
@@ -60,6 +79,32 @@ def correlation_per_neuron(pred: torch.Tensor, target: torch.Tensor) -> np.ndarr
         else:
             corrs.append(0.0)
     return np.array(corrs)
+
+
+def test_set_fields(test_pred: torch.Tensor, test_resp: torch.Tensor,
+                    oracle: np.ndarray) -> dict:
+    """
+    Test-set entries stored in an encoder checkpoint. The noise-corrected
+    correlation of neuron n is r_n / ρ_n (Table 1), with ρ_n its split-half
+    oracle reliability.
+    """
+    corrs = correlation_per_neuron(test_pred, test_resp)
+    corrs_nc = corrs / oracle
+    return {
+        "test_corr": float(corrs.mean()),
+        "test_corr_noise_corrected": float(corrs_nc.mean()),
+        "per_neuron_test_corr": corrs,
+        "per_neuron_test_corr_noise_corrected": corrs_nc,
+        "test_predictions": test_pred.detach().cpu(),   # [n_test, n_neurons] (Fig. 3B-C)
+        "test_responses": test_resp.detach().cpu(),     # [n_test, n_neurons]
+    }
+
+
+def print_test_summary(fields: dict) -> None:
+    c = fields["per_neuron_test_corr"]
+    print(f"[Stage 1] Test correlation: mean={c.mean():.3f}  median={np.median(c):.3f}  "
+          f"range=[{c.min():.3f}, {c.max():.3f}]  "
+          f"noise-corrected mean={fields['test_corr_noise_corrected']:.3f}")
 
 
 @torch.no_grad()
@@ -102,13 +147,18 @@ def main():
     n_train, n_total = count_parameters(encoder)
     print(f"  Parameters: {n_train:,} trainable / {n_total:,} total")
 
-    # ── 3. Pre-extract frozen features over train + test sets ──
+    if args.evaluate_only:
+        ckpt = torch.load(args.encoder_ckpt, map_location="cpu", weights_only=False)
+        encoder.load_state_dict(ckpt["model_state_dict"], strict=True)
+        encoder.eval()
+
+    # ── 3. Pre-extract frozen features (train + test; test only to evaluate) ──
     # Every encoder receives the canonical [-1, 1] image and converts it to
     # its backbone's range internally (src/encoders.py).
     print("[Stage 1] Pre-extracting frozen-backbone features (one-time) ...")
     images_root = data_dir() / "things_images" / "object_images"
     splits = {}
-    for split in ("train", "test"):
+    for split in (("test",) if args.evaluate_only else ("train", "test")):
         paths = tvsd[f"{split}_paths"]
         keep = existing_image_mask(paths, images_root)
         if not keep.any():
@@ -120,8 +170,23 @@ def main():
             encoder, [paths[i] for i in idx], tvsd[f"{split}_responses"][idx],
             images_root, CANONICAL_TRANSFORM, device,
         )
-    train_feats, train_resp = splits["train"]
     test_feats, test_resp = splits["test"]
+
+    if args.evaluate_only:
+        with torch.no_grad():
+            fields = test_set_fields(encoder.readout(test_feats.to(device)),
+                                     test_resp, tvsd["oracle"])
+        print_test_summary(fields)
+        ckpt.update(fields)
+        ckpt["neuron_indices"] = tvsd["neuron_indices"]
+        ckpt["oracle"] = tvsd["oracle"]
+        ckpt["evaluation_provenance"] = provenance({"encoder": args.config})
+        ckpt_path = out_dir / "best_model.pt"
+        torch.save(ckpt, ckpt_path)
+        print(f"[Stage 1] Evaluated {args.encoder_ckpt}; saved to {ckpt_path}")
+        return
+
+    train_feats, train_resp = splits["train"]
     print(f"  Feature shape (train): {tuple(train_feats.shape)}")
 
     # ── 4. Train/val split (image-level, fixed seed; 5% validation) ──
@@ -197,15 +262,8 @@ def main():
     encoder.load_state_dict(best_state)
     encoder.eval()
     with torch.no_grad():
-        test_pred = encoder.readout(test_feats)
-        test_corrs = correlation_per_neuron(test_pred, test_resp)
-    # Noise-corrected correlation r_n / ρ_n (Table 1), with ρ_n the
-    # split-half oracle reliability of neuron n.
-    test_corrs_nc = test_corrs / tvsd["oracle"]
-    print(f"\n[Stage 1] Test correlation: mean={test_corrs.mean():.3f}  "
-          f"median={np.median(test_corrs):.3f}  "
-          f"range=[{test_corrs.min():.3f}, {test_corrs.max():.3f}]  "
-          f"noise-corrected mean={test_corrs_nc.mean():.3f}")
+        fields = test_set_fields(encoder.readout(test_feats), test_resp, tvsd["oracle"])
+    print_test_summary(fields)
 
     # ── 8. Save checkpoint + training log ──
     ckpt_path = out_dir / "best_model.pt"
@@ -218,12 +276,7 @@ def main():
         },
         "best_epoch": int(np.argmax(history["val_corr"]) + 1),
         "val_corr": float(best_val_corr),
-        "test_corr": float(test_corrs.mean()),
-        "test_corr_noise_corrected": float(test_corrs_nc.mean()),
-        "per_neuron_test_corr": test_corrs,
-        "per_neuron_test_corr_noise_corrected": test_corrs_nc,
-        "test_predictions": test_pred.cpu(),      # [n_test, n_neurons] (Fig. 3B-C)
-        "test_responses": test_resp.cpu(),        # [n_test, n_neurons]
+        **fields,
         "neuron_indices": tvsd["neuron_indices"],
         "oracle": tvsd["oracle"],
         "provenance": provenance({"encoder": args.config}, seed=cfg.train.seed),
