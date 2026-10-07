@@ -11,7 +11,7 @@ channels internally to its backbone's expected input format.
 
   - InceptionEncoder: [-1, 1] → 3-channel → InceptionV3 → readout
                       (torchvision's Inception weights expect [-1, 1] input)
-  - ResNet50Encoder:  [-1, 1] → [0, 1] → 3-channel → ImageNet mean/std
+  - ResNet50Encoder:  [-1, 1] → 3-channel → ImageNet mean/std
                       standardisation → ResNet50 → readout
   - OnOffEncoder:     [-1, 1] → [0, 1] → 1-channel → plenoptic OnOff → readout
 
@@ -138,8 +138,11 @@ class ResNet50Backbone(_FrozenBackbone):
     """
     Frozen ResNet-50 truncated at `layer1.0`.
 
-    Expects 3-channel input in [0, 1] and standardises it with the ImageNet
-    mean and standard deviation internally (paper App. C.3). Produces
+    Standardises its 3-channel input with the ImageNet mean and standard
+    deviation internally (paper App. C.3). The encoder passes the canonical
+    [-1, 1] image, as in the paper (images are rescaled to [-1, 1] for both
+    deep encoders) and in the original training code, so the released ResNet
+    encoders reproduce their original responses exactly. Produces
     [B, 256, 16, 16] for 64x64 input.
     """
 
@@ -270,7 +273,7 @@ class InceptionEncoder(_BaseEncoder):
 
 class ResNet50Encoder(_BaseEncoder):
     backbone_input_channels = 3
-    backbone_input_range = (0.0, 1.0)
+    backbone_input_range = (-1.0, 1.0)
 
     def __init__(self, n_neurons: int = 50, layer: str = "layer1.0", dropout: float = 0.25):
         super().__init__(ResNet50Backbone(layer=layer), n_neurons, dropout)

@@ -79,7 +79,7 @@ def main():
     ckpt = torch.load(args.encoder_ckpt, map_location=device, weights_only=False)
     encoder.load_state_dict(ckpt["model_state_dict"])
     encoder.eval()
-    print(f"  Loaded checkpoint with test_corr = {ckpt['test_corr']:.3f}")
+    print(f"  Loaded checkpoint (test_corr = {ckpt.get('test_corr', float('nan')):.3f})")
 
     # ── Generate responses for each requested split ──
     # Responses are computed on exactly the [-1, 1] images the diffusion model

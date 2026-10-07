@@ -118,7 +118,7 @@ def test_backbone_parameters_frozen_and_only_readout_trainable():
 # ── input conversion ───────────────────────────────────────────────────────
 @pytest.mark.parametrize("ref, channels, lo, hi", [
     (InceptionEncoder, 3, -1.0, 1.0),
-    (ResNet50Encoder, 3, 0.0, 1.0),
+    (ResNet50Encoder, 3, -1.0, 1.0),
     (OnOffEncoder, 1, 0.0, 1.0),
 ])
 def test_to_backbone_input_range_and_channels(ref, channels, lo, hi):
