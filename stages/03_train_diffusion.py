@@ -50,6 +50,8 @@ def parse_args():
     p.add_argument("--num-workers", type=int, default=4)
     p.add_argument("--save-every", type=int, default=20,
                    help="checkpoint period in epochs")
+    p.add_argument("--resume", action="store_true",
+                   help="continue from <out-dir>/last.pt if it exists")
     return p.parse_args()
 
 
@@ -152,11 +154,28 @@ def main():
 
     prov = provenance({"diffusion": args.config}, seed=cfg.train.seed)
     history = {"epoch": [], "loss": []}
+    start_epoch, global_step = 1, 0
+
+    # last.pt holds everything needed to continue an interrupted run: model,
+    # optimizer, step counter, loss history and the random-number state at the
+    # end of the last completed epoch (so data order and noise draws continue
+    # as if the run had not stopped). It is rewritten after every epoch and
+    # deleted when the run completes.
+    last_path = out_dir / "last.pt"
+    if args.resume and last_path.exists():
+        state = torch.load(last_path, map_location="cpu", weights_only=False)
+        model.load_state_dict(state["model_state_dict"])
+        optimizer.load_state_dict(state["optimizer_state_dict"])
+        start_epoch, global_step = state["epoch"] + 1, state["global_step"]
+        history = state["history"]
+        torch.set_rng_state(state["rng_cpu"])
+        if device.type == "cuda" and state.get("rng_cuda") is not None:
+            torch.cuda.set_rng_state(state["rng_cuda"], device)
+        print(f"[Stage 3] Resuming from {last_path} after epoch {state['epoch']}")
     print(f"[Stage 3] Training for {cfg.train.epochs} epochs "
           f"({total_steps} steps, batch={cfg.train.batch_size}) ...")
 
-    global_step = 0
-    for epoch in range(1, cfg.train.epochs + 1):
+    for epoch in range(start_epoch, cfg.train.epochs + 1):
         model.train()
         epoch_loss, n_batches = 0.0, 0
         pbar = tqdm(loader, desc=f"epoch {epoch:3d}/{cfg.train.epochs}", leave=False)
@@ -223,7 +242,19 @@ def main():
             torch.save(ckpt, out_dir / f"model_epoch_{epoch:03d}.pt")
         with open(out_dir / "train_log.json", "w") as f:
             json.dump(history, f, indent=2)
+        tmp = out_dir / "last.pt.tmp"
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "epoch": epoch,
+            "global_step": global_step,
+            "history": history,
+            "rng_cpu": torch.get_rng_state(),
+            "rng_cuda": torch.cuda.get_rng_state(device) if device.type == "cuda" else None,
+        }, tmp)
+        tmp.replace(last_path)                     # atomic: never a half-written last.pt
 
+    last_path.unlink(missing_ok=True)
     print(f"[Stage 3] Saved checkpoint to {out_dir / 'final_model.pt'} "
           f"(epoch {cfg.train.epochs})")
 
