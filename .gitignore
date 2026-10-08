@@ -27,3 +27,5 @@ dist/
 # productionization
 CLAUDE.md
 .claude/
+env/
+data/
