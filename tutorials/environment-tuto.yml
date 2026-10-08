@@ -1,0 +1,44 @@
+
+# Setup the conda virtual environment to run on GPU
+#
+# author: laquitainesteeve@gmail.com
+#
+# Tested on:
+#
+#  - conda 25.5.1
+#  - driver-supported CUDA 12.8 (nvidia-smi)
+#  - NVIDIA GTX 5090 GPU
+#
+# Move to the root of the repository and install:
+#
+# ```bash
+# mkdir -p tutorials/env_tuto
+# conda env create -f tutorials/environment-tuto.yml --prefix ./tutorials/env_tuto
+# conda activate ./tutorials/env_tuto
+# ```
+
+name: env-tuto
+channels:
+    - conda-forge
+dependencies:
+    - python=3.11                    # matches requirements-lock.txt
+    - numpy
+    - scipy
+    - matplotlib                     # plotting
+    - h5py                           # TVSD .mat (v7.3) loading
+    - pillow
+    - pyyaml
+    - tqdm
+    - ipykernel                      # notebooks/demo_inference.ipynb
+    - pytest                         # unit-testing
+    - black=24.10.0
+    - pylint=3.3.5
+    - pip
+    - pip:
+        - --extra-index-url https://download.pytorch.org/whl/cu128
+        - torch==2.7.0               # STABLE cu128 build (Blackwell-capable); within pyproject range
+        - torchvision==0.22.0        # must match the torch build above
+        - diffusers==0.37.1          # diffusion models
+        - huggingface_hub==0.36.0
+        - plenoptic==1.3.1
+        - osfclient==0.0.5           # to download things_images dataset from osf

@@ -1,0 +1,40 @@
+
+# Setup the conda virtual environment to run on cpu for 
+# integration test on github
+#
+# author: laquitainesteeve@gmail.com
+#
+# Tested on:
+#
+#  - conda 25.5.1
+#  - driver-supported CUDA 12.8 (nvidia-smi)
+#  - NVIDIA GTX 5090 GPU
+#
+# Move to the root of the repository and install:
+#
+# ```bash
+# mkdir -p env-ci/ # create virtual environment path
+# conda env create -f environment-ci.yml --prefix ./env-ci # (1 min)
+# conda activate env-ci
+# ```
+name: env-ci
+channels:
+    - conda-forge
+dependencies:
+    - python=3.11
+    - numpy
+    - scipy
+    - matplotlib
+    - h5py
+    - pillow
+    - pyyaml
+    - tqdm
+    - pytest
+    - pip
+    - pip:
+        - --extra-index-url https://download.pytorch.org/whl/cpu
+        - torch==2.7.0+cpu           # CPU-only wheel (no CUDA libraries, much smaller)
+        - torchvision==0.22.0+cpu    # must match the torch build above
+        - diffusers==0.37.1
+        - huggingface_hub==0.36.0
+        - plenoptic==1.3.1

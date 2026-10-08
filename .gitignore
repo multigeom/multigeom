@@ -29,3 +29,5 @@ CLAUDE.md
 .claude/
 env/
 data/
+tutorials/env_tuto/
+THINGS_database.zip
