@@ -22,3 +22,8 @@ dist/
 .ipynb_checkpoints/
 .vscode/
 .idea/
+
+
+# productionization
+CLAUDE.md
+.claude/
