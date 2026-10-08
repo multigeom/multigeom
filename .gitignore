@@ -1,6 +1,7 @@
 # Data (see data/README.md) and run outputs
 data/*
 !data/README.md
+# trained encoder and diffusion checkpoints (download from Hugging Face)
 runs/
 figures/out/
 *.pt

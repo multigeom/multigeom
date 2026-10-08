@@ -1,0 +1,36 @@
+name: tests
+
+# Run the CPU test suite (incl. the notebook Fig. 3D-F reproduction test) on every pull request,
+# and when changes land on the integration branch (develop).
+on:
+  pull_request:
+  push:
+    branches: [develop]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash -el {0}          # login shell so the conda environment is active
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          environment-file: environment-ci.yml
+          activate-environment: multiscale-info-geometry-ci
+          auto-activate-base: false
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('environment-ci.yml') }}
+
+      - name: Run tests (CPU only; no downloads, no checkpoints)
+        env:
+          USE_TF: "0"
+          USE_FLAX: "0"
+        run: pytest -m "not slow and not gpu and not pretrained"
