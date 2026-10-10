@@ -22,7 +22,7 @@ authors = [
   { name = "Matthew Chalk", email = "matthew.chalk@inserm.fr" },
 ]
 # Core: the Fisher information J(x), the G(x) estimator, the encoder contract, the diffusion model and the pipeline.
-# Declared ranges; the exact versions the pipeline was tested with are in requirements-lock.txt.
+# Declared ranges.
 dependencies = [
   "torch>=2.1,<2.9",
   "torchvision>=0.16,<0.24",       # the canonical image transform of the data loaders

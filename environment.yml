@@ -21,7 +21,7 @@ name: env
 channels:
     - conda-forge
 dependencies:
-    - python=3.11                    # matches requirements-lock.txt
+    - python=3.11                    # Python version the pipeline was tested with
     - numpy
     - scipy
     - matplotlib                     # plotting

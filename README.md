@@ -70,12 +70,10 @@ From a clone, for development and to run the paper's pipeline:
 git clone https://github.com/sazio/MultiscaleInformationGeometry.git
 cd MultiscaleInformationGeometry
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-lock.txt   # exact versions we ran (Python 3.11, CUDA 12.6)
 pip install -e ".[all]"
 ```
 
-`requirements-lock.txt` pins the versions the pipeline and tests were run with; `pyproject.toml` declares the
-supported ranges.
+`pyproject.toml` declares the supported dependency ranges. The pipeline and tests were run with Python 3.11 and CUDA 12.6.
 
 ```python
 import multigeom
@@ -96,20 +94,26 @@ downloaded automatically.
 
 ## Running
 
-One (encoder, area) configuration end to end:
+One (encoder, area) configuration end to end (stages 1-4). `ENCODER` is `inception`, `resnet50` or `onoff`; `AREA` is `V1` or `V4`:
 
 ```bash
-ENCODER=inception AREA=V1 bash reproduce.sh       # also: resnet50, onoff × V1, V4
+ENCODER=inception; AREA=V1; RUN=runs; DEVICE=cuda:0
+
+python -m multigeom.fit.train_encoder --config $ENCODER --area $AREA --device $DEVICE \
+    --out-dir $RUN/encoders/$ENCODER/$AREA
+python -m multigeom.diffusion.responses --config $ENCODER --area $AREA --device $DEVICE \
+    --encoder-ckpt $RUN/encoders/$ENCODER/$AREA/best_model.pt --out-dir $RUN/responses/$ENCODER/$AREA
+python -m multigeom.diffusion.train --config diffusion --device $DEVICE \
+    --responses $RUN/responses/$ENCODER/$AREA/train_responses.pt --out-dir $RUN/diffusion/$ENCODER/$AREA
+python -m multigeom.pipeline.per_image --config estimator --encoder-cfg $ENCODER --area $AREA --device $DEVICE \
+    --encoder-ckpt $RUN/encoders/$ENCODER/$AREA/best_model.pt \
+    --diffusion-ckpt $RUN/diffusion/$ENCODER/$AREA/final_model.pt --out-dir $RUN/per_image/$ENCODER/$AREA
 ```
 
-All six configurations of the paper, then the comparisons and figures:
+Run these for all six configurations of the paper (about 30 A100-hours each, almost all of it diffusion training),
+then the comparisons and figures:
 
 ```bash
-for area in V1 V4; do
-  for enc in inception resnet50 onoff; do
-    ENCODER=$enc AREA=$area bash reproduce.sh
-  done
-done
 python -m multigeom.pipeline.alignment --runs-dir runs --out-dir runs/metrics
 python -m multigeom.pipeline.metric_field --img-idx 0 --out-dir runs/metric_field/img0000
 python -m multigeom.viz.table1    --runs-dir runs --out-dir figures/out
@@ -266,7 +270,6 @@ notebooks/    0 bring your own encoder, 1 leading eigenvectors, 2 subspace align
 tests/unit/        unit tests (synthetic data)
 tests/integration/ the notebooks' cells and figures against stored references
 data/         dataset location (see data/README.md)
-reproduce.sh  stages 1-4 for one (encoder, area) configuration
 ```
 
 ## Citation
