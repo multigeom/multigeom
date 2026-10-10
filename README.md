@@ -203,8 +203,7 @@ larger eigenvalues, and with the same rule its perturbed images are clipped and 
 swap sizes, unlike the paper's panel B. The paper does not state its step sizes, so this is a choice (the
 `metric_field` module itself uses `0.5*sqrt(lambda)` for both metrics, and the notebook runs it once per metric). The paper does not state
 its reference image either; the notebook uses validation image 64, the one that best reproduces the pattern of the
-paper's panel B among the 200 test images (`tools/scan_metric_field_images.py`, result in
-`tools/results/metric_field_scan.jsonl`), whereas the `metric_field` module defaults to image 0. The elongated V1 ellipses
+paper's panel B among the 200 test images (a scan of the 200 test images with six perturbation settings), whereas the `metric_field` module defaults to image 0. The elongated V1 ellipses
 of the paper's panel A are not reproduced (the leading eigenvalues of G(x) are close for every image).
 
 ## Supporting analyses
@@ -266,7 +265,6 @@ multigeom/
 notebooks/    0 bring your own encoder, 1 leading eigenvectors, 2 subspace alignment, 3 local metric field, 4 Bures-Wasserstein
 tests/unit/        unit tests (synthetic data)
 tests/integration/ the notebooks' cells and figures against stored references
-tools/        checkpoint conversion, upload and the image scan (results/ holds its output)
 data/         dataset location (see data/README.md)
 reproduce.sh  stages 1-4 for one (encoder, area) configuration
 ```

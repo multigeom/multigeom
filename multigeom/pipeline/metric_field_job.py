@@ -49,7 +49,7 @@ SECONDS_PER_J = 0.3          # one closed-form J(x)
 
 DEFAULT_STEPS = {"G": ("sqrt_lambda", 0.5), "J": ("fixed", 0.3)}
 # The paper does not state its reference image. Validation image 64 is the one that reproduces the pattern of the
-# paper's panel B best among the 200 test images (scan: tools/scan_metric_field_images.py): J(x) ellipses of the Inception
+# paper's panel B best among the 200 test images (a scan of the 200 test images with six perturbation settings): J(x) ellipses of the Inception
 # model radially oriented around the centre (V1 0.81, V4 0.91-0.94, with 1 = perfectly radial) and Inception outside
 # ResNet-50 (area ratio 5-6 in V1, 2.5-3 in V4), with the fixed step of 0.2-0.3.
 DEFAULT_IMG_IDX = 64

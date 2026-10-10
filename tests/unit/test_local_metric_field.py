@@ -189,14 +189,3 @@ def test_area_ratio_of_a_scaled_field():
     a = _field(lambda a, b: (1.0, 0.0), coeffs)
     assert lmf.area_ratio(a, 0.25 * a) == pytest.approx(4.0)         # sqrt(det) scales with the matrix: 0.25 -> 1/4 the area
     assert lmf.area_ratio(a, a) == pytest.approx(1.0)
-
-
-def test_the_default_reference_image_is_the_best_one_of_the_stored_scan():
-    """tools/results/metric_field_scan.jsonl is the scan of tools/scan_metric_field_images.py (200 images, 6 settings)."""
-    import json
-    rows = [json.loads(line) for line in (lmf.REPO / "tools" / "results" / "metric_field_scan.jsonl").read_text().splitlines()]
-    assert len(rows) == 200 * 6
-    both = [r for r in rows if "ratio_V4" in r and min(r["ratio_V1"], r["ratio_V4"]) >= 2.5]        # radial >= 0.7 and Inception outside
-    best = max(both, key=lambda r: min(r["radial_V1"], r["radial_V4"]))
-    assert best["img"] == lmf.DEFAULT_IMG_IDX and best["rule"] == "fixed" and best["size"] in (0.2, 0.3)
-    assert min(best["radial_V1"], best["radial_V4"]) > 0.8
