@@ -22,7 +22,7 @@ import numpy as np
 import pytest
 import torch
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from src.metric_field import (  # noqa: E402

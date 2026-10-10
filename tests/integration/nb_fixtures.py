@@ -1,4 +1,5 @@
-"""Fixtures of the integration tests."""
+"""Shared pytest fixture of the integration tests (imported by the test modules, not a conftest.py:
+a second conftest.py would shadow tests/conftest.py, whose helpers the unit tests import by name)."""
 from __future__ import annotations
 
 import os

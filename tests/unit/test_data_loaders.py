@@ -1,6 +1,6 @@
 """
 Tests for src.data_loaders on a synthetic MATLAB-v7.3-like TVSD pair
-(tests.conftest.write_fake_tvsd). The expected channel selection is computed
+(write_fake_tvsd in tests/conftest.py). The expected channel selection is computed
 here from the oracle vector by sorting; the expected responses are read off
 the known construction train_MUA[i, c] = 1000·i + c.
 """

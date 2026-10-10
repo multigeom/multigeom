@@ -16,9 +16,9 @@ channels internally to its backbone's expected input format.
   - OnOffEncoder:     [-1, 1] → [0, 1] → 1-channel → plenoptic OnOff → readout
 
 Trainable parameters live only in the readout. Backbone parameters are frozen
-(requires_grad = False). `forward` runs the backbone under `torch.no_grad()`
-for speed; `src.fisher` calls the backbone directly so that gradients with
-respect to the input image can flow.
+(requires_grad = False), so `forward` builds no graph for them unless the input
+requires grad, in which case gradients with respect to the input image flow
+(the encoder contract of `src.encoder_contract`, rule R5).
 
 Readout parameter counts (n_neurons = 50):
   - Inception (C=192): 50 * (2 + 1 + 192 + 1) =  9,800
@@ -253,8 +253,9 @@ class _BaseEncoder(nn.Module):
         returns : [B, n_neurons]
         """
         x_bb = self._to_backbone_input(x)
-        with torch.no_grad():
-            features = self.backbone(x_bb)
+        # No explicit torch.no_grad(): the backbone is frozen, so no graph is built for it unless the input
+        # requires grad, and then the gradient w.r.t. the input flows (the encoder contract, rule R5).
+        features = self.backbone(x_bb)
         return self.readout(features)
 
     def features(self, x: torch.Tensor) -> torch.Tensor:

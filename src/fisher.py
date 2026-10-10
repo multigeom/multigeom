@@ -28,6 +28,8 @@ from dataclasses import dataclass
 
 import torch
 
+from .encoder_contract import ensure_valid
+
 
 @dataclass
 class FisherOutput:
@@ -41,16 +43,22 @@ def fisher_eigendecomposition(
     sigma: float,
     top_k: int = 50,
     device: torch.device | None = None,
+    validate: bool = True,
 ) -> FisherOutput:
     """
     Compute the top-k eigenpairs of J(x) = (1/σ²) J_{f_φ}ᵀ J_{f_φ}.
 
     Args:
         image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline coords).
-        encoder: f_φ — built by `src.encoders.build_encoder`. Backbone is frozen.
+        encoder: f_φ — an `nn.Module` satisfying the contract of `src.encoder_contract` (any user model), or one
+                 built by `src.encoders.build_encoder`. The Jacobian is taken through the public `forward`;
+                 encoders that expose `_to_backbone_input`, `backbone` and `readout` (the reference encoders and the
+                 test mocks) use those directly.
         sigma: σ from the Gaussian observation model.
         top_k: number of eigenpairs to return.
         device: target device. Defaults to encoder's parameter device.
+        validate: check the encoder against the contract first (once per encoder object; any encoder that
+                  does not expose the reference-encoder internals). Raises EncoderContractError.
 
     Returns:
         FisherOutput with `eigenvalues` [k] and `eigenvectors` [k, P=4096].
@@ -66,15 +74,19 @@ def fisher_eigendecomposition(
     # Forward pass with gradient tracking on the input only. The backbone's
     # parameters have requires_grad = False (frozen), but gradients of the
     # output w.r.t. the *input* flow through it just fine.
+    legacy = all(hasattr(encoder, a) for a in ("_to_backbone_input", "backbone", "readout"))
+    if validate and not legacy:
+        ensure_valid(encoder, device=device, image_shape=tuple(image.shape[1:]), sigma=sigma, purpose="inference")
     x = image.detach().clone().requires_grad_(True)
     with torch.enable_grad():
-        # Build the graph explicitly (input conversion → backbone → readout)
-        # rather than through encoder.forward, which runs the backbone under
-        # torch.no_grad(). enable_grad also makes this work when the caller
-        # is itself inside a no_grad block.
-        x_bb = encoder._to_backbone_input(x)
-        features = encoder.backbone(x_bb)
-        responses = encoder.readout(features)        # [1, n_neurons]
+        # enable_grad also makes this work when the caller is itself inside a no_grad block.
+        if legacy:
+            # Build the graph explicitly (input conversion → backbone → readout).
+            x_bb = encoder._to_backbone_input(x)
+            features = encoder.backbone(x_bb)
+            responses = encoder.readout(features)        # [1, n_neurons]
+        else:
+            responses = encoder(x)                       # [1, n_neurons], through the public forward
 
         n_neurons = responses.shape[1]
         P = x[0].numel()

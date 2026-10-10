@@ -1,6 +1,6 @@
 """
 Integration tests, inception encoder: do we reproduce the notebook's Fig. 3D-F
-(tutorials/demo_inference.ipynb, section 6: the frog image with the V1/V4 receptive fields, and the
+(tutorials/1_leading_eigenvectors_of_G.ipynb, section 6: the frog image with the V1/V4 receptive fields, and the
 leading eigenvectors of G(x) and J(x) for V1 and V4)?
 
 The reference is stored in tests/integration/fixtures/fig3/ (regenerate with
@@ -33,6 +33,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nb_helpers import (  # noqa: E402
     AREAS, BAD_PIXEL_FRACTION, CHECKS, FIXTURES, MEAN_ABS_TOL, fixture_inputs, plot_difference,
 )
+
+from nb_fixtures import notebook_run  # noqa: E402,F401  (pytest fixture)
 
 ENCODER = "inception"
 

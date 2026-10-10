@@ -1,6 +1,6 @@
 """
 Integration tests, resnet50 encoder: do we reproduce the notebook's Fig. 4B-C
-(tutorials/demo_inference.ipynb, section 6: the leading eigenvectors of G(x) and J(x) of the
+(tutorials/1_leading_eigenvectors_of_G.ipynb, section 6: the leading eigenvectors of G(x) and J(x) of the
 inception and resnet50 encoders, V1 block above the V4 block)?
 
 The plot is the paper's comparison of architectures, so it also shows the inception rows (the
@@ -38,6 +38,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from nb_helpers import (  # noqa: E402
     AREAS, BAD_PIXEL_FRACTION, CHECKS, FIXTURES, MEAN_ABS_TOL, N_FIG4_POOL, fixture_inputs, plot_difference,
 )
+
+from nb_fixtures import notebook_run  # noqa: E402,F401  (pytest fixture)
 
 ENCODER = "resnet50"
 

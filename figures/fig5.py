@@ -88,21 +88,11 @@ def draw_field(ax, rec: dict, fill: float) -> list[str]:
     return encoders
 
 
-def main(argv: list[str] | None = None) -> list[Path]:
-    args = parse_args(argv)
-    field_dir = Path(args.metric_field_dir) if args.metric_field_dir else \
-        Path(args.runs_dir) / "metric_field" / f"img{args.img_idx:04d}"
-    records = {}
-    for metric in ("G", "J"):
-        for area in AREAS:
-            rec = load_torch(field_dir / f"{metric}_{area}.pt", SCRIPT,
-                             f"{metric}/{area} metric field (run Stage 6)")
-            if rec is not None:
-                records[(metric, area)] = rec
-    if not records:
-        print(f"[{SCRIPT}] no Stage-6 outputs in {field_dir}; nothing to draw.")
-        return []
-
+def make_figure(records: dict, fill: float = 0.9, show_x0: bool = False):
+    """
+    The figure from Stage-6 records keyed by (metric, area), metric in {"G", "J"}: G(x) in panel A and J(x) in
+    panel B, V1 left and V4 right inside each; missing records are left blank. Returns the matplotlib figure.
+    """
     fig = plt.figure(figsize=(16, 4.4))
     outer = fig.add_gridspec(1, 2, wspace=0.08)
     first_axes, encoders_drawn = {}, []
@@ -115,7 +105,7 @@ def main(argv: list[str] | None = None) -> list[Path]:
             if rec is None:
                 blank(ax)
             else:
-                drawn = draw_field(ax, rec, args.fill)
+                drawn = draw_field(ax, rec, fill)
                 encoders_drawn = encoders_drawn or drawn
             ax.set_title(area, fontsize=12)
         box_l = first_axes[metric].get_position()
@@ -131,14 +121,32 @@ def main(argv: list[str] | None = None) -> list[Path]:
         fig.legend(handles=handles, loc="lower right", ncol=2, frameon=False,
                    bbox_to_anchor=(0.9, -0.06))
 
-    if args.show_x0:
+    if show_x0:
         x0 = next(iter(records.values()))["x0"]
         ax_img = fig.add_axes([0.02, 0.05, 0.08, 0.3])
         ax_img.imshow(as_numpy(x0).reshape(IMAGE_SIZE, IMAGE_SIZE), cmap="gray",
                       vmin=-1, vmax=1)
         ax_img.set_title("$x_0$", fontsize=10)
         ax_img.axis("off")
+    return fig
 
+
+def main(argv: list[str] | None = None) -> list[Path]:
+    args = parse_args(argv)
+    field_dir = Path(args.metric_field_dir) if args.metric_field_dir else \
+        Path(args.runs_dir) / "metric_field" / f"img{args.img_idx:04d}"
+    records = {}
+    for metric in ("G", "J"):
+        for area in AREAS:
+            rec = load_torch(field_dir / f"{metric}_{area}.pt", SCRIPT,
+                             f"{metric}/{area} metric field (run Stage 6)")
+            if rec is not None:
+                records[(metric, area)] = rec
+    if not records:
+        print(f"[{SCRIPT}] no Stage-6 outputs in {field_dir}; nothing to draw.")
+        return []
+
+    fig = make_figure(records, args.fill, args.show_x0)
     return save_figure(fig, Path(args.out_dir), f"fig5_img{args.img_idx:04d}")
 
 

@@ -1,0 +1,95 @@
+{
+  "configs": [
+    [
+      "inception",
+      "V1"
+    ],
+    [
+      "inception",
+      "V4"
+    ],
+    [
+      "resnet50",
+      "V1"
+    ],
+    [
+      "resnet50",
+      "V4"
+    ]
+  ],
+  "per_config": {
+    "inception/V1": {
+      "images": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "diffusion_epoch": 120,
+      "sigma": 0.22,
+      "encoder_checkpoint_md5": "8c432e714b917b5652a1880fcb09090e",
+      "diffusion_checkpoint_md5": "adebc65912d94ce9469e94025c3c5e3e"
+    },
+    "inception/V4": {
+      "images": [
+        0,
+        1,
+        2
+      ],
+      "diffusion_epoch": 120,
+      "sigma": 0.22,
+      "encoder_checkpoint_md5": "08ec1cec1e0d1907e4b3c2737594d010",
+      "diffusion_checkpoint_md5": "f2826c1ebb9c4e38b24519137222debb"
+    },
+    "resnet50/V1": {
+      "images": [
+        0,
+        1
+      ],
+      "diffusion_epoch": 120,
+      "sigma": 0.22,
+      "encoder_checkpoint_md5": "e5f5179bc5a596442ca899e9ecf0f0f1",
+      "diffusion_checkpoint_md5": "66dfe0916dd842204136f8076172e189"
+    },
+    "resnet50/V4": {
+      "images": [
+        0,
+        1
+      ],
+      "diffusion_epoch": 120,
+      "sigma": 0.22,
+      "encoder_checkpoint_md5": "8008311c335dfd53e133e6d4a040676f",
+      "diffusion_checkpoint_md5": "c26ea0c9d45eade853b646e856b5b652"
+    }
+  },
+  "estimator": {
+    "n_samples": 200,
+    "batch_size": 25,
+    "timesteps": [
+      40,
+      960,
+      40
+    ],
+    "sigma": 0.22,
+    "seed": 42,
+    "top_k": 50
+  },
+  "k_max": 50,
+  "plot": {
+    "function": "src.subspace_alignment.plot_alignment",
+    "figsize": [
+      10.0,
+      3.8
+    ],
+    "dpi": 100
+  },
+  "git_commit": "19c9557f974ddf78ee3fefd9f6d18957c9cab2cb",
+  "git_dirty": true,
+  "versions": {
+    "torch": "2.7.0+cu128",
+    "numpy": "2.4.6",
+    "matplotlib": "3.11.2"
+  }
+}

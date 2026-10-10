@@ -51,6 +51,7 @@ from typing import Iterable
 import torch
 
 from .diffusion_model import NeuralConditionedUNet
+from .encoder_contract import ensure_valid
 
 
 @dataclass
@@ -86,6 +87,7 @@ def conditional_pair_estimate(
     cfg,
     device: torch.device,
     generator: torch.Generator | None = None,
+    validate: bool = False,
 ) -> EstimatorOutput:
     """
     Compute top-k eigenpairs of G(x) for a single image via the
@@ -102,10 +104,16 @@ def conditional_pair_estimate(
         generator: optional torch.Generator on `device` for all Monte-Carlo
                    draws (z, ξ_1, ξ_2). Stage 4 seeds one per image so each
                    image's estimate is reproducible on its own.
+        validate: check the encoder against the contract of `src.encoder_contract` first (it runs the encoder
+                  a few times, so mocks that record their calls should leave this off). Raises
+                  EncoderContractError. Off by default here; the Fisher baseline validates by default.
 
     Returns:
         EstimatorOutput with `eigenvalues` [k] and `eigenvectors` [k, 4096].
     """
+    if validate:
+        ensure_valid(encoder, device=device, image_shape=tuple(image.shape[1:]),
+                     sigma=float(cfg.monte_carlo.observation_noise_sigma), purpose="inference")
     encoder.eval()
     unet.eval()
 

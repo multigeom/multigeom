@@ -132,12 +132,69 @@ Measured on NVIDIA A100-SXM4-40GB GPUs, per (encoder, area) configuration:
 | 4. G(x) and J(x), 200 images | ~2 A100-hours |
 | 5. metrics | minutes (CPU) |
 
+## Bring your own encoder
+
+Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `src/encoder_contract.py`
+checks them (`validate_encoder(encoder)`; `fisher_eigendecomposition` does it automatically for models that
+do not use the reference-encoder internals, and `conditional_pair_estimate(..., validate=True)` on request) and
+raises `EncoderContractError` naming the rule.
+
+| Rule | Requirement |
+|---|---|
+| R1 | an `nn.Module` |
+| R2 | input `[B, 1, 64, 64]`, values in [-1, 1]; the model does any rescaling or channel repeat itself |
+| R3 | output `[B, N]`, floating point and finite, the same N for every batch size (and `n_neurons == N` if set) |
+| R4 | deterministic in eval mode (no dropout or noise at inference) |
+| R5 | differentiable w.r.t. the input through `forward` (no `torch.no_grad()` or `detach()`): needed for J(x) |
+| R6 | samples independent within a batch (no batch statistics in train mode) |
+| R7 | does not modify its input in place |
+| R8 | responses vary across images (warning) |
+| R9 | responses of order 1 (for example z-scored), as the noise sigma is 0.22 (warning) |
+
+Training the diffusion model on the encoder's responses needs R1-R4, R6 and R9; estimating G(x) and J(x)
+needs all of them. The fit itself, and the 64x64 grayscale natural-image domain, are not checked.
+The diffusion model's conditioning layer is sized by N, so each encoder needs its own trained diffusion model.
+
+## Subspace alignment (Fig. 4D-E) on several GPUs
+
+`tutorials/2_subspace_alignment.ipynb` estimates G(x) and J(x) for many images and configurations and
+plots Fig. 4D-E. The images are independent, so they are split over workers (local GPUs, or serverless
+GPUs on [Modal](https://modal.com)) with identical results; no DDP/FSDP is involved. All supporting
+functions are in `src/subspace_alignment.py`. The notebook sets five parameters, `CONFIGS` (one or more
+(encoder, area) pairs), `N_IMAGES`, `BACKEND` (`"local"` or `"modal"`), `DEVICE` (`"gpu"` or `"cpu"`) and
+`NUM_WORKERS`, and a table in the notebook gives example values for four typical cases. The Modal route
+needs `pip install modal` and `modal token new`, and costs money: the notebook prints an estimate and
+refuses to launch above `MAX_COST_USD`.
+
+## Local metric field (Fig. 5)
+
+`tutorials/3_local_metric_field.ipynb` plots the local metric field projected onto the leading eigenvectors of
+G(x): a reference image is perturbed along the two leading eigenvectors of the Inception model's G(x), and the
+metrics G(x) and J(x) of the Inception and ResNet-50 models are drawn as ellipses on that 2-D grid, for V1 and V4.
+One GPU is enough: every grid point of every model needs one G(x) estimate (about 15 s on an RTX 5090), so the 5 x 5
+grid with both areas takes about 26 minutes and a 3 x 3 grid with one area about 5 minutes. The computation is
+`stages/06_metric_field.py`, run as a background process by `src/local_metric_field.py`, and it can be stopped
+and resumed. The notebook perturbs by `0.5*sqrt(lambda)` for G(x) (about 0.3) but by a fixed 0.3 for J(x): J has far
+larger eigenvalues, and with the same rule its perturbed images are clipped and the ellipses of the two models
+swap sizes, unlike the paper's panel B. The paper does not state its step sizes, so this is a choice (the stage-6
+script itself uses `0.5*sqrt(lambda)` for both metrics, and the notebook runs it once per metric). The paper does not state
+its reference image either; the notebook uses validation image 64, the one that best reproduces the pattern of the
+paper's panel B among the 200 test images (`tools/scan_metric_field_images.py`, result in
+`analysis/results/metric_field_scan.jsonl`), whereas the stage-6 script defaults to image 0. The elongated V1 ellipses
+of the paper's panel A are not reproduced (the leading eigenvalues of G(x) are close for every image).
+
 ## Tests
 
 ```bash
-pytest                       # fast suite, CPU, no downloads
-pytest -m "slow or pretrained"
+pytest tests/unit                                        # unit tests: synthetic data, no checkpoints
+pytest tests/integration                                 # notebook reproduction of Fig. 3D-F and Fig. 4B-C
+pytest -m "not slow and not gpu and not pretrained"      # what GitHub runs on every pull request
 ```
+
+The integration tests compare the tutorial notebook's plots with references stored in
+`tests/integration/fixtures/`. The plot comparison runs anywhere; the "recompute" tests (marked
+`slow`) also need the checkpoints in `runs/` and the TinyImageNet data, and skip themselves
+without them.
 
 ## Checkpoints
 
@@ -153,7 +210,8 @@ src/          library: data loading, encoders, diffusion model, estimator, Fishe
 stages/       numbered pipeline scripts 01-06
 figures/      figure and table scripts
 analysis/     supporting analyses quoted in the appendices
-tests/        pytest suite
+tests/unit/        unit tests (synthetic data)
+tests/integration/ notebook reproduction of Fig. 3D-F, Fig. 4B-C and Fig. 4D-E against stored references
 data/         dataset location (see data/README.md)
 reproduce.sh  stages 1-4 for one (encoder, area) configuration
 ```

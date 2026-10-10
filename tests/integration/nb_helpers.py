@@ -1,11 +1,11 @@
-"""Helpers to run cells of tutorials/demo_inference.ipynb inside the tests."""
+"""Helpers to run cells of the tutorial notebooks inside the tests (notebook 1 by default, notebook 3 for Fig. 5)."""
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-NOTEBOOK = REPO / "tutorials" / "demo_inference.ipynb"
+NOTEBOOK = REPO / "tutorials" / "1_leading_eigenvectors_of_G.ipynb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig3"
 
 # A unique line of each notebook code cell used by the tests. The plot cells rely on the
@@ -23,23 +23,48 @@ N_FIG4_REF = 4      # ... of the reference encoder (inception) for Fig. 4B-C
 N_FIG4_POOL = 30    # ... of the other encoders: the notebook searches their first 30 for the best match
 
 
-def notebook_cell(marker: str) -> str:
+NOTEBOOK3 = REPO / "tutorials" / "3_local_metric_field.ipynb"
+# Lines of the code cells of notebook 3 (parameters, launch, wait, plot).
+SETUP3 = "from src import local_metric_field as lmf"
+LAUNCH3 = "lmf.launch(job)"
+WAIT3 = "lmf.wait(job"
+PLOT3 = "lmf.plot_metric_field(job)"
+
+
+def notebook_cell(marker: str, notebook: Path | None = None) -> str:
     """Source of the code cell containing `marker`, without IPython magics (%%time)."""
-    nb = json.loads(NOTEBOOK.read_text())
+    notebook = notebook or NOTEBOOK
+    nb = json.loads(notebook.read_text())
     for cell in nb["cells"]:
         if cell["cell_type"] != "code":
             continue
         src = "".join(cell["source"])
         if marker in src:
             return "\n".join(l for l in src.splitlines() if not l.lstrip().startswith("%%"))
-    raise KeyError(f"no code cell containing {marker!r} in {NOTEBOOK}")
+    raise KeyError(f"no code cell containing {marker!r} in {notebook}")
 
 
-def run_cells(namespace: dict, *markers: str) -> dict:
-    """Execute the notebook cells containing `markers`, in order, in `namespace`."""
+def run_cells(namespace: dict, *markers: str, notebook: Path | None = None, overrides: dict | None = None) -> dict:
+    """
+    Execute the notebook cells containing `markers`, in order, in `namespace`. `overrides` replaces the value of
+    top-level assignments `NAME = value` in the cells (for example {"GRID_SIZE": "3"}), to run a smaller job.
+    """
     for marker in markers:
-        exec(compile(notebook_cell(marker), f"<notebook cell: {marker}>", "exec"), namespace)
+        source = notebook_cell(marker, notebook)
+        # The notebooks reload the modules they use ("importlib.reload(...)") to pick up edits; in a test session that would
+        # redefine classes under the feet of the other tests, so those lines are dropped.
+        source = "\n".join(l for l in source.splitlines() if not l.lstrip().startswith("importlib.reload("))
+        for name, value in (overrides or {}).items():
+            source = override_assignment(source, name, value)
+        exec(compile(source, f"<notebook cell: {marker}>", "exec"), namespace)
     return namespace
+
+
+def override_assignment(source: str, name: str, value: str) -> str:
+    """Replace the right-hand side of the top-level line `name = ...` (comment kept) by `value`; unchanged if absent."""
+    import re
+    return re.sub(rf"^({re.escape(name)}\s*=\s*)(.*?)(\s*#.*)?$", lambda m: f"{m.group(1)}{value}{m.group(3) or ''}",
+                  source, flags=re.M)
 
 
 def fixture_inputs() -> tuple[dict, dict]:
@@ -122,3 +147,26 @@ def plot_difference(which: str, ckpts: dict, records: dict, tmp_path: Path) -> t
     out = tmp_path / f"{which}.png"
     render_plot_cell(ckpts, records, out, which)
     return image_difference(mpimg.imread(out), mpimg.imread(REFERENCE_PNG[which]))
+
+
+# ── Fig. 5 fixture ──────────────────────────────────────────────────────────
+FIG5_FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig5"
+FIG5_ENCODERS = ("inception", "resnet50")
+
+
+def fig5_records(path: Path | None = None) -> dict:
+    """Stage-6-like records keyed by (metric, area), with the keys the Fig. 5 drawing needs, from the stored npz."""
+    import numpy as np
+    import torch
+
+    data = np.load(path or FIG5_FIXTURES / "metric_field.npz")
+    records = {}
+    for metric in ("G", "J"):
+        for area in ("V1", "V4"):
+            records[(metric, area)] = {
+                "grid_coefficients": torch.from_numpy(data["grid_coefficients"]),
+                "encoders": list(FIG5_ENCODERS),
+                "matrices_2x2": {enc: torch.from_numpy(data[f"{metric}_{area}_{enc}"]) for enc in FIG5_ENCODERS},
+                "x0": torch.from_numpy(data["x0"]).reshape(1, 1, 64, 64),
+            }
+    return records

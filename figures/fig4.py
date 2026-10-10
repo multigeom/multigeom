@@ -37,7 +37,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from figures._style import (
     AREAS, ENCODER_COLORS, ENCODER_LABELS, ENCODERS, METRIC_TITLES, as_numpy, blank,
     cross_encoder_metrics, encoder_checkpoint, match_to_reference, panel_label, per_image,
-    plot_comparisons, plt, save_figure, show_eigenvector,
+    plot_comparisons, plt, save_figure, show_eigenvector, skip,
 )
 
 SCRIPT = "fig4"
@@ -62,7 +62,10 @@ def panel_performance(ax, ckpts: dict) -> None:
     for ei, enc in enumerate(ENCODERS):
         for gi, area in enumerate(AREAS):
             ckpt = ckpts.get((enc, area))
-            if ckpt is None:
+            if ckpt is None or "per_neuron_test_corr" not in ckpt:
+                if ckpt is not None:
+                    skip(SCRIPT, f"{enc}/{area} performance: checkpoint has no per_neuron_test_corr "
+                                 "(run Stage 1 with --evaluate-only)")
                 continue
             r = as_numpy(ckpt["per_neuron_test_corr"]).astype(float)
             pos = gi + (ei - 1) * (width + gap)
