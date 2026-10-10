@@ -31,6 +31,14 @@ WAIT3 = "lmf.wait(job"
 PLOT3 = "lmf.plot_metric_field(job)"
 
 
+NOTEBOOK4 = REPO / "tutorials" / "4_bures_wasserstein.ipynb"
+# Lines of the code cells of notebook 4 (setup, Stage 5, ordering check, plot).
+SETUP4 = "from src import bures_wasserstein as bw"
+COMPUTE4 = "sa.compute_metrics(RUNS_DIR"
+ORDER4 = "bw.print_ordering(metrics)"
+PLOT4 = "bw.plot_bures_wasserstein(metrics)"
+
+
 def notebook_cell(marker: str, notebook: Path | None = None) -> str:
     """Source of the code cell containing `marker`, without IPython magics (%%time)."""
     notebook = notebook or NOTEBOOK

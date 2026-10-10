@@ -34,12 +34,8 @@ def parse_args(argv: list[str] | None = None):
     return p.parse_args(argv)
 
 
-def main(argv: list[str] | None = None) -> list[Path]:
-    args = parse_args(argv)
-    metrics = cross_encoder_metrics(Path(args.runs_dir), SCRIPT)
-    if metrics is None:
-        return []
-
+def make_figure(metrics: dict):
+    """Fig. 6 from the Stage-5 JSON (as a dict): d_BW against k for G(x) (left) and J(x) (right); returns the figure."""
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
     for ax, metric in zip(axes, ("G", "J")):
         n = plot_comparisons(ax, metrics, metric, "bures_wasserstein", SCRIPT)
@@ -52,7 +48,15 @@ def main(argv: list[str] | None = None) -> list[Path]:
     if axes[0].get_legend_handles_labels()[0]:
         axes[0].legend(frameon=False, fontsize=9, loc="lower right")
     fig.tight_layout()
-    return save_figure(fig, Path(args.out_dir), "fig_app_bw")
+    return fig
+
+
+def main(argv: list[str] | None = None) -> list[Path]:
+    args = parse_args(argv)
+    metrics = cross_encoder_metrics(Path(args.runs_dir), SCRIPT)
+    if metrics is None:
+        return []
+    return save_figure(make_figure(metrics), Path(args.out_dir), "fig_app_bw")
 
 
 if __name__ == "__main__":

@@ -296,21 +296,58 @@ def test_progress_line_in_a_terminal_updates_one_line(capsys):
     assert out.count("\n") == 1                  # a single line: only the final newline
 
 
-def test_progress_line_in_a_notebook_updates_in_place(monkeypatch):
+def _fake_ipython(monkeypatch):
+    """A stand-in for IPython.display, so that these tests do not need IPython (it is not in the CI environment)."""
+    import types
+
     shown = []
+
+    class Pretty:
+        def __init__(self, data):
+            self.data = data
+
+    class Image:
+        def __init__(self, data=None):
+            self.data = data
 
     class Handle:
         def update(self, obj):
             shown.append(("update", obj.data))
 
-    import IPython.display
-    monkeypatch.setattr(IPython.display, "display", lambda obj, display_id=None: shown.append(("display", obj.data)) or Handle())
+    def display(obj, display_id=None):
+        shown.append(("display", obj.data))
+        return Handle() if display_id else None
+
+    display_module = types.ModuleType("IPython.display")
+    display_module.Pretty, display_module.Image, display_module.display = Pretty, Image, display
+    package = types.ModuleType("IPython")
+    package.display = display_module
+    package.get_ipython = lambda: None
+    monkeypatch.setitem(sys.modules, "IPython", package)
+    monkeypatch.setitem(sys.modules, "IPython.display", display_module)
+    return shown
+
+
+def test_progress_line_in_a_notebook_updates_in_place(monkeypatch):
+    shown = _fake_ipython(monkeypatch)
     bar = sa.ProgressLine(4, notebook=True)
     bar.update(2, "1 worker(s)")
     bar.update(4, "0 worker(s)")
     bar.close()
     assert [k for k, _ in shown] == ["display", "update", "update"]     # one display, then in-place updates
     assert "4/4" in shown[-1][1]
+
+
+def test_show_figure_displays_a_png_and_closes_the_figure(monkeypatch):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    shown = _fake_ipython(monkeypatch)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    sa.show_figure(fig)
+    assert shown[0][0] == "display" and shown[0][1][:8] == b"\x89PNG\r\n\x1a\n"
+    assert not plt.fignum_exists(fig.number)
 
 
 def test_make_shards_leaves_out_images_already_done(tmp_path, monkeypatch):
