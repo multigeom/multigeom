@@ -1,5 +1,5 @@
 """
-Regenerate the Fig. 6 fixtures of tutorials/4_bures_wasserstein.ipynb:
+Regenerate the Fig. 6 fixtures of notebooks/4_bures_wasserstein.ipynb:
 
     tests/integration/fixtures/fig6/fig6_reference.png    the notebook plot (Bures-Wasserstein distance against k)
     tests/integration/fixtures/fig6/fixture_info.json     how it was made: the Stage-5 file it is drawn from (name and md5), the
@@ -24,7 +24,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parents[2]))
 
-from src import bures_wasserstein as bw  # noqa: E402
+from multigeom import viz  # noqa: E402
+from multigeom.pipeline import alignment as bw  # noqa: E402
 
 SOURCE = HERE / "fig4_de" / "cross_encoder_metrics.json"
 SOURCE_INFO = HERE / "fig4_de" / "fixture_info.json"
@@ -38,7 +39,7 @@ def main():
     matplotlib.use("Agg")
 
     metrics = bw.load_metrics(SOURCE)
-    fig = bw.plot_bures_wasserstein(metrics)
+    fig = viz.plot_bures_wasserstein(metrics)
     figsize = [float(v) for v in fig.get_size_inches()]
     OUT.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT / "fig6_reference.png", dpi=100, bbox_inches="tight")
@@ -49,7 +50,7 @@ def main():
         "estimator": source_info["estimator"],
         "k_max": source_info["k_max"],
         "ordering": bw.ordering(metrics),
-        "plot": {"function": "figures.fig_app_bw.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight"},
+        "plot": {"function": "multigeom.viz.fig_app_bw.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight"},
         "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=bw.REPO, capture_output=True, text=True).stdout.strip(),
         "git_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=bw.REPO, capture_output=True, text=True).stdout.strip()),
         "versions": {"torch": torch.__version__, "numpy": numpy.__version__, "matplotlib": matplotlib.__version__},

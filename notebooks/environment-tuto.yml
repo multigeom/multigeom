@@ -12,9 +12,9 @@
 # Move to the root of the repository and install:
 #
 # ```bash
-# mkdir -p tutorials/env_tuto
-# conda env create -f tutorials/environment-tuto.yml --prefix ./tutorials/env_tuto
-# conda activate ./tutorials/env_tuto
+# mkdir -p notebooks/env_tuto
+# conda env create -f notebooks/environment-tuto.yml --prefix ./notebooks/env_tuto
+# conda activate ./notebooks/env_tuto
 # ```
 
 name: env-tuto

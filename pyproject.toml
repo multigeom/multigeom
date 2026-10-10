@@ -1,41 +1,62 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "multiscale-information-geometry"
+name = "multigeom"
 version = "1.0.0"
-description = "Multi-scale Fisher information geometry of neural population codes, estimated with conditional diffusion models (NeurIPS 2026)."
+description = "Multi-scale Fisher information geometry of neural population codes, estimated with conditional diffusion models."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10,<3.13"
+keywords = ["neuroscience", "information geometry", "Fisher information", "diffusion models", "neural coding"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+]
 authors = [
   { name = "Simone Azeglio", email = "simone.azeglio@gmail.com" },
   { name = "Steeve Laquitaine" },
   { name = "Ulisse Ferrari" },
   { name = "Matthew Chalk", email = "matthew.chalk@inserm.fr" },
 ]
-# Declared ranges. The exact versions the pipeline was tested with are in
-# requirements-lock.txt.
+# Core: the Fisher information J(x), the G(x) estimator, the encoder contract, the diffusion model and the pipeline.
+# Declared ranges; the exact versions the pipeline was tested with are in requirements-lock.txt.
 dependencies = [
   "torch>=2.1,<2.9",
-  "torchvision>=0.16,<0.24",
+  "torchvision>=0.16,<0.24",       # the canonical image transform of the data loaders
   "diffusers>=0.30,<0.38",
   "huggingface_hub>=0.25,<1.0",
-  "plenoptic>=1.1,<2.0",
   "numpy>=1.24",
   "scipy>=1.10",
-  "matplotlib>=3.7",
-  "h5py>=3.8",
   "Pillow>=9.0",
   "PyYAML>=6.0",
   "tqdm>=4.65",
 ]
 
 [project.optional-dependencies]
+vision = ["plenoptic>=1.1,<2.0"]                       # the ON-OFF reference encoder (Inception and ResNet-50 come with torchvision)
+fit = ["plenoptic>=1.1,<2.0", "h5py>=3.8"]             # fitting an encoder to neural data (TVSD loaders, layer sweep, calibration)
+viz = ["matplotlib>=3.7"]                              # the figures of the paper
+modal = ["modal"]                                      # run the G(x) estimation on serverless GPUs
+notebooks = ["matplotlib>=3.7", "ipykernel", "ipython", "ipywidgets"]
+dev = ["pytest>=8.0"]
+all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "matplotlib>=3.7", "modal", "ipykernel", "ipython", "ipywidgets", "pytest>=8.0"]
 test = ["pytest>=8.0"]
 
-[tool.setuptools]
-packages = ["src"]
+[project.scripts]
+multigeom = "multigeom.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["multigeom*"]
+
+[tool.setuptools.package-data]
+multigeom = ["configs/*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]                                     # run the tests from a source checkout without installing
 addopts = "-ra --strict-markers"
 markers = [
   "slow: takes more than a few seconds (deselect with -m 'not slow')",

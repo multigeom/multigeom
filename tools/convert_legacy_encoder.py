@@ -3,7 +3,7 @@ Convert an encoder checkpoint saved by the original research code (used for
 the NeurIPS 2026 figures) to the format of this repository.
 
 The original Inception and ResNet-50 encoders have the same architecture as
-`src.encoders.InceptionEncoder` / `ResNet50Encoder` (frozen backbone + per-neuron
+`multigeom.encoders.InceptionEncoder` / `ResNet50Encoder` (frozen backbone + per-neuron
 Gaussian spatial readout); only parameter names differ:
 
     original                          this repository
@@ -31,8 +31,9 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.encoders import build_encoder
-from src.utils import load_config, provenance, project_root
+from multigeom.encoders import build_encoder
+from multigeom.config import load_config, project_root
+from multigeom.utils import provenance
 
 READOUT_KEYS = ("mu", "sigma", "feature_weights", "bias", "grid_x", "grid_y")
 RESNET_RENAMES = (
@@ -62,10 +63,10 @@ def main(argv=None):
     p.add_argument("--legacy-ckpt", required=True)
     p.add_argument("--area", required=True, choices=["V1", "V4"])
     p.add_argument("--out", required=True)
-    p.add_argument("--config", default=None, help="default: configs/<encoder>.yaml")
+    p.add_argument("--config", default=None, help="default: the packaged <encoder> config")
     args = p.parse_args(argv)
 
-    cfg_path = args.config or str(project_root() / "configs" / f"{args.encoder}.yaml")
+    cfg_path = args.config or args.encoder
     legacy = torch.load(args.legacy_ckpt, map_location="cpu", weights_only=False)
     state = remap(legacy["model_state_dict"], args.encoder)
 

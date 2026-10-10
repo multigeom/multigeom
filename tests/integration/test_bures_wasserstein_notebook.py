@@ -1,5 +1,5 @@
 """
-Integration tests of tutorials/4_bures_wasserstein.ipynb (paper Fig. 6, the Bures-Wasserstein distance between geometries):
+Integration tests of notebooks/4_bures_wasserstein.ipynb (paper Fig. 6, the Bures-Wasserstein distance between geometries):
 they run the notebook's own cells.
 
 The reference is stored in tests/integration/fixtures/fig6/ (regenerate with
@@ -58,24 +58,24 @@ def test_fixture_info_agrees_with_its_source_and_the_repository():
     i = info()
     assert hashlib.md5(SOURCE.read_bytes()).hexdigest() == i["source"]["md5"], \
         "the Stage-5 file of the Fig. 4D-E fixture changed: regenerate the Fig. 6 fixture"
-    from src import bures_wasserstein as bw
+    from multigeom.pipeline import alignment as bw
     metrics = bw.load_metrics(SOURCE)
     assert i["k_max"] == max(max(p["k"]) for p in metrics["pairs"].values()) == 50
     assert i["ordering"] == bw.ordering(metrics)
     assert i["ordering"]["G"]["matches_paper"] and i["ordering"]["J"]["matches_paper"]
     import inspect
 
-    from figures.fig_app_bw import make_figure  # noqa: F401
-    assert i["plot"]["function"] == "figures.fig_app_bw.make_figure"
-    from src.utils import load_config
-    est = load_config(REPO / "configs" / "estimator.yaml")
+    from multigeom.viz.fig_app_bw import make_figure  # noqa: F401
+    assert i["plot"]["function"] == "multigeom.viz.fig_app_bw.make_figure"
+    from multigeom.config import load_config
+    est = load_config("estimator")
     assert i["estimator"]["n_samples"] == int(est.monte_carlo.n_samples) and i["estimator"]["seed"] == int(est.seed), \
         "configs/estimator.yaml changed since the fixture was made: regenerate it"
     assert inspect.signature(make_figure).parameters["metrics"]
 
 
 def test_ordering_cell_reports_the_papers_order(at_repo_root, capsys):
-    from src import bures_wasserstein as bw
+    from multigeom.pipeline import alignment as bw
     ns = run_cells({}, SETUP4, notebook=NOTEBOOK4)
     ns["metrics_path"], ns["metrics"] = SOURCE, bw.load_metrics(SOURCE)
     capsys.readouterr()
@@ -86,12 +86,12 @@ def test_ordering_cell_reports_the_papers_order(at_repo_root, capsys):
 
 
 def test_plot_cell_draws_the_reference_figure(at_repo_root, tmp_path, monkeypatch):
-    from src import bures_wasserstein as bw
+    from multigeom.pipeline import alignment as bw
     ns = run_cells({}, SETUP4, notebook=NOTEBOOK4)
     ns["metrics_path"] = SOURCE
     ns["metrics"] = bw.load_metrics(SOURCE)
     drawn = {}
-    monkeypatch.setattr(ns["sa"], "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
+    monkeypatch.setattr(ns["viz"], "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
     run_cells(ns, PLOT4, notebook=NOTEBOOK4)
     assert "fig" in drawn, "the plot cell did not draw a figure"
     drawn["fig"].savefig(tmp_path / "plot.png", dpi=100, bbox_inches="tight")
@@ -121,7 +121,7 @@ def _have_per_image() -> bool:
 def test_notebook_runs_stage5_and_plots_in_a_scratch_copy(at_repo_root, tmp_path, monkeypatch):
     scratch = tmp_path / "repo"
     (scratch / "runs").mkdir(parents=True)
-    for folder in ("src", "stages", "configs", "figures"):
+    for folder in ("multigeom",):
         (scratch / folder).symlink_to(REPO / folder)
     (scratch / "runs" / "per_image").symlink_to(REPO / "runs" / "per_image")        # inputs shared, outputs not
     (scratch / "pyproject.toml").write_text("")
@@ -129,7 +129,7 @@ def test_notebook_runs_stage5_and_plots_in_a_scratch_copy(at_repo_root, tmp_path
     real_mtime = real.stat().st_mtime if real.exists() else None
     monkeypatch.chdir(scratch)
     ns = run_cells({}, SETUP4, notebook=NOTEBOOK4)
-    for module in (ns["bw"], ns["sa"]):
+    for module in (ns["bw"],):
         monkeypatch.setattr(module, "REPO", scratch)
     run_cells(ns, "summary = bw.print_inputs(RUNS_DIR)", notebook=NOTEBOOK4)
     run_cells(ns, COMPUTE4, notebook=NOTEBOOK4)
@@ -138,6 +138,6 @@ def test_notebook_runs_stage5_and_plots_in_a_scratch_copy(at_repo_root, tmp_path
     run_cells(ns, ORDER4, notebook=NOTEBOOK4)
     assert ns["order"]["G"] is not None and ns["order"]["J"] is not None
     drawn = {}
-    monkeypatch.setattr(ns["sa"], "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
+    monkeypatch.setattr(ns["viz"], "show_figure", lambda fig, dpi=110: drawn.setdefault("fig", fig))
     run_cells(ns, PLOT4, notebook=NOTEBOOK4)
     assert "fig" in drawn

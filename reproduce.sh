@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Install first: pip install -e ".[all]" (or pip install "multigeom[fit]").
 # Stages 1-4 for one (encoder, area) configuration.
 # Default: (Inception-V3, V1). Override via $ENCODER and $AREA env vars.
 #
@@ -25,31 +26,31 @@ GX_DIR="${RUN_ROOT}/per_image/${ENCODER}/${AREA}"
 echo "=== Reproducing ${ENCODER} × ${AREA} pipeline → ${RUN_ROOT} ==="
 
 echo "--- Stage 1: train encoder readout on Papale (${AREA}) ---"
-python stages/01_train_encoder.py \
-    --config "configs/${ENCODER}.yaml" \
+python -m multigeom.fit.train_encoder \
+    --config "${ENCODER}" \
     --area "${AREA}" \
     --device "${DEVICE}" \
     --out-dir "${ENC_DIR}"
 
 echo "--- Stage 2: precompute TinyImageNet responses ---"
-python stages/02_precompute_responses.py \
-    --config "configs/${ENCODER}.yaml" \
+python -m multigeom.diffusion.responses \
+    --config "${ENCODER}" \
     --area "${AREA}" \
     --encoder-ckpt "${ENC_DIR}/best_model.pt" \
     --device "${DEVICE}" \
     --out-dir "${RESP_DIR}"
 
 echo "--- Stage 3: train conditional DDPM on TinyImageNet ---"
-python stages/03_train_diffusion.py \
-    --config configs/diffusion.yaml \
+python -m multigeom.diffusion.train \
+    --config diffusion \
     --responses "${RESP_DIR}/train_responses.pt" \
     --device "${DEVICE}" \
     --out-dir "${DIFF_DIR}"
 
 echo "--- Stage 4: estimate G(x) (conditional-pair) and J(x) (closed form) ---"
-python stages/04_estimate_gx.py \
-    --config configs/estimator.yaml \
-    --encoder-cfg "configs/${ENCODER}.yaml" \
+python -m multigeom.pipeline.per_image \
+    --config estimator \
+    --encoder-cfg "${ENCODER}" \
     --encoder-ckpt "${ENC_DIR}/best_model.pt" \
     --diffusion-ckpt "${DIFF_DIR}/final_model.pt" \
     --area "${AREA}" \
@@ -57,6 +58,6 @@ python stages/04_estimate_gx.py \
     --out-dir "${GX_DIR}"
 
 echo "--- Next, once all six configurations are done: ---"
-echo "    python stages/05_compute_metrics.py --runs-dir ${RUN_ROOT} --out-dir ${RUN_ROOT}/metrics"
+echo "    python -m multigeom.pipeline.alignment --runs-dir ${RUN_ROOT} --out-dir ${RUN_ROOT}/metrics"
 
 echo "=== Done: ${ENCODER} × ${AREA} ==="

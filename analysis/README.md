@@ -1,7 +1,7 @@
 # Supporting analyses
 
 Three scripts that reproduce numbers quoted in the appendices of the paper.
-They are not part of the main pipeline (`stages/01` to `stages/05`) and
+They are not part of the main pipeline (`multigeom.fit`, `multigeom.diffusion`, `multigeom.pipeline`) and
 write their results as JSON files with a provenance record (git commit,
 command line, configs, package versions).
 
@@ -19,18 +19,18 @@ takes the root-mean-square, over trials and images, of the per-trial response
 minus its trial average, and reports the median over channels.
 
 The primary number uses the top-50 channels per area by oracle reliability
-(the encoder targets, selected with `src.data_loaders.load_tvsd`), as did the
+(the encoder targets, selected with `multigeom.data_loaders.load_tvsd`), as did the
 original measurement. The median over all channels of the area is reported
 alongside it.
 
-    python analysis/calibrate_sigma.py --out runs/analysis/sigma_calibration.json
+    python -m multigeom.fit.calibrate_sigma --out runs/analysis/sigma_calibration.json
 
 On the released TVSD file this gives 0.2275 (V1) and 0.2451 (V4) on the
 top-50 channels, and 0.2517 (V1) and 0.2591 (V4) on all channels of the area.
 
 ## estimator_variance.py
 
-Runs the conditional-pair (CC) estimator of `src.estimator` and the
+Runs the conditional-pair (CC) estimator of `multigeom.estimator` and the
 unconditional-conditional (UC) form on a few test images, several times each
 with independent seeds, and compares the across-run variance of the top-5
 eigenvalues.
@@ -48,8 +48,8 @@ By default (`--compute-match passes`) UC gets 1.5 times as many samples, so
 that both spend the same number of passes. `--compute-match samples` uses the
 same sample count for both.
 
-    python analysis/estimator_variance.py \
-        --encoder-cfg configs/inception.yaml \
+    python -m multigeom.pipeline.estimator_variance \
+        --encoder-cfg inception \
         --encoder-ckpt runs/encoders/inception/V1/best_model.pt \
         --diffusion-ckpt runs/diffusion/inception/V1/final_model.pt \
         --n-images 6 --n-runs 6 --n-mc 100
@@ -66,8 +66,8 @@ candidate layer, with everything else fixed (input conversion, readout,
 optimiser, schedule, validation split and seed from the encoder config), and
 reports validation and test correlations per layer.
 
-    python analysis/layer_sweep.py --backbone inception --area V1
-    python analysis/layer_sweep.py --backbone resnet50 --area V4
+    python -m multigeom.fit.layer_sweep --backbone inception --area V1
+    python -m multigeom.fit.layer_sweep --backbone resnet50 --area V4
 
 For a 64x64 input the Inception feature map shrinks to 2x2 at Mixed_6a, and
 Mixed_7a, Mixed_7b and Mixed_7c cannot be evaluated; they are recorded as

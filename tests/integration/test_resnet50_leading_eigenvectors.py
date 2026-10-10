@@ -1,6 +1,6 @@
 """
 Integration tests, resnet50 encoder: do we reproduce the notebook's Fig. 4B-C
-(tutorials/1_leading_eigenvectors_of_G.ipynb, section 6: the leading eigenvectors of G(x) and J(x) of the
+(notebooks/1_leading_eigenvectors_of_G.ipynb, section 6: the leading eigenvectors of G(x) and J(x) of the
 inception and resnet50 encoders, V1 block above the V4 block)?
 
 The plot is the paper's comparison of architectures, so it also shows the inception rows (the

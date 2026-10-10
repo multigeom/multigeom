@@ -1,5 +1,5 @@
 """
-Tests for src.diffusion_model: conditioning MLP, conditional UNet wrapper and
+Tests for multigeom.diffusion_model: conditioning MLP, conditional UNet wrapper and
 DDPM scheduler. Expected values: shapes from the documented interfaces, the
 linear-β closed form ᾱ_t = Π_{s≤t}(1 − β_s), and the parameter count quoted in
 the paper (≈ 68.4 M with the conditioning MLP; App. "Architecture").
@@ -15,10 +15,11 @@ import torch.nn as nn
 pytest.importorskip("diffusers")
 
 from conftest import REPO, linear_beta_alphas_cumprod  # noqa: E402
-from src.diffusion_model import (  # noqa: E402
+from multigeom.diffusion.model import (  # noqa: E402
     ConditioningMLP, NeuralConditionedUNet, build_diffusion_model, build_scheduler,
 )
-from src.utils import count_parameters, load_config  # noqa: E402
+from multigeom.config import load_config  # noqa: E402
+from multigeom.utils import count_parameters  # noqa: E402
 
 
 def _tiny_cfg():
@@ -59,14 +60,14 @@ def test_unet_forward_shape_and_conditioning_is_used():
 
 
 def test_scheduler_matches_linear_beta_closed_form():
-    sched = build_scheduler(load_config(REPO / "configs" / "diffusion.yaml"))
+    sched = build_scheduler(load_config("diffusion"))
     torch.testing.assert_close(sched.alphas_cumprod.double(), linear_beta_alphas_cumprod(),
                                rtol=1e-5, atol=1e-7)
 
 
 @pytest.mark.slow
 def test_paper_config_parameter_count():
-    model = build_diffusion_model(load_config(REPO / "configs" / "diffusion.yaml"))
+    model = build_diffusion_model(load_config("diffusion"))
     trainable, total = count_parameters(model)
     assert trainable == total
     assert total == pytest.approx(68.4e6, rel=0.005)

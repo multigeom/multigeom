@@ -34,20 +34,21 @@ SETTINGS = [("fixed", 0.2), ("fixed", 0.3), ("fixed", 0.5), ("fixed", 0.8), ("sq
 def scan(out_path: Path, n_images: int, min_radial: float, grid_size: int = 5) -> None:
     import torch
 
-    from src import local_metric_field as lmf
-    from src.data_loaders import CANONICAL_TRANSFORM, TinyImageNetDataset
-    from src.encoders import build_encoder
-    from src.fisher import fisher_eigendecomposition
-    from src.metric_field import canonical_sign, grid_coefficients, perturbation_grid, project_metric, step_sizes
-    from src.utils import get_device, load_config
+    from multigeom.pipeline import metric_field_job as lmf
+    from multigeom.data import CANONICAL_TRANSFORM, TinyImageNetDataset
+    from multigeom.encoders import build_encoder
+    from multigeom.geometry.fisher import fisher_eigendecomposition
+    from multigeom.geometry.metric_field import canonical_sign, grid_coefficients, perturbation_grid, project_metric, step_sizes
+    from multigeom.config import load_config
+    from multigeom.utils import get_device
 
     dev = get_device(None)
-    sigma = float(load_config(ROOT / "configs" / "estimator.yaml").monte_carlo.observation_noise_sigma)
+    sigma = float(load_config("estimator").monte_carlo.observation_noise_sigma)
     coeffs = grid_coefficients(grid_size)
     models = {}
     for area in lmf.AREAS:
         for name in ("inception", "resnet50"):
-            enc = build_encoder(load_config(ROOT / "configs" / f"{name}.yaml")).to(dev)
+            enc = build_encoder(load_config(name)).to(dev)
             ckpt = torch.load(ROOT / f"runs/encoders/{name}/{area}/best_model.pt", map_location=dev, weights_only=False)
             enc.load_state_dict(ckpt["model_state_dict"])
             models[(name, area)] = enc.eval()

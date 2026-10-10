@@ -31,4 +31,8 @@ CLAUDE.md
 env/
 data/
 tutorials/env_tuto/
+notebooks/env_tuto/
 THINGS_database.zip
+assets
+# local reference material, not published
+assets/

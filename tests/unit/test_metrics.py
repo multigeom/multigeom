@@ -1,5 +1,5 @@
 """
-Tests for src.metrics: subspace alignment and Bures-Wasserstein distance.
+Tests for multigeom.metrics: subspace alignment and Bures-Wasserstein distance.
 
 Expected values come from (i) analytic cases (identical / rotated / orthogonal
 subspaces; commuting PSD matrices, for which d_BW² = Σ(√a_i − √b_i)²),
@@ -14,7 +14,7 @@ import pytest
 import scipy.linalg
 import torch
 
-from src.metrics import bures_wasserstein, bures_wasserstein_from_overlap, subspace_alignment
+from multigeom.geometry.metrics import bures_wasserstein, bures_wasserstein_from_overlap, subspace_alignment
 
 
 def _orthonormal_rows(k: int, P: int, seed: int) -> torch.Tensor:

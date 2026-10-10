@@ -5,7 +5,7 @@
 # purpose: download and unpack TinyImageNet into data/tiny-imagenet-200/ (~240 MB zip, ~480 MB unpacked).
 # usage:
 #
-#   bash tutorials/download_tiny_imagenet.sh
+#   bash notebooks/download_tiny_imagenet.sh
 #
 # Output layout:
 #

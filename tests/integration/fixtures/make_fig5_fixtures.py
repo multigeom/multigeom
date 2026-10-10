@@ -1,5 +1,5 @@
 """
-Regenerate the Fig. 5 fixtures of tutorials/3_local_metric_field.ipynb from Stage-6 results in runs/:
+Regenerate the Fig. 5 fixtures of notebooks/3_local_metric_field.ipynb from Stage-6 results in runs/:
 
     tests/integration/fixtures/fig5/metric_field.npz         what the drawing needs: grid coefficients, reference image x0,
                                                              and the projected 2x2 matrices of every (metric, area, encoder)
@@ -30,8 +30,8 @@ sys.path.insert(0, str(HERE.parents[2]))
 sys.path.insert(0, str(HERE.parent))               # tests/integration (nb_helpers)
 
 from nb_helpers import fig5_records  # noqa: E402
-from src import local_metric_field as lmf  # noqa: E402
-from src.utils import load_config  # noqa: E402
+from multigeom.pipeline import metric_field_job as lmf  # noqa: E402
+from multigeom.config import load_config  # noqa: E402
 
 OUT = HERE / "fig5"
 
@@ -78,7 +78,7 @@ def main(argv=None):
     figsize = [float(v) for v in fig.get_size_inches()]
     fig.savefig(OUT / "fig5_reference.png", dpi=100, bbox_inches="tight")      # tight: the legend sits outside the axes
 
-    est = load_config(lmf.REPO / "configs" / "estimator.yaml")
+    est = load_config("estimator")
     checkpoints = {}
     for area in job.areas:
         for enc in (job.reference_encoder, job.other_encoder):
@@ -96,7 +96,7 @@ def main(argv=None):
         "estimator": {"n_samples": int(est.monte_carlo.n_samples), "sigma": float(est.monte_carlo.observation_noise_sigma),
                       "seed": int(est.seed), "top_k": int(est.top_k)},
         "checkpoints": checkpoints,
-        "plot": {"function": "figures.fig5.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight", "fill": 0.9},
+        "plot": {"function": "multigeom.viz.fig5.make_figure", "figsize": figsize, "dpi": 100, "bbox_inches": "tight", "fill": 0.9},
         "git_commit": subprocess.run(["git", "rev-parse", "HEAD"], cwd=lmf.REPO, capture_output=True, text=True).stdout.strip(),
         "git_dirty": bool(subprocess.run(["git", "status", "--porcelain"], cwd=lmf.REPO, capture_output=True, text=True).stdout.strip()),
         "versions": {"torch": torch.__version__, "numpy": numpy.__version__, "matplotlib": matplotlib.__version__},

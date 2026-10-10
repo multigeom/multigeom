@@ -1,5 +1,5 @@
 """
-Tests for src.estimator (Algorithm 1, conditional-pair estimator of G(x)).
+Tests for multigeom.estimator (Algorithm 1, conditional-pair estimator of G(x)).
 
 Analytic reference. Take a mock score network whose conditional branch is
 affine in the response, ε(x_t, t, r) = A r + h(x_t) (A ∈ ℝ^{P×n}), and whose
@@ -28,7 +28,7 @@ import torch.nn as nn
 
 pytest.importorskip("diffusers")
 
-from src.estimator import (  # noqa: E402
+from multigeom.geometry.estimator import (  # noqa: E402
     _build_log_tau_grid, _trapezoid_weights, conditional_pair_estimate,
 )
 from conftest import estimator_cfg, linear_beta_alphas_cumprod  # noqa: E402

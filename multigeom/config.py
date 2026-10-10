@@ -29,14 +29,14 @@ def package_root() -> Path:
 def project_root() -> Path:
     """
     The working root of a project, where `runs/` and `data/` live by default: $MULTIGEOM_REPO if set; else the
-    repository root when the package runs from a source checkout (src layout: the folder with pyproject.toml); else
+    repository root when the package runs from a source checkout (the folder with pyproject.toml); else
     the current directory.
     """
     env = os.environ.get("MULTIGEOM_REPO")
     if env:
         return Path(env)
-    checkout = package_root().parent.parent
-    return checkout if (checkout / "pyproject.toml").exists() and (checkout / "src" / "multigeom").exists() else Path.cwd()
+    checkout = package_root().parent
+    return checkout if (checkout / "pyproject.toml").exists() else Path.cwd()
 
 
 def data_dir() -> Path:

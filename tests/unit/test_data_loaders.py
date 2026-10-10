@@ -1,5 +1,5 @@
 """
-Tests for src.data_loaders on a synthetic MATLAB-v7.3-like TVSD pair
+Tests for multigeom.data_loaders on a synthetic MATLAB-v7.3-like TVSD pair
 (write_fake_tvsd in tests/conftest.py). The expected channel selection is computed
 here from the oracle vector by sorting; the expected responses are read off
 the known construction train_MUA[i, c] = 1000·i + c.
@@ -12,9 +12,8 @@ import torch
 from PIL import Image
 
 from conftest import write_fake_tvsd
-from src.data_loaders import (
-    AREA_CHANNELS, CANONICAL_TRANSFORM, TVSDDataset, existing_image_mask, load_tvsd,
-)
+from multigeom.data import CANONICAL_TRANSFORM
+from multigeom.fit.tvsd import AREA_CHANNELS, TVSDDataset, existing_image_mask, load_tvsd
 
 # Old h5py releases call np.product, deprecated in NumPy 1.25.
 pytestmark = pytest.mark.filterwarnings("ignore:`product` is deprecated:DeprecationWarning")

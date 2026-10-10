@@ -35,7 +35,7 @@
     }
   },
   "plot": {
-    "function": "figures.fig_app_bw.make_figure",
+    "function": "multigeom.viz.fig_app_bw.make_figure",
     "figsize": [
       10.0,
       3.8

@@ -29,13 +29,16 @@ jobs:
           path: ~/.cache/pip
           key: pip-${{ runner.os }}-${{ hashFiles('environment-ci.yml') }}
 
+      - name: Install the package (dependencies come from the conda environment)
+        run: pip install -e . --no-deps
+
       - name: Unit tests (tests/unit; synthetic data, CPU only)
         env:
           USE_TF: "0"
           USE_FLAX: "0"
         run: pytest tests/unit -m "not slow and not gpu and not pretrained"
 
-      - name: Integration tests (tests/integration; notebook Fig. 3 and Fig. 4 reproduction, CPU only)
+      - name: Integration tests (tests/integration; notebooks' cells and figures, CPU only)
         env:
           USE_TF: "0"
           USE_FLAX: "0"

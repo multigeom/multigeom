@@ -1,5 +1,5 @@
 """
-Integration test: do we reproduce the plot of tutorials/3_local_metric_field.ipynb (paper Fig. 5, the local
+Integration test: do we reproduce the plot of notebooks/3_local_metric_field.ipynb (paper Fig. 5, the local
 metric field projected onto the leading eigenvectors of G(x))?
 
 The reference is stored in tests/integration/fixtures/fig5/ (regenerate with
@@ -12,7 +12,7 @@ tests/integration/fixtures/make_fig5_fixtures.py, after running the notebook wit
                             J: fixed 0.3), the steps and eigenvalues at the reference image, estimator settings (200 Monte-Carlo samples, seed 42,
                             sigma 0.22), checkpoint hashes and diffusion epochs, plot settings, git commit, versions
 
-The tests run the notebook's plotting function, src.local_metric_field.plot_metric_field, on the stored matrices and compare
+The tests run the notebook's plotting function, multigeom.pipeline.metric_field_job.plot_metric_field, on the stored matrices and compare
 the picture with the reference; they check that fixture_info.json agrees with the data and with the repository's settings
 (configs/estimator.yaml, the plot defaults), and that the matrices are valid symmetric positive-semidefinite 2 x 2 metrics.
 The computation itself (stage 6) is not run here: it needs the checkpoints and takes minutes.
@@ -37,7 +37,7 @@ import torch  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from nb_helpers import BAD_PIXEL_FRACTION, FIG5_FIXTURES, MEAN_ABS_TOL, fig5_records, image_difference  # noqa: E402
-from src import local_metric_field as lmf  # noqa: E402
+from multigeom.pipeline import metric_field_job as lmf  # noqa: E402
 
 FIXTURES = FIG5_FIXTURES
 NPZ = FIXTURES / "metric_field.npz"
@@ -94,9 +94,9 @@ def test_fixture_info_agrees_with_the_stored_matrices():
 
 def test_fixture_parameters_match_the_current_settings_of_the_repository():
     """If the estimator config, the job defaults or the plot defaults change, the fixture no longer describes this code."""
-    from src.utils import load_config
+    from multigeom.config import load_config
     i = info()
-    est = load_config(lmf.REPO / "configs" / "estimator.yaml")
+    est = load_config("estimator")
     assert i["estimator"] == {"n_samples": int(est.monte_carlo.n_samples),
                               "sigma": float(est.monte_carlo.observation_noise_sigma),
                               "seed": int(est.seed), "top_k": int(est.top_k)}, \
@@ -105,7 +105,7 @@ def test_fixture_parameters_match_the_current_settings_of_the_repository():
     assert i["job"]["img_idx"] == default.img_idx == lmf.DEFAULT_IMG_IDX, "the default reference image changed: regenerate the fixture"
     assert i["job"]["steps"] == {m: list(v) for m, v in default.steps.items()}, \
         "the default step rules of the job changed since the fixture was made: regenerate it"
-    from figures.fig5 import make_figure
+    from multigeom.viz.fig5 import make_figure
     assert i["plot"]["fill"] == inspect.signature(make_figure).parameters["fill"].default
 
 

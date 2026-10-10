@@ -78,7 +78,7 @@
   },
   "k_max": 50,
   "plot": {
-    "function": "src.subspace_alignment.plot_alignment",
+    "function": "multigeom.viz.plot_alignment",
     "figsize": [
       10.0,
       3.8

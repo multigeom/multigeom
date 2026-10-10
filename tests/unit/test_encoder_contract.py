@@ -1,5 +1,5 @@
 """
-Tests for src.encoder_contract: the rules an encoder must satisfy (R1-R9), the check that enforces them, and
+Tests for multigeom.encoder_contract: the rules an encoder must satisfy (R1-R9), the check that enforces them, and
 its use by the Fisher baseline (generic path through the public forward) and, opt-in, the G(x) estimator.
 A good toy encoder passes; one deliberately bad encoder per rule is rejected with that rule's id.
 """
@@ -13,9 +13,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.encoder_contract import EncoderContractError, ensure_valid, validate_encoder
-from src.encoders import _BaseEncoder
-from src.fisher import fisher_eigendecomposition
+from multigeom.encoder import EncoderContractError, ensure_valid, validate_encoder
+from multigeom.encoders import _BaseEncoder
+from multigeom.geometry.fisher import fisher_eigendecomposition
 
 H = W = 8
 P = H * W
@@ -239,7 +239,7 @@ def test_fisher_rejects_a_bad_encoder():
 def test_estimator_validate_flag_rejects_a_bad_encoder():
     pytest.importorskip("diffusers")
     from conftest import estimator_cfg
-    from src.estimator import conditional_pair_estimate
+    from multigeom.geometry.estimator import conditional_pair_estimate
 
     class Cut(Toy):
         def forward(self, x):

@@ -1,5 +1,5 @@
 """
-Tests for src.encoders.
+Tests for multigeom.encoders.
 
 Fast tests use a tiny fake backbone subclassing `_FrozenBackbone`, so no
 pretrained weights are downloaded. Tests that build the real torchvision /
@@ -16,7 +16,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-from src.encoders import (
+from multigeom.encoders import (
     GaussianReadout, InceptionEncoder, OnOffEncoder, ResNet50Encoder, _BaseEncoder,
     _FrozenBackbone,
 )

@@ -1,7 +1,6 @@
-"""Shared test helpers: repository on sys.path, stage-module loader, tiny configs."""
+"""Shared test helpers: the package and the repository on sys.path, synthetic data, tiny configs."""
 from __future__ import annotations
 
-import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -16,17 +15,8 @@ os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("USE_FLAX", "0")
 
 REPO = Path(__file__).resolve().parent.parent
-if str(REPO) not in sys.path:
+if str(REPO) not in sys.path:                  # the package, also without installing
     sys.path.insert(0, str(REPO))
-
-
-def load_stage(filename: str):
-    """Import stages/<filename> (file names start with digits, so not importable by name)."""
-    path = REPO / "stages" / filename
-    spec = importlib.util.spec_from_file_location(f"stage_{path.stem}", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
 
 
 def linear_beta_alphas_cumprod(T: int = 1000, beta_start: float = 1e-4,
@@ -38,7 +28,7 @@ def linear_beta_alphas_cumprod(T: int = 1000, beta_start: float = 1e-4,
 
 def estimator_cfg(n_samples: int, batch_size: int, start: int, stop: int, step: int,
                   sigma: float, top_k: int) -> SimpleNamespace:
-    """Namespace shaped like configs/estimator.yaml."""
+    """Namespace shaped like the packaged estimator config."""
     return SimpleNamespace(
         top_k=top_k,
         monte_carlo=SimpleNamespace(

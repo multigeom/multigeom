@@ -1,4 +1,4 @@
-"""Tests for src.utils: provenance, config loading, seeding helpers."""
+"""Tests for multigeom.utils: provenance, config loading, seeding helpers."""
 from __future__ import annotations
 
 import subprocess
@@ -7,7 +7,8 @@ import pytest
 import torch
 
 from conftest import REPO
-from src.utils import load_config, make_generator, project_root, provenance
+from multigeom.config import CONFIG_DIR, load_config, package_root, project_root
+from multigeom.utils import make_generator, provenance
 
 
 def _git_head():
@@ -19,7 +20,7 @@ def _git_head():
 
 
 def test_provenance_records_commit_config_and_seed():
-    cfg = REPO / "configs" / "estimator.yaml"
+    cfg = CONFIG_DIR / "estimator.yaml"
     prov = provenance({"estimator": cfg, "absent": None}, seed=7, argv=["x", "--y"])
     assert prov["git_commit"] == _git_head()
     if prov["git_commit"] is not None:
@@ -30,8 +31,9 @@ def test_provenance_records_commit_config_and_seed():
     assert prov["packages"]["torch"].split("+")[0] == torch.__version__.split("+")[0]
 
 
-def test_project_root_contains_src():
-    assert (project_root() / "src" / "utils.py").exists()
+def test_package_and_project_roots():
+    assert (package_root() / "utils.py").exists() and (package_root() / "configs" / "estimator.yaml").exists()
+    assert (project_root() / "pyproject.toml").exists()                        # a source checkout
 
 
 def test_load_config_nested_namespace(tmp_path):

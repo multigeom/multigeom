@@ -513,8 +513,8 @@ def launch_modal(workers: list[list[Shard]], *, gpu_type: str = "A100", volume_n
 
     image = (modal.Image.debian_slim(python_version="3.11")
              .pip_install(*MODAL_PIP)
-             .env({"PYTHONPATH": "/repo/src", "NEURIPS_DATA_DIR": "/vol/data", "USE_TF": "0", "USE_FLAX": "0"})
-             .add_local_dir(str(package_root()), "/repo/src/multigeom", ignore=["**/__pycache__"]))
+             .env({"PYTHONPATH": "/repo", "NEURIPS_DATA_DIR": "/vol/data", "USE_TF": "0", "USE_FLAX": "0"})
+             .add_local_dir(str(package_root()), "/repo/multigeom", ignore=["**/__pycache__"]))
     vol = modal.Volume.from_name(volume_name, create_if_missing=True)
     app = modal.App("multigeom-subspace-alignment")
     commit_every = COMMIT_EVERY_S

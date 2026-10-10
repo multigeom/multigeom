@@ -29,14 +29,14 @@ import torch
 import torch.nn as nn
 
 from conftest import estimator_cfg, linear_beta_alphas_cumprod, write_fake_tvsd
-from src.data_loaders import AREA_CHANNELS, load_tvsd
+from multigeom.fit.tvsd import AREA_CHANNELS, load_tvsd
 
 pytestmark = pytest.mark.filterwarnings("ignore:`product` is deprecated:DeprecationWarning")
 
 
 # ── calibrate_sigma ────────────────────────────────────────────────────────
 def test_calibrate_sigma_recovers_planted_trial_std(tmp_path):
-    from analysis.calibrate_sigma import main
+    from multigeom.fit.calibrate_sigma import main
 
     n_trials, n_test = 6, 4
     write_fake_tvsd(tmp_path, n_test=n_test, n_trials=n_trials)
@@ -118,7 +118,7 @@ def _grid_W(start, stop, step):
 
 def test_uc_without_mismatch_matches_cc_expectation():
     pytest.importorskip("diffusers")
-    from analysis.estimator_variance import unconditional_conditional_estimate
+    from multigeom.pipeline.estimator_variance import unconditional_conditional_estimate
 
     A, b, U, _, s = _problem(beta=0.0)
     cfg = estimator_cfg(400, 100, 100, 900, 100, SIGMA, top_k=4)
@@ -134,7 +134,7 @@ def test_uc_without_mismatch_matches_cc_expectation():
 
 def test_uc_mismatch_adds_W_b2_along_b():
     pytest.importorskip("diffusers")
-    from analysis.estimator_variance import unconditional_conditional_estimate
+    from multigeom.pipeline.estimator_variance import unconditional_conditional_estimate
 
     beta = 4.0
     A, b, _, bdir, s = _problem(beta=beta)
@@ -152,7 +152,7 @@ def test_uc_mismatch_adds_W_b2_along_b():
 
 def test_variance_study_ratio_reflects_mismatch():
     pytest.importorskip("diffusers")
-    from analysis.estimator_variance import run_variance_study
+    from multigeom.pipeline.estimator_variance import run_variance_study
 
     beta = 4.0
     A, b, *_ = _problem(beta=beta)
@@ -171,7 +171,7 @@ def test_variance_study_ratio_reflects_mismatch():
 
 
 def test_matched_pass_count():
-    from analysis.estimator_variance import uc_samples_for_matched_passes
+    from multigeom.pipeline.estimator_variance import uc_samples_for_matched_passes
 
     assert uc_samples_for_matched_passes(200, 25) == 300      # 3·200 = 2·300
     assert uc_samples_for_matched_passes(100, 50) == 150
@@ -180,7 +180,7 @@ def test_matched_pass_count():
 # ── layer_sweep ────────────────────────────────────────────────────────────
 @pytest.fixture(scope="module")
 def nets():
-    from analysis.layer_sweep import build_torchvision_net
+    from multigeom.fit.layer_sweep import build_torchvision_net
 
     torch.manual_seed(0)
     return {bb: build_torchvision_net(bb, pretrained=False).eval()
@@ -188,7 +188,7 @@ def nets():
 
 
 def test_truncated_inception_matches_manual_forward(nets):
-    from analysis.layer_sweep import TruncatedBackbone
+    from multigeom.fit.layer_sweep import TruncatedBackbone
 
     net = nets["inception"]
     tb = TruncatedBackbone("inception", "Conv2d_4a_3x3", net=net)
@@ -202,7 +202,7 @@ def test_truncated_inception_matches_manual_forward(nets):
 
 
 def test_truncated_inception_skips_aux_and_rejects_collapsed_maps(nets):
-    from analysis.layer_sweep import TruncatedBackbone
+    from multigeom.fit.layer_sweep import TruncatedBackbone
 
     tb = TruncatedBackbone("inception", "Mixed_6e", net=nets["inception"])
     assert "AuxLogits" not in dict(tb.features.named_children())
@@ -214,8 +214,8 @@ def test_truncated_inception_skips_aux_and_rejects_collapsed_maps(nets):
 
 
 def test_truncated_resnet_matches_manual_forward(nets):
-    from analysis.layer_sweep import TruncatedBackbone
-    from src.encoders import ResNet50Backbone
+    from multigeom.fit.layer_sweep import TruncatedBackbone
+    from multigeom.encoders import ResNet50Backbone
 
     net = nets["resnet50"]
     x = torch.rand(2, 3, 64, 64)
@@ -231,8 +231,8 @@ def test_truncated_resnet_matches_manual_forward(nets):
 
 
 def test_sweep_encoder_input_convention(nets):
-    from analysis.layer_sweep import SweepEncoder
-    from src.encoders import InceptionEncoder, ResNet50Encoder
+    from multigeom.fit.layer_sweep import SweepEncoder
+    from multigeom.encoders import InceptionEncoder, ResNet50Encoder
 
     for bb, ref in (("inception", InceptionEncoder), ("resnet50", ResNet50Encoder)):
         enc = SweepEncoder(bb, "Conv2d_2a_3x3" if bb == "inception" else "maxpool", 5, 0.25,
@@ -244,8 +244,8 @@ def test_sweep_encoder_input_convention(nets):
 
 
 def test_train_readout_recovers_planted_readout():
-    from analysis.layer_sweep import _load_stage1, train_readout
-    from src.encoders import GaussianReadout
+    from multigeom.fit.layer_sweep import _load_stage1, train_readout
+    from multigeom.encoders import GaussianReadout
 
     torch.manual_seed(0)
     N, C, S, n = 600, 4, 6, 3
@@ -267,7 +267,7 @@ def test_train_readout_recovers_planted_readout():
 
 @pytest.mark.slow
 def test_sweep_end_to_end_random_weights():
-    from analysis.layer_sweep import sweep
+    from multigeom.fit.layer_sweep import sweep
 
     g = torch.Generator().manual_seed(0)
     images = {"train": torch.rand(40, 1, 64, 64, generator=g) * 2 - 1,
@@ -290,8 +290,8 @@ def test_sweep_end_to_end_random_weights():
 @pytest.mark.parametrize("backbone, layer", [("inception", "Conv2d_4a_3x3"),
                                              ("resnet50", "layer1.0")])
 def test_truncated_backbone_matches_src_backbone(backbone, layer):
-    from analysis.layer_sweep import TruncatedBackbone
-    from src.encoders import InceptionBackbone, ResNet50Backbone
+    from multigeom.fit.layer_sweep import TruncatedBackbone
+    from multigeom.encoders import InceptionBackbone, ResNet50Backbone
 
     ref = (InceptionBackbone if backbone == "inception" else ResNet50Backbone)(layer=layer)
     tb = TruncatedBackbone(backbone, layer)

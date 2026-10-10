@@ -1,8 +1,8 @@
 """
 Stage 5 (stages/05_compute_metrics.py) on a synthetic runs/per_image tree.
 
-Expected values are recomputed per image with src.metrics.subspace_alignment
-and src.metrics.bures_wasserstein (which are themselves tested against
+Expected values are recomputed per image with multigeom.metrics.subspace_alignment
+and multigeom.metrics.bures_wasserstein (which are themselves tested against
 principal angles and a dense reference in test_metrics.py) and averaged here.
 """
 from __future__ import annotations
@@ -14,8 +14,7 @@ import numpy as np
 import pytest
 import torch
 
-from conftest import load_stage
-from src.metrics import bures_wasserstein, subspace_alignment
+from multigeom.geometry.metrics import bures_wasserstein, subspace_alignment
 
 P, K = 30, 6
 CONFIGS = [("inception", "V1"), ("inception", "V4"), ("resnet50", "V1"), ("resnet50", "V4")]
@@ -47,7 +46,7 @@ def _write_tree(root, missing=(), no_fisher=()):
 
 
 def _run(tmp_path, monkeypatch, max_k=K):
-    stage = load_stage("05_compute_metrics.py")
+    from multigeom.pipeline import alignment as stage
     out = tmp_path / "metrics"
     monkeypatch.setattr(sys, "argv", ["05", "--runs-dir", str(tmp_path), "--out-dir", str(out),
                                       "--max-k", str(max_k)])

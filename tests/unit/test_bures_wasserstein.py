@@ -1,5 +1,5 @@
 """
-Tests for src.bures_wasserstein: the summary of the Stage-5 inputs, the ordering the paper reports for the
+Tests for multigeom.bures_wasserstein: the summary of the Stage-5 inputs, the ordering the paper reports for the
 Bures-Wasserstein distances (cross-model below cross-area for G(x), reversed for J(x)), and the messages. Synthetic
 data only; no GPU or checkpoints needed.
 """
@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from src import bures_wasserstein as bw
-from src import subspace_alignment as sa
+from multigeom.pipeline import alignment as bw
+from multigeom.pipeline import distribute as sa
 
 AREAS, ENCODERS = bw.AREAS, bw.ENCODERS
 

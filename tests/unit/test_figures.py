@@ -1,6 +1,6 @@
 """
 Smoke test for the figure and table scripts, plus checks of the 2 × 2
-projection and ellipse convention of src/metric_field.py (Fig. 5).
+projection and ellipse convention of multigeom/geometry/metric_field.py (Fig. 5).
 
 The smoke test writes a small synthetic runs/ tree (Stage-1 checkpoints,
 Stage-4 per-image files, Stage-5 JSON, Stage-6 metric fields) into tmp_path,
@@ -25,7 +25,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.metric_field import (  # noqa: E402
+from multigeom.geometry.metric_field import (  # noqa: E402
     ellipse_grid, ellipse_params, grid_coefficients, perturbation_grid, project_metric,
 )
 
@@ -135,7 +135,7 @@ def test_figure_scripts_write_outputs(tmp_path):
         "fig_app_bw": ["fig_app_bw.pdf", "fig_app_bw.png"],
     }
     for name, files in expected.items():
-        module = importlib.import_module(f"figures.{name}")
+        module = importlib.import_module(f"multigeom.viz.{name}")
         argv = ["--runs-dir", str(runs), "--out-dir", str(out)]
         if name in ("fig3", "fig4", "fig5"):
             argv += ["--img-idx", "0"]

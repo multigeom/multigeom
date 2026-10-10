@@ -1,5 +1,5 @@
 """
-Tests for src.subspace_alignment: sharding of the G(x) estimation work, its command line, scenario
+Tests for multigeom.pipeline.distribute (and the progress line of multigeom.utils): sharding of the G(x) estimation work, its command line, scenario
 presets, the cost estimate and budget guard, the local-GPU cap, Stage 5 with too few configurations,
 and that `modal` is not needed to import the module. No GPU, Modal account or checkpoints needed.
 """
@@ -10,8 +10,9 @@ import sys
 
 import pytest
 
-from src import subspace_alignment as sa
-from src.subspace_alignment import Shard, make_shards
+from multigeom.pipeline import distribute as sa
+from multigeom.utils import ProgressLine, subprocess_env
+from multigeom.pipeline.distribute import Shard, make_shards
 
 CONFIGS = list(sa.ALL_CONFIGS)
 
@@ -55,12 +56,12 @@ def test_make_shards_rejects_empty_work(bad):
         make_shards(bad["configs"], bad["n_images"], 2)
 
 
-def test_stage4_command_matches_the_stage_arguments():
-    cmd = sa.stage4_command(Shard("resnet50", "V4", 5, 9), device="cuda:2", runs_dir="runs", python="py")
-    assert cmd[:2] == ["py", "stages/04_estimate_gx.py"]
-    arg = dict(zip(cmd[2::2], cmd[3::2]))
+def test_per_image_command_matches_the_module_arguments():
+    cmd = sa.per_image_command(Shard("resnet50", "V4", 5, 9), device="cuda:2", runs_dir="runs", python="py")
+    assert cmd[:3] == ["py", "-m", "multigeom.pipeline.per_image"]
+    arg = dict(zip(cmd[3::2], cmd[4::2]))
     assert arg == {
-        "--config": "configs/estimator.yaml", "--encoder-cfg": "configs/resnet50.yaml",
+        "--config": "estimator", "--encoder-cfg": "resnet50",
         "--encoder-ckpt": "runs/encoders/resnet50/V4/best_model.pt",
         "--diffusion-ckpt": "runs/diffusion/resnet50/V4/final_model.pt",
         "--area": "V4", "--device": "cuda:2", "--start": "5", "--end": "9",
@@ -68,12 +69,12 @@ def test_stage4_command_matches_the_stage_arguments():
     }
 
 
-def test_stage4_command_only_uses_arguments_of_stage4(repo_root):
-    import conftest
-    stage4 = conftest.load_stage("04_estimate_gx.py")
+def test_per_image_command_only_uses_arguments_of_the_module(repo_root):
+    import importlib
+    stage4 = importlib.import_module("multigeom.pipeline.per_image")
     options = {a for action in stage4.parse_args.__code__.co_consts if isinstance(action, str) and action.startswith("--")
                for a in [action]}
-    cmd = sa.stage4_command(Shard("inception", "V1", 0, 1), device="cpu")
+    cmd = sa.per_image_command(Shard("inception", "V1", 0, 1), device="cpu")
     assert {c for c in cmd if c.startswith("--")} <= options
 
 
@@ -158,19 +159,20 @@ def test_progress_counts_existing_files(tmp_path, monkeypatch):
 
 
 def test_compute_metrics_needs_two_configurations(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(sa, "REPO", tmp_path)
+    from multigeom.pipeline import alignment
+    monkeypatch.setattr(alignment, "REPO", tmp_path)
     d = tmp_path / "runs" / "per_image" / "inception" / "V1"
     d.mkdir(parents=True)
     (d / "img0000.pt").write_bytes(b"x")
-    assert sa.compute_metrics("runs") is None
+    assert alignment.compute_metrics("runs") is None
     assert "two configurations" in capsys.readouterr().out
 
 
 def test_module_imports_without_modal():
-    code = ("import sys; sys.modules['modal'] = None; import src.subspace_alignment as m; "
+    code = ("import sys; sys.modules['modal'] = None; import multigeom.pipeline.distribute as m; "
             "assert 'modal' not in [k for k, v in sys.modules.items() if v is not None]; print('ok')")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                         cwd=str(sa.REPO), env={**__import__("os").environ, "PYTHONPATH": str(sa.REPO)})
+                         cwd=str(sa.REPO), env=subprocess_env())
     assert out.returncode == 0 and "ok" in out.stdout, out.stderr
 
 
@@ -191,7 +193,8 @@ def test_figure_to_png_is_a_png_whatever_the_backend():
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     ax.plot([0, 1], [0, 1])
-    png = sa.figure_to_png(fig)
+    from multigeom.viz.display import figure_to_png
+    png = figure_to_png(fig)
     plt.close(fig)
     assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 1000
 
@@ -285,7 +288,7 @@ def test_interrupt_while_waiting(tmp_path, monkeypatch, stop_on_interrupt):
 
 
 def test_progress_line_in_a_terminal_updates_one_line(capsys):
-    bar = sa.ProgressLine(6, initial=2, desc="estimate G(x)")
+    bar = ProgressLine(6, initial=2, desc="estimate G(x)")
     bar.update(3, "1 worker(s)")
     bar.update(3, "1 worker(s)")                 # nothing changed: no new output
     bar.update(6, "0 worker(s)")
@@ -330,7 +333,7 @@ def _fake_ipython(monkeypatch):
 
 def test_progress_line_in_a_notebook_updates_in_place(monkeypatch):
     shown = _fake_ipython(monkeypatch)
-    bar = sa.ProgressLine(4, notebook=True)
+    bar = ProgressLine(4, notebook=True)
     bar.update(2, "1 worker(s)")
     bar.update(4, "0 worker(s)")
     bar.close()
@@ -345,7 +348,8 @@ def test_show_figure_displays_a_png_and_closes_the_figure(monkeypatch):
     shown = _fake_ipython(monkeypatch)
     fig, ax = plt.subplots()
     ax.plot([0, 1], [0, 1])
-    sa.show_figure(fig)
+    from multigeom.viz.display import show_figure
+    show_figure(fig)
     assert shown[0][0] == "display" and shown[0][1][:8] == b"\x89PNG\r\n\x1a\n"
     assert not plt.fignum_exists(fig.number)
 

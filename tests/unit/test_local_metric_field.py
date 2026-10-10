@@ -1,6 +1,6 @@
 """
-Tests for src.local_metric_field: the job description and its validation, the cost estimate, the command line of
-stages/06_metric_field.py, progress counting, clearing only the job's files, and waiting for the process.
+Tests for multigeom.pipeline.metric_field_job: the job description and its validation, the cost estimate, the command line of
+multigeom.pipeline.metric_field (stage 6), progress counting, clearing only the job's files, and waiting for the process.
 No GPU or checkpoints needed.
 """
 from __future__ import annotations
@@ -10,8 +10,8 @@ import sys
 
 import pytest
 
-from src import local_metric_field as lmf
-from src.local_metric_field import MetricFieldJob
+from multigeom.pipeline import metric_field_job as lmf
+from multigeom.pipeline.metric_field_job import MetricFieldJob
 
 
 def job(**kw):
@@ -56,9 +56,9 @@ def test_cost_estimate_follows_the_table_of_the_notebook():
     assert j_only.g_estimates == 0 and j_only.j_evaluations == 19 and j_only.seconds < 10          # seconds
 
 
-def test_command_uses_only_arguments_of_stage6(repo_root):
-    import conftest
-    stage6 = conftest.load_stage("06_metric_field.py")
+def test_command_uses_only_arguments_of_the_metric_field_module(repo_root):
+    import importlib
+    stage6 = importlib.import_module("multigeom.pipeline.metric_field")
     import argparse
     parser_args = set()
     real = argparse.ArgumentParser.add_argument
@@ -72,7 +72,7 @@ def test_command_uses_only_arguments_of_stage6(repo_root):
     finally:
         argparse.ArgumentParser.add_argument = real
     j = job(grid_size=3, areas=("V1",), device="cpu")
-    cmds = lmf.stage6_commands(j, out="x")
+    cmds = lmf.metric_field_commands(j, out="x")
     assert len(cmds) == 2                                                   # one run per metric: G, then J
     for cmd, (metric, rule, size) in zip(cmds, (("G", "sqrt_lambda", "0.5"), ("J", "fixed", "0.3"))):
         options = {c for c in cmd if c.startswith("--")}
@@ -80,8 +80,8 @@ def test_command_uses_only_arguments_of_stage6(repo_root):
         assert cmd[cmd.index("--metrics") + 1] == metric
         assert (cmd[cmd.index("--step-rule") + 1], cmd[cmd.index("--step-size") + 1]) == (rule, size)
         assert cmd[cmd.index("--device") + 1] == "cpu" and cmd[cmd.index("--areas") + 1] == "V1"
-    assert lmf.stage6_command(job(), "G", out=None).count("--out-dir") == 0
-    assert len(lmf.stage6_commands(job(metrics=("J",)))) == 1
+    assert lmf.metric_field_command(job(), "G", out=None).count("--out-dir") == 0
+    assert len(lmf.metric_field_commands(job(metrics=("J",)))) == 1
 
 
 def test_expected_files_and_progress(tmp_path, monkeypatch):

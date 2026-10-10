@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-NOTEBOOK = REPO / "tutorials" / "1_leading_eigenvectors_of_G.ipynb"
+NOTEBOOK = REPO / "notebooks" / "1_leading_eigenvectors_of_G.ipynb"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "fig3"
 
 # A unique line of each notebook code cell used by the tests. The plot cells rely on the
@@ -23,20 +23,20 @@ N_FIG4_REF = 4      # ... of the reference encoder (inception) for Fig. 4B-C
 N_FIG4_POOL = 30    # ... of the other encoders: the notebook searches their first 30 for the best match
 
 
-NOTEBOOK3 = REPO / "tutorials" / "3_local_metric_field.ipynb"
+NOTEBOOK3 = REPO / "notebooks" / "3_local_metric_field.ipynb"
 # Lines of the code cells of notebook 3 (parameters, launch, wait, plot).
-SETUP3 = "from src import local_metric_field as lmf"
+SETUP3 = "from multigeom.pipeline import metric_field_job as lmf"
 LAUNCH3 = "lmf.launch(job)"
 WAIT3 = "lmf.wait(job"
 PLOT3 = "lmf.plot_metric_field(job)"
 
 
-NOTEBOOK4 = REPO / "tutorials" / "4_bures_wasserstein.ipynb"
+NOTEBOOK4 = REPO / "notebooks" / "4_bures_wasserstein.ipynb"
 # Lines of the code cells of notebook 4 (setup, Stage 5, ordering check, plot).
-SETUP4 = "from src import bures_wasserstein as bw"
-COMPUTE4 = "sa.compute_metrics(RUNS_DIR"
+SETUP4 = "from multigeom.pipeline import alignment as bw"
+COMPUTE4 = "bw.compute_metrics(RUNS_DIR"
 ORDER4 = "bw.print_ordering(metrics)"
-PLOT4 = "bw.plot_bures_wasserstein(metrics)"
+PLOT4 = "viz.plot_bures_wasserstein(metrics)"
 
 
 def notebook_cell(marker: str, notebook: Path | None = None) -> str:
@@ -115,9 +115,9 @@ def render_plot_cell(ckpts: dict, records: dict, out_png: Path, which: str = "fi
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    from figures._style import panel_label
-    from figures.fig3 import panel_eigvecs, panel_rf
-    from figures.fig4 import panel_eigvecs as panel_eigvecs_fig4
+    from multigeom.viz.style import panel_label
+    from multigeom.viz.fig3 import panel_eigvecs, panel_rf
+    from multigeom.viz.fig4 import panel_eigvecs as panel_eigvecs_fig4
 
     plt.close("all")
     ns = run_cells({"plt": plt, "ckpts": ckpts, "records": records, "ENC": "inception", "AREAS": list(AREAS),

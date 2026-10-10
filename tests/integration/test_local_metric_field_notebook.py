@@ -1,5 +1,5 @@
 """
-Integration tests of tutorials/3_local_metric_field.ipynb (paper Fig. 5): they run the notebook's own cells.
+Integration tests of notebooks/3_local_metric_field.ipynb (paper Fig. 5): they run the notebook's own cells.
 
   - CPU, run in CI: the parameter cell gives the documented job (reference image 64, 5 x 5 grid, G with 0.5 sqrt(lambda), J
     with a fixed 0.3 step) and prints its cost; the plot cell, run on the stored Stage-6 fields of
@@ -48,7 +48,7 @@ def test_the_notebook_exists_and_has_the_cells_the_tests_use():
 
 
 def test_parameter_cell_gives_the_documented_job_and_its_cost(at_repo_root, capsys):
-    from src import local_metric_field as lmf
+    from multigeom.pipeline import metric_field_job as lmf
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3)
     job = ns["job"]
     assert job.img_idx == lmf.DEFAULT_IMG_IDX == 64 and job.grid_size == 5
@@ -62,7 +62,7 @@ def test_parameter_cell_gives_the_documented_job_and_its_cost(at_repo_root, caps
 
 def test_plot_cell_draws_the_reference_figure_from_stored_results(at_repo_root, tmp_path, monkeypatch):
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3)                       # parameter cell
-    lmf, sa, job = ns["lmf"], ns["sa"], ns["job"]
+    lmf, sa, job = ns["lmf"], ns["viz"], ns["job"]
     folder = tmp_path / "runs" / "metric_field" / f"img{job.img_idx:04d}"
     folder.mkdir(parents=True)
     for (metric, area), rec in fig5_records().items():
@@ -100,7 +100,7 @@ def test_notebook_runs_a_small_job_end_to_end(at_repo_root, tmp_path, monkeypatc
     """Parameters -> launch -> wait -> plot, with J(x) only on a 3 x 3 grid for V1, in a scratch copy of the repository."""
     scratch = tmp_path / "repo"
     (scratch / "runs").mkdir(parents=True)
-    for folder in ("src", "stages", "configs", "figures"):
+    for folder in ("multigeom",):
         (scratch / folder).symlink_to(REPO / folder)                      # code and configs are shared, results are not
     for folder in ("encoders", "diffusion"):
         if (REPO / "runs" / folder).exists():
@@ -115,7 +115,7 @@ def test_notebook_runs_a_small_job_end_to_end(at_repo_root, tmp_path, monkeypatc
                  "RESTART": "False"}
     monkeypatch.chdir(scratch)
     ns = run_cells({}, SETUP3, notebook=NOTEBOOK3, overrides=overrides)
-    lmf, sa = ns["lmf"], ns["sa"]
+    lmf, sa = ns["lmf"], ns["viz"]
     monkeypatch.setattr(lmf, "REPO", scratch)                             # the process started below gets it from MULTIGEOM_REPO
     assert ns["job"].grid_size == 3 and ns["job"].metrics == ("J",)
 

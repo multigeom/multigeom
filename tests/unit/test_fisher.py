@@ -1,5 +1,5 @@
 """
-Tests for src.fisher: J(x) = (1/σ²) J_fᵀ J_f via reverse-mode autograd.
+Tests for multigeom.fisher: J(x) = (1/σ²) J_fᵀ J_f via reverse-mode autograd.
 
 For an encoder whose readout ∘ backbone is linear, f(x) = W g(x) + b with g the
 input conversion, J_f = W · ∂g/∂x and the eigenpairs of J(x) are known in
@@ -15,14 +15,14 @@ import pytest
 import torch
 import torch.nn as nn
 
-from src.fisher import fisher_eigendecomposition
+from multigeom.geometry.fisher import fisher_eigendecomposition
 
 H = W = 6
 P = H * W
 
 
 class LinearEncoder(nn.Module):
-    """Mock exposing the interface src.fisher uses: _to_backbone_input, backbone, readout."""
+    """Mock exposing the interface multigeom.fisher uses: _to_backbone_input, backbone, readout."""
 
     def __init__(self, Wmat: torch.Tensor, to_unit_range: bool = False):
         super().__init__()
@@ -35,7 +35,7 @@ class LinearEncoder(nn.Module):
             self.readout.bias.normal_()
 
     def _to_backbone_input(self, x):
-        # Same conversion as src.encoders._BaseEncoder for backbones in [0, 1].
+        # Same conversion as multigeom.encoders._BaseEncoder for backbones in [0, 1].
         return ((x + 1.0) / 2.0).clamp(0.0, 1.0) if self.to_unit_range else x
 
 

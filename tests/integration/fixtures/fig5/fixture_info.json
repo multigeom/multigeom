@@ -138,7 +138,7 @@
     }
   },
   "plot": {
-    "function": "figures.fig5.make_figure",
+    "function": "multigeom.viz.fig5.make_figure",
     "figsize": [
       16.0,
       4.4

@@ -19,50 +19,74 @@ Table 1 and the Bures-Wasserstein appendix figure).
 
 ## What the pipeline does
 
-1. **Encoders** (`stages/01_train_encoder.py`). A frozen backbone
+1. **Encoders** (`multigeom.fit.train_encoder`). A frozen backbone
    (InceptionV3 truncated at `Conv2d_4a_3x3`, ResNet-50 truncated at
    `layer1.0`, or the ON-OFF front-end of Berardino et al.) followed by a
    per-neuron Gaussian spatial-attention readout, fitted to the trial-averaged
    responses of the 50 most reliable V1 or V4 channels of the THINGS
    Ventral-stream Spiking Dataset (Papale et al., 2025).
-2. **Synthetic responses** (`stages/02_precompute_responses.py`). The encoder
+2. **Synthetic responses** (`multigeom.diffusion.responses`). The encoder
    $f_\phi$ is evaluated on every TinyImageNet training image; these 50-d
    vectors condition the diffusion model.
-3. **Conditional diffusion model** (`stages/03_train_diffusion.py`). A
+3. **Conditional diffusion model** (`multigeom.diffusion.train`). A
    `UNet2DConditionModel` (64×64 grayscale, ~68M parameters) conditioned on
    the responses through a 3-layer MLP and cross-attention. Training follows the
    Gaussian observation model $p(r\mid x)=\mathcal N(f_\phi(x),\sigma^2 I)$
    with $\sigma=0.22$, and uses classifier-free-guidance dropout (rate 0.1) so
    that the same network also gives the unconditional denoiser. 200 epochs.
-4. **G(x) and J(x)** (`stages/04_estimate_gx.py`). The top-50 eigenpairs of
+4. **G(x) and J(x)** (`multigeom.pipeline.per_image`). The top-50 eigenpairs of
    $G(x)$ from the conditional-pair estimator (Algorithm 1 of the paper,
-   `src/estimator.py`), and of $J(x)=\sigma^{-2}J_{f_\phi}^\top J_{f_\phi}$ by
-   autograd (`src/fisher.py`), on 200 held-out TinyImageNet validation images.
-5. **Cross-model comparison** (`stages/05_compute_metrics.py`). Subspace
+   `multigeom.geometry.estimator`), and of $J(x)=\sigma^{-2}J_{f_\phi}^\top J_{f_\phi}$ by
+   autograd (`multigeom.geometry.fisher`), on 200 held-out TinyImageNet validation images.
+5. **Cross-model comparison** (`multigeom.pipeline.alignment`). Subspace
    alignment $\mathcal A_k=\tfrac1k\|V_A^\top V_B\|_F^2$ and Bures-Wasserstein
    distance between every pair of (encoder, area) configurations, for
    $k=1,\dots,50$, averaged over images.
-6. **Local metric field** (`stages/06_metric_field.py`). The 2×2 projection of
+6. **Local metric field** (`multigeom.pipeline.metric_field`). The 2×2 projection of
    $G$ and $J$ onto the leading two eigenvectors at a reference image, on a grid
    of images perturbed along those eigenvectors (Fig. 5).
 
-Figures and the encoder table are drawn from these outputs by the scripts in
-`figures/`. Supporting analyses quoted in the paper's appendices (calibration
+Figures and the encoder table are drawn from these outputs by the modules in
+`multigeom.viz`. Supporting analyses quoted in the paper's appendices (calibration
 of $\sigma$, Monte-Carlo variance of the conditional-pair versus the
-unconditional-conditional estimator, backbone layer sweep) are in `analysis/`.
+unconditional-conditional estimator, backbone layer sweep) are in `multigeom.fit` and `multigeom.pipeline.estimator_variance`.
 
 ## Installation
+
+The package is `multigeom`. The core install gives the Fisher metric J(x), the G(x) estimator, the encoder contract,
+the diffusion model and the pipeline; the extras add the rest.
+
+```bash
+pip install multigeom                 # core
+pip install "multigeom[vision]"       # + the ON-OFF reference encoder (plenoptic)
+pip install "multigeom[fit]"          # + fitting an encoder to neural data (plenoptic, h5py)
+pip install "multigeom[viz]"          # + the figures of the paper (matplotlib)
+pip install "multigeom[all]"          # everything, including Modal and the notebooks' dependencies
+```
+
+From a clone, for development and to run the paper's pipeline:
 
 ```bash
 git clone https://github.com/sazio/MultiscaleInformationGeometry.git
 cd MultiscaleInformationGeometry
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-lock.txt   # exact versions we ran (Python 3.11, CUDA 12.6)
-pip install -e .                       # or: pip install -r requirements.txt
+pip install -e ".[all]"
 ```
 
-`requirements-lock.txt` pins the versions the pipeline and tests were run
-with; `requirements.txt` / `pyproject.toml` declare the supported ranges.
+`requirements-lock.txt` pins the versions the pipeline and tests were run with; `pyproject.toml` declares the
+supported ranges.
+
+```python
+import multigeom
+
+multigeom.validate_encoder(encoder)                       # check the encoder contract
+J = multigeom.compute_fisher(image, encoder, sigma=0.22)  # eigenpairs of the Fisher metric J(x)
+G = multigeom.estimate_g(image=image, encoder=encoder, unet=unet, alphas_cumprod=a, cfg=cfg, device=device)
+```
+
+The command line `multigeom` runs the pipeline: `multigeom jacobian | estimate-g | train-diffusion | align`
+(`multigeom --help`). `notebooks/0_bring_your_own_encoder.ipynb` computes J(x) for a model of your own.
 
 ## Data
 
@@ -86,16 +110,16 @@ for area in V1 V4; do
     ENCODER=$enc AREA=$area bash reproduce.sh
   done
 done
-python stages/05_compute_metrics.py --runs-dir runs --out-dir runs/metrics
-python stages/06_metric_field.py --img-idx 0 --out-dir runs/metric_field/img0000
-python figures/table1.py     --runs-dir runs --out-dir figures/out
-python figures/fig3.py       --runs-dir runs --out-dir figures/out --img-idx 0
-python figures/fig4.py       --runs-dir runs --out-dir figures/out --img-idx 0
-python figures/fig5.py       --runs-dir runs --out-dir figures/out --img-idx 0
-python figures/fig_app_bw.py --runs-dir runs --out-dir figures/out
+python -m multigeom.pipeline.alignment --runs-dir runs --out-dir runs/metrics
+python -m multigeom.pipeline.metric_field --img-idx 0 --out-dir runs/metric_field/img0000
+python -m multigeom.viz.table1    --runs-dir runs --out-dir figures/out
+python -m multigeom.viz.fig3      --runs-dir runs --out-dir figures/out --img-idx 0
+python -m multigeom.viz.fig4      --runs-dir runs --out-dir figures/out --img-idx 0
+python -m multigeom.viz.fig5      --runs-dir runs --out-dir figures/out --img-idx 0
+python -m multigeom.viz.fig_app_bw --runs-dir runs --out-dir figures/out
 ```
 
-Stage 4 accepts `--start/--end` to split the 200 test images across GPUs.
+`multigeom.pipeline.per_image` accepts `--start/--end` to split the 200 test images across GPUs.
 Each image is seeded independently (`seed + image index`), so the split does
 not change the results. Every checkpoint and output file stores a provenance
 record (git commit, command line, seed, config files, package versions).
@@ -104,18 +128,18 @@ record (git commit, command line, seed, config files, package versions).
 
 | Paper item | Script | Inputs |
 |---|---|---|
-| Table 1 (encoder performance) | `figures/table1.py` | `runs/encoders/*/*/best_model.pt` |
-| Fig. 3B-C (measured vs predicted responses) | `figures/fig3.py` | stage 1 |
-| Fig. 3D (receptive fields) | `figures/fig3.py` | stage 1 readout parameters |
-| Fig. 3E-F (eigenvectors of G and J) | `figures/fig3.py` | stage 4 |
-| Fig. 4A (performance of the three encoders) | `figures/fig4.py` | stage 1 |
-| Fig. 4B-C (eigenvectors per encoder) | `figures/fig4.py` | stage 4 |
-| Fig. 4D-E (subspace alignment vs k) | `figures/fig4.py` | stage 5 |
-| Fig. 5 (local metric field) | `figures/fig5.py` | stage 6 |
-| Bures-Wasserstein figure (appendix) | `figures/fig_app_bw.py` | stage 5 |
-| σ = 0.22 calibration (appendix) | `analysis/calibrate_sigma.py` | TVSD |
-| CC vs UC estimator variance (appendix) | `analysis/estimator_variance.py` | stages 1, 3 |
-| Backbone layer choice (appendix) | `analysis/layer_sweep.py` | TVSD, THINGS |
+| Table 1 (encoder performance) | `multigeom.viz.table1` | `runs/encoders/*/*/best_model.pt` |
+| Fig. 3B-C (measured vs predicted responses) | `multigeom.viz.fig3` | stage 1 |
+| Fig. 3D (receptive fields) | `multigeom.viz.fig3` | stage 1 readout parameters |
+| Fig. 3E-F (eigenvectors of G and J) | `multigeom.viz.fig3` | stage 4 |
+| Fig. 4A (performance of the three encoders) | `multigeom.viz.fig4` | stage 1 |
+| Fig. 4B-C (eigenvectors per encoder) | `multigeom.viz.fig4` | stage 4 |
+| Fig. 4D-E (subspace alignment vs k) | `multigeom.viz.fig4` | stage 5 |
+| Fig. 5 (local metric field) | `multigeom.viz.fig5` | stage 6 |
+| Bures-Wasserstein figure (appendix) | `multigeom.viz.fig_app_bw` | stage 5 |
+| σ = 0.22 calibration (appendix) | `multigeom.fit.calibrate_sigma` | TVSD |
+| CC vs UC estimator variance (appendix) | `multigeom.pipeline.estimator_variance` | stages 1, 3 |
+| Backbone layer choice (appendix) | `multigeom.fit.layer_sweep` | TVSD, THINGS |
 
 Fig. 3A (model schematic) and the illustrative one- and two-dimensional
 examples of Figs. 1 and 2 are not produced by this code.
@@ -134,9 +158,9 @@ Measured on NVIDIA A100-SXM4-40GB GPUs, per (encoder, area) configuration:
 
 ## Bring your own encoder
 
-Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `src/encoder_contract.py`
-checks them (`validate_encoder(encoder)`; `fisher_eigendecomposition` does it automatically for models that
-do not use the reference-encoder internals, and `conditional_pair_estimate(..., validate=True)` on request) and
+Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `multigeom.encoder`
+checks them (`multigeom.validate_encoder(encoder)`; `multigeom.compute_fisher` does it automatically for models that
+do not use the reference-encoder internals, and `multigeom.estimate_g(..., validate=True)` on request) and
 raises `EncoderContractError` naming the rule.
 
 | Rule | Requirement |
@@ -157,10 +181,10 @@ The diffusion model's conditioning layer is sized by N, so each encoder needs it
 
 ## Subspace alignment (Fig. 4D-E) on several GPUs
 
-`tutorials/2_subspace_alignment.ipynb` estimates G(x) and J(x) for many images and configurations and
+`notebooks/2_subspace_alignment.ipynb` estimates G(x) and J(x) for many images and configurations and
 plots Fig. 4D-E. The images are independent, so they are split over workers (local GPUs, or serverless
 GPUs on [Modal](https://modal.com)) with identical results; no DDP/FSDP is involved. All supporting
-functions are in `src/subspace_alignment.py`. The notebook sets five parameters, `CONFIGS` (one or more
+functions are in `multigeom.pipeline.distribute`. The notebook sets five parameters, `CONFIGS` (one or more
 (encoder, area) pairs), `N_IMAGES`, `BACKEND` (`"local"` or `"modal"`), `DEVICE` (`"gpu"` or `"cpu"`) and
 `NUM_WORKERS`, and a table in the notebook gives example values for four typical cases. The Modal route
 needs `pip install modal` and `modal token new`, and costs money: the notebook prints an estimate and
@@ -168,26 +192,26 @@ refuses to launch above `MAX_COST_USD`.
 
 ## Local metric field (Fig. 5)
 
-`tutorials/3_local_metric_field.ipynb` plots the local metric field projected onto the leading eigenvectors of
+`notebooks/3_local_metric_field.ipynb` plots the local metric field projected onto the leading eigenvectors of
 G(x): a reference image is perturbed along the two leading eigenvectors of the Inception model's G(x), and the
 metrics G(x) and J(x) of the Inception and ResNet-50 models are drawn as ellipses on that 2-D grid, for V1 and V4.
 One GPU is enough: every grid point of every model needs one G(x) estimate (about 15 s on an RTX 5090), so the 5 x 5
 grid with both areas takes about 26 minutes and a 3 x 3 grid with one area about 5 minutes. The computation is
-`stages/06_metric_field.py`, run as a background process by `src/local_metric_field.py`, and it can be stopped
+`multigeom.pipeline.metric_field`, run as a background process by `multigeom.pipeline.metric_field_job`, and it can be stopped
 and resumed. The notebook perturbs by `0.5*sqrt(lambda)` for G(x) (about 0.3) but by a fixed 0.3 for J(x): J has far
 larger eigenvalues, and with the same rule its perturbed images are clipped and the ellipses of the two models
-swap sizes, unlike the paper's panel B. The paper does not state its step sizes, so this is a choice (the stage-6
-script itself uses `0.5*sqrt(lambda)` for both metrics, and the notebook runs it once per metric). The paper does not state
+swap sizes, unlike the paper's panel B. The paper does not state its step sizes, so this is a choice (the
+`metric_field` module itself uses `0.5*sqrt(lambda)` for both metrics, and the notebook runs it once per metric). The paper does not state
 its reference image either; the notebook uses validation image 64, the one that best reproduces the pattern of the
 paper's panel B among the 200 test images (`tools/scan_metric_field_images.py`, result in
-`analysis/results/metric_field_scan.jsonl`), whereas the stage-6 script defaults to image 0. The elongated V1 ellipses
+`analysis/results/metric_field_scan.jsonl`), whereas the `metric_field` module defaults to image 0. The elongated V1 ellipses
 of the paper's panel A are not reproduced (the leading eigenvalues of G(x) are close for every image).
 
 ## Tests
 
 ```bash
 pytest tests/unit                                        # unit tests: synthetic data, no checkpoints
-pytest tests/integration                                 # notebook reproduction of Fig. 3D-F and Fig. 4B-C
+pytest tests/integration                                 # the notebooks' cells and their figures
 pytest -m "not slow and not gpu and not pretrained"      # what GitHub runs on every pull request
 ```
 
@@ -205,13 +229,23 @@ identifier; this section will link to them.
 ## Repository layout
 
 ```
-configs/      encoder, diffusion and estimator settings (one YAML per component)
-src/          library: data loading, encoders, diffusion model, estimator, Fisher, metrics
-stages/       numbered pipeline scripts 01-06
-figures/      figure and table scripts
-analysis/     supporting analyses quoted in the appendices
+multigeom/
+    __init__.py     public API: compute_fisher, estimate_g, align, validate_encoder, ...
+    encoder.py      the encoder contract (Protocol and validate_encoder)
+    geometry/       core: fisher, estimator, metrics, metric_field
+    diffusion/      core: model, config, responses, train
+    pipeline/       core: per_image, alignment, metric_field, distribute (local and Modal workers)
+    data/           TinyImageNet loader and the canonical image transform
+    encoders/       extra [vision]: reference encoders (Inception, ResNet-50, ON-OFF)
+    fit/            extra [fit]: encoder fitting, TVSD loader, layer sweep, noise calibration
+    viz/            extra [viz]: the figures of the paper
+    configs/        packaged YAML settings (encoders, diffusion, estimator)
+    cli.py  config.py  utils.py
+notebooks/    0 bring your own encoder, 1 leading eigenvectors, 2 subspace alignment, 3 local metric field, 4 Bures-Wasserstein
 tests/unit/        unit tests (synthetic data)
-tests/integration/ notebook reproduction of Fig. 3D-F, Fig. 4B-C and Fig. 4D-E against stored references
+tests/integration/ the notebooks' cells and figures against stored references
+tools/        checkpoint conversion, upload and image scans
+analysis/     results of supporting analyses
 data/         dataset location (see data/README.md)
 reproduce.sh  stages 1-4 for one (encoder, area) configuration
 ```

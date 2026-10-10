@@ -7,12 +7,12 @@ import numpy as np
 import pytest
 import torch
 
-from conftest import load_stage
+import importlib
 
 
 @pytest.fixture(scope="module")
 def stage01():
-    return load_stage("01_train_encoder.py")
+    return importlib.import_module("multigeom.fit.train_encoder")
 
 
 def test_correlation_per_neuron_matches_numpy(stage01):
@@ -32,7 +32,7 @@ def test_correlation_per_neuron_constant_prediction_is_zero(stage01):
 
 def test_cosine_with_warmup_schedule():
     pytest.importorskip("diffusers")
-    stage03 = load_stage("03_train_diffusion.py")
+    stage03 = importlib.import_module("multigeom.diffusion.train")
     f = stage03.cosine_with_warmup
     assert f(0, 500, 10_500) == 0.0
     assert f(250, 500, 10_500) == pytest.approx(0.5)
@@ -67,8 +67,9 @@ def test_evaluate_only_adds_test_set_fields(stage01, tmp_path, monkeypatch):
     from PIL import Image
 
     from conftest import write_fake_tvsd
-    from src.data_loaders import CANONICAL_TRANSFORM, load_tvsd
-    from src.encoders import _BaseEncoder, _FrozenBackbone
+    from multigeom.data import CANONICAL_TRANSFORM
+    from multigeom.fit.tvsd import load_tvsd
+    from multigeom.encoders import _BaseEncoder, _FrozenBackbone
 
     class SmallBackbone(_FrozenBackbone):
         out_channels, out_spatial = 2, 16
@@ -136,7 +137,7 @@ def test_evaluate_only_adds_test_set_fields(stage01, tmp_path, monkeypatch):
 def _preextract_without_workers(stage01):
     """stage01.preextract with a single-process DataLoader (no worker processes in tests)."""
     from torch.utils.data import DataLoader
-    from src.data_loaders import TVSDDataset
+    from multigeom.fit.tvsd import TVSDDataset
 
     @torch.no_grad()
     def preextract(encoder, paths, responses, images_root, transform, device, batch_size=64):
