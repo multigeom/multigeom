@@ -1,5 +1,5 @@
 """
-Tests for the supporting analyses in analysis/.
+Tests for the supporting analyses (multigeom.fit and multigeom.pipeline.estimator_variance).
 
 calibrate_sigma: per-trial residuals of ±a_c (alternating over an even
 number of trials) have standard deviation exactly a_c, so the expected median

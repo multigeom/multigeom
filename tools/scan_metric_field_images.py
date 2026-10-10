@@ -11,8 +11,8 @@ J(x) is cheap (about 0.04 s per grid point), so 200 images x 6 settings take abo
 ResNet-50 grid is computed only when the Inception field is radial enough (--min-radial). One JSON line per
 (image, setting) is appended to the output file, which makes the scan resumable.
 
-    python tools/scan_metric_field_images.py --out runs/analysis/metric_field_scan.jsonl
-    python tools/scan_metric_field_images.py --summarize runs/analysis/metric_field_scan.jsonl
+    python tools/scan_metric_field_images.py --out tools/results/metric_field_scan.jsonl
+    python tools/scan_metric_field_images.py --summarize tools/results/metric_field_scan.jsonl
 
 Result with the checkpoints of this repository (diffusion models at epoch 120): of 1200 combinations 84 are radial in both
 areas, and only validation image 64 (fixed steps 0.2 and 0.3) is also clearly Inception-outside-ResNet-50 in both.
@@ -110,7 +110,7 @@ def summarize(path: Path, min_radial: float = 0.7, min_ratio: float = 2.5, top: 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--out", default="runs/analysis/metric_field_scan.jsonl")
+    p.add_argument("--out", default="tools/results/metric_field_scan.jsonl")
     p.add_argument("--n-images", type=int, default=200)
     p.add_argument("--min-radial", type=float, default=0.7)
     p.add_argument("--summarize", metavar="JSONL", help="only summarise an existing scan")

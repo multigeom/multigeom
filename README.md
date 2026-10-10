@@ -204,8 +204,30 @@ swap sizes, unlike the paper's panel B. The paper does not state its step sizes,
 `metric_field` module itself uses `0.5*sqrt(lambda)` for both metrics, and the notebook runs it once per metric). The paper does not state
 its reference image either; the notebook uses validation image 64, the one that best reproduces the pattern of the
 paper's panel B among the 200 test images (`tools/scan_metric_field_images.py`, result in
-`analysis/results/metric_field_scan.jsonl`), whereas the `metric_field` module defaults to image 0. The elongated V1 ellipses
+`tools/results/metric_field_scan.jsonl`), whereas the `metric_field` module defaults to image 0. The elongated V1 ellipses
 of the paper's panel A are not reproduced (the leading eigenvalues of G(x) are close for every image).
+
+## Supporting analyses
+
+Three modules reproduce numbers quoted in the appendices. They are not part of the main pipeline and write JSON files
+with a provenance record. Each module's docstring gives the method.
+
+| Module | Paper statement | Inputs | Cost |
+|---|---|---|---|
+| `multigeom.fit.calibrate_sigma` | σ = 0.22 (V1), 0.25 (V4) | TVSD files | seconds, CPU |
+| `multigeom.pipeline.estimator_variance` | the conditional-pair estimator has 80-95% lower Monte-Carlo variance than the unconditional-conditional form | encoder and diffusion checkpoints, test images | minutes per image, GPU |
+| `multigeom.fit.layer_sweep` | `Conv2d_4a_3x3` maximises the test correlation in V1 and V4 | TVSD files, THINGS images | one encoder fit per layer, GPU |
+
+```bash
+python -m multigeom.fit.calibrate_sigma --out runs/analysis/sigma_calibration.json
+python -m multigeom.pipeline.estimator_variance --encoder-cfg inception \
+    --encoder-ckpt runs/encoders/inception/V1/best_model.pt \
+    --diffusion-ckpt runs/diffusion/inception/V1/final_model.pt --n-images 6 --n-runs 6 --n-mc 100
+python -m multigeom.fit.layer_sweep --backbone inception --area V1
+```
+
+On the released TVSD file, the calibration gives 0.2275 (V1) and 0.2451 (V4) on the top-50 channels, and 0.2517 (V1) and
+0.2591 (V4) on all channels of the area.
 
 ## Tests
 
@@ -244,8 +266,7 @@ multigeom/
 notebooks/    0 bring your own encoder, 1 leading eigenvectors, 2 subspace alignment, 3 local metric field, 4 Bures-Wasserstein
 tests/unit/        unit tests (synthetic data)
 tests/integration/ the notebooks' cells and figures against stored references
-tools/        checkpoint conversion, upload and image scans
-analysis/     results of supporting analyses
+tools/        checkpoint conversion, upload and the image scan (results/ holds its output)
 data/         dataset location (see data/README.md)
 reproduce.sh  stages 1-4 for one (encoder, area) configuration
 ```
