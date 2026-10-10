@@ -31,9 +31,13 @@ def test_provenance_records_commit_config_and_seed():
     assert prov["packages"]["torch"].split("+")[0] == torch.__version__.split("+")[0]
 
 
-def test_package_and_project_roots():
+def test_package_and_project_roots(tmp_path, monkeypatch):
     assert (package_root() / "utils.py").exists() and (package_root() / "configs" / "estimator.yaml").exists()
-    assert (project_root() / "pyproject.toml").exists()                        # a source checkout
+    monkeypatch.delenv("MULTIGEOM_REPO", raising=False)
+    monkeypatch.chdir(tmp_path)
+    assert project_root() == tmp_path.resolve()                                # the working folder
+    monkeypatch.setenv("MULTIGEOM_REPO", str(tmp_path / "x"))
+    assert project_root() == tmp_path / "x"
 
 
 def test_load_config_nested_namespace(tmp_path):

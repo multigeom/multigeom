@@ -1,6 +1,4 @@
-# Data (see data/README.md) and run outputs
-data/*
-!data/README.md
+# Run outputs and checkpoints (see multigeom-tutorials)
 # trained encoder and diffusion checkpoints (download from Hugging Face)
 runs/
 figures/out/
@@ -29,7 +27,6 @@ dist/
 CLAUDE.md
 .claude/
 env/
-data/
 tutorials/env_tuto/
 notebooks/env_tuto/
 THINGS_database.zip

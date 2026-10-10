@@ -1,6 +1,6 @@
 name: tests
 
-# Run the CPU unit tests and integration tests on every pull request, and when changes land on the
+# Run the CPU unit tests on every pull request, and when changes land on the
 # integration branch (develop).
 on:
   pull_request:
@@ -37,9 +37,3 @@ jobs:
           USE_TF: "0"
           USE_FLAX: "0"
         run: pytest tests/unit -m "not slow and not gpu and not pretrained"
-
-      - name: Integration tests (tests/integration; notebooks' cells and figures, CPU only)
-        env:
-          USE_TF: "0"
-          USE_FLAX: "0"
-        run: pytest tests/integration -m "not slow and not gpu and not pretrained"

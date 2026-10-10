@@ -84,12 +84,12 @@ G = multigeom.estimate_g(image=image, encoder=encoder, unet=unet, alphas_cumprod
 ```
 
 The command line `multigeom` runs the pipeline: `multigeom jacobian | estimate-g | train-diffusion | align`
-(`multigeom --help`). `notebooks/0_bring_your_own_encoder.ipynb` computes J(x) for a model of your own.
+(`multigeom --help`). The notebooks are in the companion repository [`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials); `0_bring_your_own_encoder.ipynb` computes J(x) for a model of your own.
 
 ## Data
 
-See [`data/README.md`](data/README.md) for the three datasets (TVSD, THINGS
-images, TinyImageNet) and the expected layout. Pretrained backbone weights are
+The three datasets (TVSD, THINGS images, TinyImageNet) and their expected layout are described in
+[`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials/blob/master/data/README.md), where the notebooks read them. Pretrained backbone weights are
 downloaded automatically.
 
 ## Running
@@ -185,7 +185,7 @@ The diffusion model's conditioning layer is sized by N, so each encoder needs it
 
 ## Subspace alignment (Fig. 4D-E) on several GPUs
 
-`notebooks/2_subspace_alignment.ipynb` estimates G(x) and J(x) for many images and configurations and
+`2_subspace_alignment.ipynb` (in `multigeom-tutorials`) estimates G(x) and J(x) for many images and configurations and
 plots Fig. 4D-E. The images are independent, so they are split over workers (local GPUs, or serverless
 GPUs on [Modal](https://modal.com)) with identical results; no DDP/FSDP is involved. All supporting
 functions are in `multigeom.pipeline.distribute`. The notebook sets five parameters, `CONFIGS` (one or more
@@ -196,7 +196,7 @@ refuses to launch above `MAX_COST_USD`.
 
 ## Local metric field (Fig. 5)
 
-`notebooks/3_local_metric_field.ipynb` plots the local metric field projected onto the leading eigenvectors of
+`3_local_metric_field.ipynb` (in `multigeom-tutorials`) plots the local metric field projected onto the leading eigenvectors of
 G(x): a reference image is perturbed along the two leading eigenvectors of the Inception model's G(x), and the
 metrics G(x) and J(x) of the Inception and ResNet-50 models are drawn as ellipses on that 2-D grid, for V1 and V4.
 One GPU is enough: every grid point of every model needs one G(x) estimate (about 15 s on an RTX 5090), so the 5 x 5
@@ -235,15 +235,11 @@ On the released TVSD file, the calibration gives 0.2275 (V1) and 0.2451 (V4) on 
 ## Tests
 
 ```bash
-pytest tests/unit                                        # unit tests: synthetic data, no checkpoints
-pytest tests/integration                                 # the notebooks' cells and their figures
-pytest -m "not slow and not gpu and not pretrained"      # what GitHub runs on every pull request
+pytest tests/unit -m "not slow and not gpu and not pretrained"   # unit tests: synthetic data, no checkpoints (what GitHub runs)
+pytest tests/unit                                                # all unit tests, including the ones that need checkpoints
 ```
 
-The integration tests compare the tutorial notebook's plots with references stored in
-`tests/integration/fixtures/`. The plot comparison runs anywhere; the "recompute" tests (marked
-`slow`) also need the checkpoints in `runs/` and the TinyImageNet data, and skip themselves
-without them.
+The tests that run the notebooks and compare their figures with stored references are in `multigeom-tutorials`.
 
 ## Checkpoints
 
@@ -266,10 +262,7 @@ multigeom/
     viz/            extra [viz]: the figures of the paper
     configs/        packaged YAML settings (encoders, diffusion, estimator)
     cli.py  config.py  utils.py
-notebooks/    0 bring your own encoder, 1 leading eigenvectors, 2 subspace alignment, 3 local metric field, 4 Bures-Wasserstein
-tests/unit/        unit tests (synthetic data)
-tests/integration/ the notebooks' cells and figures against stored references
-data/         dataset location (see data/README.md)
+tests/unit/   unit tests (synthetic data)
 ```
 
 ## Citation

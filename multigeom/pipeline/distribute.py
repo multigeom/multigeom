@@ -1,5 +1,5 @@
 """
-Supporting functions of notebooks/2_subspace_alignment.ipynb: paper Fig. 4D-E, the subspace alignment of
+Supporting functions of 2_subspace_alignment.ipynb of multigeom-tutorials: paper Fig. 4D-E, the subspace alignment of
 the top-k eigenvectors of G(x) and J(x) across encoders and areas, averaged over the test images.
 
 The work is the estimation of G(x) and J(x) for every test image of every (encoder, area) configuration, then

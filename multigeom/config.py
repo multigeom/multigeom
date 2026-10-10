@@ -28,15 +28,11 @@ def package_root() -> Path:
 
 def project_root() -> Path:
     """
-    The working root of a project, where `runs/` and `data/` live by default: $MULTIGEOM_REPO if set; else the
-    repository root when the package runs from a source checkout (the folder with pyproject.toml); else
-    the current directory.
+    The working root of a project, where `runs/` and `data/` live by default: $MULTIGEOM_REPO if set, else the current
+    directory. Run the pipeline, or a notebook, from the folder that holds `runs/` and `data/`.
     """
     env = os.environ.get("MULTIGEOM_REPO")
-    if env:
-        return Path(env)
-    checkout = package_root().parent
-    return checkout if (checkout / "pyproject.toml").exists() else Path.cwd()
+    return Path(env) if env else Path.cwd()
 
 
 def data_dir() -> Path:

@@ -1,5 +1,5 @@
 """
-Supporting functions of notebooks/3_local_metric_field.ipynb: paper Fig. 5, the local metric field projected
+Supporting functions of 3_local_metric_field.ipynb of multigeom-tutorials: paper Fig. 5, the local metric field projected
 onto the leading eigenvectors of G(x).
 
 A reference image x0 is perturbed along the two leading eigenvectors of the reference encoder's G(x) (Inception);
