@@ -166,3 +166,21 @@ def test_ellipse_axes_are_twice_root_eigenvalues():
     w, h, ang = ellipse_params(np.diag([1.0, 9.0]))           # major axis along e2
     assert (w, h) == pytest.approx((6.0, 2.0))
     assert abs(np.cos(np.radians(ang))) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_style_keeps_the_notebook_backend_in_a_jupyter_kernel(monkeypatch):
+    """In a kernel, importing the figure style must not switch to Agg (a figure would show as text, not a picture)."""
+    import sys
+    import types
+
+    from multigeom.viz import style
+
+    fake = types.ModuleType("IPython")
+    fake.get_ipython = lambda: types.SimpleNamespace(kernel=object())
+    monkeypatch.setitem(sys.modules, "IPython", fake)
+    assert style._in_notebook() is True
+    fake.get_ipython = lambda: None
+    assert style._in_notebook() is False
+    monkeypatch.delitem(sys.modules, "IPython")
+    monkeypatch.setitem(sys.modules, "IPython", None)               # not installed
+    assert style._in_notebook() is False

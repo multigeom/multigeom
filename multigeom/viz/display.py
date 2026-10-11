@@ -12,9 +12,8 @@ def figure_to_png(fig, dpi: int = 110) -> bytes:
 
 def show_figure(fig, dpi: int = 110) -> None:
     """
-    Display a figure in a notebook as an image. Importing the repository's figures/ modules switches
-    matplotlib to the non-interactive Agg backend, in which a figure is shown as the text
-    "<Figure size ...>" instead of a picture; displaying the PNG works whatever the backend.
+    Display a figure in a notebook as an image. Displaying the PNG works whatever the matplotlib backend
+    (in the non-interactive Agg backend a figure is shown as the text "<Figure size ...>" instead of a picture).
     """
     import matplotlib.pyplot as plt
     from IPython.display import Image, display

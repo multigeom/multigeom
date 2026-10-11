@@ -13,7 +13,18 @@ from pathlib import Path
 
 import matplotlib
 
-matplotlib.use("Agg")
+
+def _in_notebook() -> bool:
+    """True in a Jupyter kernel, where the notebook backend must be kept so that a figure is shown as a picture."""
+    try:
+        from IPython import get_ipython
+        return getattr(get_ipython(), "kernel", None) is not None
+    except ImportError:
+        return False
+
+
+if not _in_notebook():
+    matplotlib.use("Agg")          # scripts: draw to files, without a display
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
