@@ -1,9 +1,10 @@
 cff-version: 1.2.0
 message: "If you use this code, please cite the paper below."
-title: "MultiscaleInformationGeometry"
+title: "multigeom"
 type: software
 license: MIT
-repository-code: "https://github.com/sazio/MultiscaleInformationGeometry"
+repository-code: "https://github.com/multigeom/multigeom"
+url: "https://multigeom.github.io"
 authors:
   - family-names: Azeglio
     given-names: Simone
@@ -27,3 +28,4 @@ preferred-citation:
       given-names: Matthew
   collection-title: "Advances in Neural Information Processing Systems (NeurIPS)"
   year: 2026
+  url: "https://arxiv.org/abs/2605.06304"

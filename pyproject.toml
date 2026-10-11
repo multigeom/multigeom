@@ -45,6 +45,13 @@ dev = ["pytest>=8.0"]
 all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "matplotlib>=3.7", "modal", "ipykernel", "ipython", "ipywidgets", "pytest>=8.0"]
 test = ["pytest>=8.0"]
 
+[project.urls]
+Homepage = "https://multigeom.github.io"
+Source = "https://github.com/multigeom/multigeom"
+Tutorials = "https://github.com/steevelaquitaine/multigeom-tutorials"
+Paper = "https://arxiv.org/abs/2605.06304"
+Issues = "https://github.com/multigeom/multigeom/issues"
+
 [project.scripts]
 multigeom = "multigeom.cli:main"
 

@@ -1,21 +1,23 @@
-# Multi-scale information geometry of neural population codes
+# multigeom
 
-Code for the NeurIPS 2026 paper
+Multi-scale information geometry of neural population codes, in Python.
 
-> **A multi-scale information geometry reveals the structure of mutual information in neural populations**
-> Simone Azeglio, Steeve Laquitaine, Ulisse Ferrari, Matthew Chalk
-
-The paper defines the *multi-scale Fisher information matrix*
+`multigeom` computes the Fisher information metric $J(x)$ of any fitted PyTorch model of neural responses, and the
+*multi-scale Fisher metric*
 
 $$G(x) = \int_0^\infty [\phi_t * J_t](x)\,dt ,$$
 
-the Fisher information of the stimulus-diffused likelihood integrated over all
-diffusion scales, and shows that it is directly related to the mutual
-information between stimulus and response. This repository estimates the
-leading eigenvectors of $G(x)$ for natural images from a conditional diffusion
-model, compares them with those of the classical Fisher information
-$J(x)$, and reproduces the macaque V1/V4 analyses of the paper (Figs. 3-5,
-Table 1 and the Bures-Wasserstein appendix figure).
+the Fisher information of the stimulus-diffused likelihood integrated over all diffusion scales. $G(x)$ is directly
+related to the mutual information between stimulus and response, and for natural images it is estimated with a
+conditional diffusion model. The package also reproduces the macaque V1/V4 analyses of the paper.
+
+- **Landing page:** <https://multigeom.github.io>
+- **Paper:** *A multi-scale information geometry reveals the structure of mutual information in neural populations*,
+  Azeglio, Laquitaine, Ferrari, Chalk, NeurIPS 2026 ([arXiv:2605.06304](https://arxiv.org/abs/2605.06304))
+- **Tutorials:** [`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials), notebooks from "bring your own
+  encoder" to the figures of the paper
+- **Paper code (frozen record of the published results):**
+  [`MultiscaleInformationGeometry`](https://github.com/sazio/MultiscaleInformationGeometry)
 
 ## What the pipeline does
 
@@ -67,8 +69,8 @@ pip install "multigeom[all]"          # everything, including Modal and the note
 From a clone, for development and to run the paper's pipeline:
 
 ```bash
-git clone https://github.com/sazio/MultiscaleInformationGeometry.git
-cd MultiscaleInformationGeometry
+git clone https://github.com/multigeom/multigeom.git
+cd multigeom
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[all]"
 ```
