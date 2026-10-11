@@ -42,11 +42,13 @@ viz = ["matplotlib>=3.7"]                              # the figures of the pape
 modal = ["modal"]                                      # run the G(x) estimation on serverless GPUs
 notebooks = ["matplotlib>=3.7", "ipykernel", "ipython", "ipywidgets"]
 dev = ["pytest>=8.0"]
-all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "matplotlib>=3.7", "modal", "ipykernel", "ipython", "ipywidgets", "pytest>=8.0"]
+all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "matplotlib>=3.7", "modal", "ipykernel", "ipython", "ipywidgets", "pytest>=8.0", "sphinx>=7.2", "pydata-sphinx-theme>=0.15", "nbsphinx>=0.9", "sphinx-design>=0.5", "sphinx-copybutton>=0.5"]
 test = ["pytest>=8.0"]
+docs = ["sphinx>=7.2", "pydata-sphinx-theme>=0.15", "nbsphinx>=0.9", "sphinx-design>=0.5", "sphinx-copybutton>=0.5", "ipython"]
 
 [project.urls]
 Homepage = "https://multigeom.github.io"
+Documentation = "https://multigeom.github.io/multigeom/"
 Source = "https://github.com/multigeom/multigeom"
 Tutorials = "https://github.com/steevelaquitaine/multigeom-tutorials"
 Paper = "https://arxiv.org/abs/2605.06304"

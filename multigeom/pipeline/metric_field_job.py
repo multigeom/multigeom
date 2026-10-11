@@ -284,7 +284,7 @@ def stop(runs_dir: str = "runs") -> int:
 def radial_score(matrices, coeffs) -> float:
     """
     How radially the ellipses of an [n, n, 2, 2] field are oriented around the grid centre: the mean over the grid
-    points of |cos| between the major axis of the ellipse (see `multigeom.geometry.metric_field.ellipse_params`) and the direction
+    points of abs(cos) between the major axis of the ellipse (see `multigeom.geometry.metric_field.ellipse_params`) and the direction
     from the centre to the point (a, b). Random orientations give about 0.64, a perfectly radial field 1.0.
     """
     import numpy as np

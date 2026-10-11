@@ -1,0 +1,62 @@
+name: docs
+
+# Build the documentation on every pull request (warnings fail the build) and publish it to GitHub Pages
+# (https://multigeom.github.io/multigeom/) when changes land on main. Needs Settings > Pages > Source: GitHub Actions.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check out the demo notebooks
+        uses: actions/checkout@v4
+        with:
+          repository: steevelaquitaine/multigeom-tutorials     # moves to the organization with the repository
+          path: multigeom-tutorials
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install pandoc (nbsphinx converts the notebooks' Markdown with it)
+        run: sudo apt-get update && sudo apt-get install -y pandoc
+
+      - name: Install the documentation tools (PyTorch and the other heavy dependencies are mocked)
+        run: pip install sphinx pydata-sphinx-theme nbsphinx sphinx-design sphinx-copybutton ipython numpy scipy pyyaml pillow tqdm
+
+      - name: Build the documentation
+        run: make -C docs docs TUTORIALS_DIR=../../multigeom-tutorials
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: docs/build/html
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

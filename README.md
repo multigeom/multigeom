@@ -12,6 +12,7 @@ related to the mutual information between stimulus and response, and for natural
 conditional diffusion model. The package also reproduces the macaque V1/V4 analyses of the paper.
 
 - **Landing page:** <https://multigeom.github.io>
+- **Documentation and demos:** <https://multigeom.github.io/multigeom/>
 - **Paper:** *A multi-scale information geometry reveals the structure of mutual information in neural populations*,
   Azeglio, Laquitaine, Ferrari, Chalk, NeurIPS 2026 ([arXiv:2605.06304](https://arxiv.org/abs/2605.06304))
 - **Tutorials:** [`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials), notebooks from "bring your own

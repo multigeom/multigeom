@@ -134,7 +134,7 @@ def match_to_reference(ref: torch.Tensor, tgt: torch.Tensor, n: int, pool: int) 
     """
     For display only: for each of the first `n` reference eigenvectors (rows of
     `ref`), pick the not-yet-used eigenvector among the first `pool` rows of
-    `tgt` with the largest |cosine|, and flip its sign to make the cosine
+    `tgt` with the largest abs(cosine), and flip its sign to make the cosine
     positive. Returns [n, P]. With pool = n this only reorders and sign-flips
     the leading n target eigenvectors.
     """
@@ -156,7 +156,7 @@ def match_to_reference(ref: torch.Tensor, tgt: torch.Tensor, n: int, pool: int) 
 
 def show_eigenvector(ax, v, cmap: str = EIGVEC_CMAP) -> None:
     """Draw one eigenvector as a 64x64 image with a symmetric diverging colour
-    scale, clipped at the 99th percentile of |v| so a few extreme pixels do
+    scale, clipped at the 99th percentile of abs(v) so a few extreme pixels do
     not wash out the pattern."""
     img = as_numpy(v).reshape(IMAGE_SIZE, IMAGE_SIZE)
     vmax = float(np.percentile(np.abs(img), 99.0)) + 1e-12

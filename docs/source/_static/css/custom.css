@@ -1,0 +1,5 @@
+/* Small adjustments to the PyData theme. */
+.bd-header .navbar-brand img { height: 2.2rem; width: auto; }
+.nb-note { border-left: 3px solid #1f6fb2; padding: .4rem .9rem; margin: 0 0 1rem 0; background: rgba(31, 111, 178, .07); }
+.nb-note a { margin-right: 1rem; }
+div.nbinput .prompt, div.nboutput .prompt { display: none; }

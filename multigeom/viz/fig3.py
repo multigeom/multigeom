@@ -58,7 +58,7 @@ def parse_args(argv: list[str] | None = None):
 def readout_rf_union(state: dict, encoder: str = ENCODER, resolution: int = 256):
     """
     Union of the neurons' half-maximum readout regions, sampled on a
-    `resolution`² grid over the 64 × 64 image.
+    `resolution` x `resolution` grid over the 64 × 64 image.
 
     The readout (multigeom/encoders, GaussianReadout) weights feature-map cell
     (h, w) by exp(−‖(u_w, u_h) − μ_n‖² / (2σ_n²)), with the S cells placed at
