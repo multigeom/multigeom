@@ -86,8 +86,9 @@ information in neural populations.* Advances in Neural Information Processing Sy
    :hidden:
    :maxdepth: 2
 
-   installation
-   usage
-   demos
-   contributing
-   api
+   Home <self>
+   Installation <installation>
+   Usage <usage>
+   Demos <demos>
+   Contributing <contributing>
+   API Docs <api>

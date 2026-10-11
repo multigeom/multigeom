@@ -74,7 +74,21 @@ html_title = "multigeom"
 html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
 html_logo = "_static/img/logo.svg"
+# Thumbnails of the demo grid (docs/source/demos.rst), by notebook.
+nbsphinx_thumbnails = {
+    "demo_notebooks/0_bring_your_own_encoder": "_static/thumbnails/bring_your_own_encoder.png",
+    "demo_notebooks/1_leading_eigenvectors_of_G": "_static/thumbnails/leading_eigenvectors.png",
+    "demo_notebooks/2_subspace_alignment": "_static/thumbnails/subspace_alignment.png",
+    "demo_notebooks/3_local_metric_field": "_static/thumbnails/local_metric_field.png",
+    "demo_notebooks/4_bures_wasserstein": "_static/thumbnails/bures_wasserstein.png",
+}
+
+# Navigation on the left only, as in the CEBRA docs: the section pages and the headings of the current page share the
+# left sidebar, and the right-hand "on this page" column is switched off.
+html_sidebars = {"**": ["sidebar-nav-bs", "page-toc"]}
+
 html_theme_options = {
+    "secondary_sidebar_items": [],
     "logo": {"text": ""},
     "header_links_before_dropdown": 6,
     "navbar_align": "left",

@@ -1,28 +1,15 @@
-Demos
-=====
+Demo Notebooks
+==============
 
-The notebooks live in the `multigeom-tutorials <https://github.com/multigeom/multigeom-tutorials>`_ repository, with
-the data download scripts and the tests that run them. They are shown here with their stored outputs.
+We provide a set of demo notebooks to get started with ``multigeom`` and to reproduce the figures of the paper. To run them
+you need a working Jupyter notebook server, a ``multigeom`` installation, and, for notebooks 1 to 4, the datasets, the trained
+checkpoints and a GPU. Click a notebook to read it with its stored outputs.
 
-Start here
-----------
-
-.. toctree::
-   :maxdepth: 1
+.. nbgallery::
+   :name: demo-gallery
+   :glob:
 
    demo_notebooks/0_bring_your_own_encoder
-
-Check your own PyTorch model against the encoder contract and compute its Fisher metric. It runs in seconds on a CPU and
-can be opened in Colab.
-
-Reproduce the paper
--------------------
-
-These notebooks need the datasets, the trained checkpoints and a GPU. The repository's README explains how to get them.
-
-.. toctree::
-   :maxdepth: 1
-
    demo_notebooks/1_leading_eigenvectors_of_G
    demo_notebooks/2_subspace_alignment
    demo_notebooks/3_local_metric_field
@@ -30,20 +17,41 @@ These notebooks need the datasets, the trained checkpoints and a GPU. The reposi
 
 .. list-table::
    :header-rows: 1
-   :widths: 40 40 20
+   :widths: 38 34 28
 
    * - Notebook
      - Reproduces
-     - Time
+     - Needs
+   * - Bring your own encoder
+     - the encoder contract and :math:`J(x)` for a model of your own
+     - a CPU, a few seconds (Colab works)
    * - Leading eigenvectors of G(x)
      - Fig. 3D-F and Fig. 4B-C
-     - about 2 min
+     - data, checkpoints, a GPU, about 2 min
    * - Subspace alignment
      - Fig. 4D-E
-     - 1 min to hours (local GPUs or Modal)
+     - data, checkpoints, GPUs (local or Modal), 1 min to hours
    * - Local metric field
      - Fig. 5
-     - about 25 min on one GPU
+     - data, checkpoints, a GPU, about 25 min
    * - Bures-Wasserstein distance
      - Fig. 6 (appendix)
-     - minutes on a CPU
+     - the outputs of notebook 2, a CPU, minutes
+
+Installation
+------------
+
+See the :doc:`installation` page. The notebooks have their own repository with a conda environment file for the Jupyter kernel:
+`multigeom-tutorials <https://github.com/multigeom/multigeom-tutorials>`_.
+
+Demo data
+---------
+
+The datasets (TVSD, THINGS images, TinyImageNet) and the trained checkpoints are described, with download scripts, in the
+`multigeom-tutorials README <https://github.com/multigeom/multigeom-tutorials#data-and-checkpoints-notebooks-1-to-4>`_. The
+checkpoints are on `Hugging Face <https://huggingface.co/steevelaquitaine/multigeom>`_.
+
+Contributing
+------------
+
+Found a problem, or want to add a demo? See :doc:`contributing`.

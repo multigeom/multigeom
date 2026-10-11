@@ -3,3 +3,13 @@
 .nb-note { border-left: 3px solid #1f6fb2; padding: .4rem .9rem; margin: 0 0 1rem 0; background: rgba(31, 111, 178, .07); }
 .nb-note a { margin-right: 1rem; }
 div.nbinput .prompt, div.nboutput .prompt { display: none; }
+
+/* Demo grid (nbgallery), as in the CEBRA docs: nbsphinx's own grid of thumbnail cards, whose dotted outline turns solid
+   under the mouse. Only the thumbnail height is adjusted (nbsphinx fixes it at 120px), and the outline is emphasised. */
+.nbsphinx-gallery > a > div:first-child { height: auto; }
+.nbsphinx-gallery > a { border-color: var(--pst-color-border); text-decoration: none; }
+.nbsphinx-gallery > a:hover, .nbsphinx-gallery > a:focus {
+  border-style: solid;
+  border-color: var(--pst-color-primary);
+  box-shadow: 0 0 0 1px var(--pst-color-primary);
+}
