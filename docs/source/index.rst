@@ -53,7 +53,7 @@ Links
 
 * `Landing page <https://multigeom.github.io>`_
 * `Paper (arXiv:2605.06304) <https://arxiv.org/abs/2605.06304>`_
-* `Source code <https://github.com/multigeom/multigeom>`_ and `tutorials <https://github.com/steevelaquitaine/multigeom-tutorials>`_
+* `Source code <https://github.com/multigeom/multigeom>`_ and `tutorials <https://github.com/multigeom/multigeom-tutorials>`_
 * `Paper code <https://github.com/sazio/MultiscaleInformationGeometry>`_, the frozen record of the published results
 
 Licensing

@@ -15,7 +15,7 @@ conditional diffusion model. The package also reproduces the macaque V1/V4 analy
 - **Documentation and demos:** <https://multigeom.github.io/multigeom/>
 - **Paper:** *A multi-scale information geometry reveals the structure of mutual information in neural populations*,
   Azeglio, Laquitaine, Ferrari, Chalk, NeurIPS 2026 ([arXiv:2605.06304](https://arxiv.org/abs/2605.06304))
-- **Tutorials:** [`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials), notebooks from "bring your own
+- **Tutorials:** [`multigeom-tutorials`](https://github.com/multigeom/multigeom-tutorials), notebooks from "bring your own
   encoder" to the figures of the paper
 - **Paper code (frozen record of the published results):**
   [`MultiscaleInformationGeometry`](https://github.com/sazio/MultiscaleInformationGeometry)
@@ -87,12 +87,12 @@ G = multigeom.estimate_g(image=image, encoder=encoder, unet=unet, alphas_cumprod
 ```
 
 The command line `multigeom` runs the pipeline: `multigeom jacobian | estimate-g | train-diffusion | align`
-(`multigeom --help`). The notebooks are in the companion repository [`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials); `0_bring_your_own_encoder.ipynb` computes J(x) for a model of your own.
+(`multigeom --help`). The notebooks are in the companion repository [`multigeom-tutorials`](https://github.com/multigeom/multigeom-tutorials); `0_bring_your_own_encoder.ipynb` computes J(x) for a model of your own.
 
 ## Data
 
 The three datasets (TVSD, THINGS images, TinyImageNet) and their expected layout are described in
-[`multigeom-tutorials`](https://github.com/steevelaquitaine/multigeom-tutorials/blob/master/data/README.md), where the notebooks read them. Pretrained backbone weights are
+[`multigeom-tutorials`](https://github.com/multigeom/multigeom-tutorials/blob/master/data/README.md), where the notebooks read them. Pretrained backbone weights are
 downloaded automatically.
 
 ## Running

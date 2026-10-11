@@ -50,7 +50,7 @@ docs = ["sphinx>=7.2", "pydata-sphinx-theme>=0.15", "nbsphinx>=0.9", "sphinx-des
 Homepage = "https://multigeom.github.io"
 Documentation = "https://multigeom.github.io/multigeom/"
 Source = "https://github.com/multigeom/multigeom"
-Tutorials = "https://github.com/steevelaquitaine/multigeom-tutorials"
+Tutorials = "https://github.com/multigeom/multigeom-tutorials"
 Paper = "https://arxiv.org/abs/2605.06304"
 Issues = "https://github.com/multigeom/multigeom/issues"
 

@@ -25,7 +25,7 @@ jobs:
       - name: Check out the demo notebooks
         uses: actions/checkout@v4
         with:
-          repository: steevelaquitaine/multigeom-tutorials     # moves to the organization with the repository
+          repository: multigeom/multigeom-tutorials
           path: multigeom-tutorials
 
       - uses: actions/setup-python@v5
@@ -40,7 +40,7 @@ jobs:
         run: pip install sphinx pydata-sphinx-theme nbsphinx sphinx-design sphinx-copybutton ipython numpy scipy pyyaml pillow tqdm
 
       - name: Build the documentation
-        run: make -C docs docs TUTORIALS_DIR=../../multigeom-tutorials
+        run: make -C docs docs TUTORIALS_DIR=../multigeom-tutorials
 
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'

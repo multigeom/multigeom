@@ -22,7 +22,7 @@ Tests
    pytest tests -q --tb=line                                                # also the tests that need checkpoints
 
 The unit tests use synthetic data and run on a CPU. Tests that run the notebooks and compare their figures with stored
-references are in the `multigeom-tutorials <https://github.com/steevelaquitaine/multigeom-tutorials>`_ repository.
+references are in the `multigeom-tutorials <https://github.com/multigeom/multigeom-tutorials>`_ repository.
 
 Documentation
 -------------
@@ -30,7 +30,7 @@ Documentation
 .. code-block:: bash
 
    cd docs
-   make docs TUTORIALS_DIR=../../multigeom-tutorials
+   make docs TUTORIALS_DIR=../../multigeom-tutorials     # a clone of multigeom-tutorials next to this repository
    python -m http.server -d build/html 8000
 
 The build treats warnings as errors. The API pages come from the docstrings (Google style), so document new public functions

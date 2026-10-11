@@ -67,4 +67,4 @@ Environment for the demos
 -------------------------
 
 The notebooks have their own repository, with a conda environment file that pins PyTorch for CUDA 12.8 and the steps to
-create the Jupyter kernel: see `multigeom-tutorials <https://github.com/steevelaquitaine/multigeom-tutorials>`_.
+create the Jupyter kernel: see `multigeom-tutorials <https://github.com/multigeom/multigeom-tutorials>`_.

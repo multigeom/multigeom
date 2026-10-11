@@ -20,7 +20,8 @@ release = re.search(r'__version__ = "([^"]+)"', (ROOT / "multigeom" / "__init__.
 version = release
 
 # Where the demo notebooks live (they are copied into demo_notebooks/ by `make notebooks`).
-TUTORIALS_REPO = "steevelaquitaine/multigeom-tutorials"
+TUTORIALS_REPO = "multigeom/multigeom-tutorials"
+TUTORIALS_BRANCH = "master"
 LANDING_PAGE = "https://multigeom.github.io"
 PAPER = "https://arxiv.org/abs/2605.06304"
 
@@ -59,9 +60,9 @@ nbsphinx_prolog = r"""
 .. raw:: html
 
     <div class="nb-note">
-      <a href="https://github.com/""" + TUTORIALS_REPO + r"""/blob/main/notebooks/{{ nb }}">View on GitHub</a>
+      <a href="https://github.com/""" + TUTORIALS_REPO + r"""/blob/""" + TUTORIALS_BRANCH + r"""/notebooks/{{ nb }}">View on GitHub</a>
       {% if nb.startswith('0_') %}
-      <a href="https://colab.research.google.com/github/""" + TUTORIALS_REPO + r"""/blob/main/notebooks/{{ nb }}">Open in Colab</a>
+      <a href="https://colab.research.google.com/github/""" + TUTORIALS_REPO + r"""/blob/""" + TUTORIALS_BRANCH + r"""/notebooks/{{ nb }}">Open in Colab</a>
       {% else %}
       Needs the datasets and trained checkpoints, and a GPU (see the notebook's first cells).
       {% endif %}

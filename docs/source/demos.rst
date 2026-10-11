@@ -1,7 +1,7 @@
 Demos
 =====
 
-The notebooks live in the `multigeom-tutorials <https://github.com/steevelaquitaine/multigeom-tutorials>`_ repository, with
+The notebooks live in the `multigeom-tutorials <https://github.com/multigeom/multigeom-tutorials>`_ repository, with
 the data download scripts and the tests that run them. They are shown here with their stored outputs.
 
 Start here
