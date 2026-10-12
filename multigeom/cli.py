@@ -6,8 +6,8 @@ module that does the work, so `multigeom <command> --help` lists them.
     estimate-g       the multi-scale metric G(x) (and J(x)) for the test images, resumable
     train-diffusion  the conditional diffusion model on precomputed responses
     align            subspace alignment and Bures-Wasserstein distance between configurations
-    train-encoder    fit an encoder readout to neural data              (needs the [fit] extra)
-    responses        precompute the encoder responses on TinyImageNet    (needs the [vision] extra)
+    train-encoder    fit an encoder readout to neural data              (needs the [paper] extra)
+    responses        precompute the encoder responses on TinyImageNet    (core)
     metric-field     the local metric field of Fig. 5
 """
 from __future__ import annotations

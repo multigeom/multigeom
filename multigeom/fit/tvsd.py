@@ -1,5 +1,5 @@
 """
-Data loaders for the THINGS Ventral-Stream Spiking Dataset (TVSD) of Papale et al. (extra `[fit]`: needs h5py).
+Data loaders for the THINGS Ventral-Stream Spiking Dataset (TVSD) of Papale et al. (extra `[paper]`: needs h5py).
 
 Two TVSD files (MATLAB v7.3 / HDF5) are read:
 

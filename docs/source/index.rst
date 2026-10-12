@@ -23,7 +23,7 @@ analyses of the paper.
       :link: installation
       :link-type: doc
 
-      ``pip install multigeom`` and the optional extras.
+      ``pip install multigeom``, with ``[paper]`` and ``[all]``.
 
    .. grid-item-card:: Usage
       :link: usage

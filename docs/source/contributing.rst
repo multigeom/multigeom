@@ -11,7 +11,7 @@ Development install
 
    git clone https://github.com/multigeom/multigeom.git
    cd multigeom
-   pip install -e ".[all,dev,docs]"
+   pip install -e ".[all,dev,docs]"      # dev: pytest; docs: Sphinx and its plugins
 
 Tests
 -----

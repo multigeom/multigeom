@@ -33,17 +33,15 @@ dependencies = [
   "Pillow>=9.0",
   "PyYAML>=6.0",
   "tqdm>=4.65",
+  "matplotlib>=3.7",               # the figures and the notebooks
 ]
 
 [project.optional-dependencies]
-vision = ["plenoptic>=1.1,<2.0"]                       # the ON-OFF reference encoder (Inception and ResNet-50 come with torchvision)
-fit = ["plenoptic>=1.1,<2.0", "h5py>=3.8"]             # fitting an encoder to neural data (TVSD loaders, layer sweep, calibration)
-viz = ["matplotlib>=3.7"]                              # the figures of the paper
-modal = ["modal"]                                      # run the G(x) estimation on serverless GPUs
-notebooks = ["matplotlib>=3.7", "ipykernel", "ipython", "ipywidgets"]
+# For users: `paper` reproduces the paper, `all` is everything (the notebooks and serverless GPUs too).
+paper = ["plenoptic>=1.1,<2.0", "h5py>=3.8"]           # the ON-OFF encoder (plenoptic) and fitting encoders to the TVSD recordings (h5py)
+all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "modal", "ipykernel", "ipython", "ipywidgets"]
+# For contributors (see the Contributing page of the documentation):
 dev = ["pytest>=8.0"]
-all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "matplotlib>=3.7", "modal", "ipykernel", "ipython", "ipywidgets", "pytest>=8.0", "sphinx>=7.2", "pydata-sphinx-theme>=0.15", "nbsphinx>=0.9", "sphinx-design>=0.5", "sphinx-copybutton>=0.5"]
-test = ["pytest>=8.0"]
 docs = ["sphinx>=7.2", "pydata-sphinx-theme>=0.15", "nbsphinx>=0.9", "sphinx-design>=0.5", "sphinx-copybutton>=0.5", "ipython"]
 
 [project.urls]

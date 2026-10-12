@@ -1,5 +1,5 @@
 """
-Figures (extra `[viz]`, needs matplotlib): the figure panels of the paper (Figs. 3-6) and showing figures in a
+Figures (matplotlib): the figure panels of the paper (Figs. 3-6) and showing figures in a
 notebook. Outside a Jupyter kernel, importing `multigeom.viz.style` switches matplotlib to the non-interactive Agg backend; use `show_figure` to
 display a figure in a notebook.
 """

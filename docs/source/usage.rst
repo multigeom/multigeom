@@ -130,7 +130,7 @@ The paper's analysis runs in stages, each a module with a command line (``python
      - What it does
    * - 1
      - ``multigeom.fit.train_encoder``
-     - Fit a readout on a frozen backbone to neural data (extra ``fit``).
+     - Fit a readout on a frozen backbone to neural data (extra ``paper``).
    * - 2
      - ``multigeom.diffusion.responses``
      - Evaluate the encoder on TinyImageNet; these responses condition the diffusion model.

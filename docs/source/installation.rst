@@ -10,34 +10,22 @@ From PyPI
 
    pip install multigeom
 
-This installs the core: the Fisher metric :math:`J(x)`, the :math:`G(x)` estimator, the encoder contract, the diffusion model
-and the pipeline (PyTorch, torchvision, diffusers, NumPy, SciPy). Optional features come as extras:
+This installs the core: the Fisher metric :math:`J(x)`, the :math:`G(x)` estimator, encoders, the diffusion model, the pipeline and the
+figures (PyTorch, torchvision, diffusers, NumPy, SciPy, matplotlib). Two extras add the rest:
 
 .. list-table::
    :header-rows: 1
-   :widths: 20 50 30
+   :widths: 25 50 25
 
-   * - Extra
+   * - Install
      - Adds
-     - Install
-   * - ``vision``
-     - The ON-OFF reference encoder (``plenoptic``). Inception and ResNet-50 come with torchvision.
-     - ``pip install "multigeom[vision]"``
-   * - ``fit``
-     - Fitting an encoder to neural data: TVSD loaders, layer sweep, noise calibration.
-     - ``pip install "multigeom[fit]"``
-   * - ``viz``
-     - The figures of the paper (matplotlib).
-     - ``pip install "multigeom[viz]"``
-   * - ``modal``
-     - Running the :math:`G(x)` estimation on serverless GPUs.
-     - ``pip install "multigeom[modal]"``
-   * - ``notebooks``
-     - Jupyter kernel and notebook widgets.
-     - ``pip install "multigeom[notebooks]"``
-   * - ``all``
-     - Everything above.
-     - ``pip install "multigeom[all]"``
+     - For
+   * - ``pip install "multigeom[paper]"``
+     - The ON-OFF encoder (``plenoptic``) and the loaders of the TVSD recordings (``h5py``).
+     - reproducing the paper
+   * - ``pip install "multigeom[all]"``
+     - Everything in ``paper``, plus Jupyter and Modal (serverless GPUs).
+     - the demo notebooks, everything
 
 Check the installation:
 

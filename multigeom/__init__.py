@@ -13,9 +13,8 @@ Bring an encoder that is already fitted to your neural data (any PyTorch model t
     load_encoder(name, area)                      an encoder of the paper, fitted to macaque V1 or V4 (downloaded)
     NeuralEncoder(backbone, n_neurons)            build your own encoder: fit_readout, predict, save, load
 
-The core needs torch, numpy and scipy (and `diffusers` for the diffusion model). Reference encoders (extra `[vision]`),
-fitting an encoder to neural data (extra `[fit]`), figures (extra `[viz]`) and the Modal launcher (extra `[modal]`) are
-optional. Subpackages: `geometry`, `diffusion`, `pipeline`, `data`, `encoders`, `fit`, `viz`.
+The core needs torch, numpy and scipy (and `diffusers` for the diffusion model). The extra `[paper]` adds what reproducing the paper needs (the ON-OFF encoder
+and the TVSD loaders), and `[all]` also Jupyter and the Modal launcher. Subpackages: `geometry`, `diffusion`, `pipeline`, `data`, `encoders`, `fit`, `viz`.
 """
 from .encoder import Encoder, EncoderContractError, EncoderReport, validate_encoder
 from .geometry.estimator import EstimatorOutput

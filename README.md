@@ -57,14 +57,12 @@ unconditional-conditional estimator, backbone layer sweep) are in `multigeom.fit
 ## Installation
 
 The package is `multigeom`. The core install gives the Fisher metric J(x), the G(x) estimator, the encoder contract,
-the diffusion model and the pipeline; the extras add the rest.
+the diffusion model, the pipeline and the figures; two extras add the rest.
 
 ```bash
-pip install multigeom                 # core
-pip install "multigeom[vision]"       # + the ON-OFF reference encoder (plenoptic)
-pip install "multigeom[fit]"          # + fitting an encoder to neural data (plenoptic, h5py)
-pip install "multigeom[viz]"          # + the figures of the paper (matplotlib)
-pip install "multigeom[all]"          # everything, including Modal and the notebooks' dependencies
+pip install multigeom                 # core: encoders, J(x), G(x), the diffusion model, the pipeline, the figures
+pip install "multigeom[paper]"        # + what reproducing the paper needs: the ON-OFF encoder (plenoptic), the TVSD loaders (h5py)
+pip install "multigeom[all]"          # + Jupyter and Modal (serverless GPUs)
 ```
 
 From a clone, for development and to run the paper's pipeline:
@@ -73,7 +71,7 @@ From a clone, for development and to run the paper's pipeline:
 git clone https://github.com/multigeom/multigeom.git
 cd multigeom
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[all]"
+pip install -e ".[all,dev,docs]"
 ```
 
 `pyproject.toml` declares the supported dependency ranges. The pipeline and tests were run with Python 3.11 and CUDA 12.6.
@@ -262,9 +260,9 @@ multigeom/
     diffusion/      core: model, config, responses, train
     pipeline/       core: per_image, alignment, metric_field, distribute (local and Modal workers)
     data/           TinyImageNet loader and the canonical image transform
-    encoders/       extra [vision]: reference encoders (Inception, ResNet-50, ON-OFF)
-    fit/            extra [fit]: encoder fitting, TVSD loader, layer sweep, noise calibration
-    viz/            extra [viz]: the figures of the paper
+    encoders/       NeuralEncoder, readouts, the reference encoders (Inception, ResNet-50; ON-OFF needs the [paper] extra)
+    fit/            extra [paper]: fitting encoders to the TVSD recordings, layer sweep, noise calibration
+    viz/            the figures of the paper
     configs/        packaged YAML settings (encoders, diffusion, estimator)
     cli.py  config.py  utils.py
 tests/unit/   unit tests (synthetic data)
