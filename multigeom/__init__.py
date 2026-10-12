@@ -10,6 +10,8 @@ Bring an encoder that is already fitted to your neural data (any PyTorch model t
     align(eigvecs_a, eigvecs_b)                   the subspace alignment of two sets of eigenvectors
     bures_wasserstein(...)                        the Bures-Wasserstein distance between two reconstructed metrics
     validate_encoder(encoder)                     check that an encoder follows the contract
+    load_encoder(name, area)                      an encoder of the paper, fitted to macaque V1 or V4 (downloaded)
+    NeuralEncoder(backbone, n_neurons)            build your own encoder: fit_readout, predict, save, load
 
 The core needs torch, numpy and scipy (and `diffusers` for the diffusion model). Reference encoders (extra `[vision]`),
 fitting an encoder to neural data (extra `[fit]`), figures (extra `[viz]`) and the Modal launcher (extra `[modal]`) are
@@ -27,6 +29,14 @@ __version__ = "1.0.0"
 
 __all__ = [
     "Encoder", "EncoderContractError", "EncoderReport", "validate_encoder",
+    "NeuralEncoder", "load_encoder",
     "compute_fisher", "estimate_g", "align", "bures_wasserstein",
     "FisherOutput", "EstimatorOutput", "__version__",
 ]
+
+
+def __getattr__(name):                       # the encoders need torchvision: import them only when they are asked for
+    if name in ("NeuralEncoder", "load_encoder"):
+        from . import encoders
+        return getattr(encoders, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

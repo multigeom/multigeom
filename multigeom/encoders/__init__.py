@@ -1,14 +1,24 @@
 """
-Reference encoders (extra `[vision]`): frozen InceptionV3 / ResNet-50 / ON-OFF backbones with a per-neuron Gaussian
-spatial-attention readout, as used in the paper, and `build_encoder` to create one from a config.
+Encoders, the models that predict neural responses from images: a backbone followed by a readout fitted to neural data.
+
+* `NeuralEncoder` and its methods `predict`, `fit_readout`, `save`, `load`; `load_encoder` to get an encoder of the paper;
+* readouts (`GaussianReadout`, `LinearReadout`, `FactorizedReadout`) and the small trainable `SmallCNNBackbone`;
+* `register_backbone` and `register_readout` to add your own;
+* the reference encoders of the paper (frozen Inception, ResNet-50 or ON-OFF backbone, Gaussian readout) and `build_encoder`.
 
 Any other fitted PyTorch model can be used instead: see `multigeom.encoder` for the contract it must satisfy.
 """
-from .backbones import InceptionBackbone, OnOffBackbone, ResNet50Backbone, _FrozenBackbone
-from .readout import GaussianReadout
-from .reference import InceptionEncoder, OnOffEncoder, ResNet50Encoder, _BaseEncoder, build_encoder
+from .backbones import InceptionBackbone, OnOffBackbone, ResNet50Backbone, SmallCNNBackbone, _FrozenBackbone
+from .fitting import FitReport, correlation_per_neuron, fit_readout_on_features
+from .neural import NeuralEncoder, load_encoder
+from .readout import FactorizedReadout, GaussianReadout, LinearReadout
+from .reference import InceptionEncoder, OnOffEncoder, ResNet50Encoder, _BaseEncoder, build_encoder, build_reference
+from .registry import BACKBONES, READOUTS, register_backbone, register_readout
 
 __all__ = [
-    "GaussianReadout", "InceptionBackbone", "ResNet50Backbone", "OnOffBackbone",
+    "NeuralEncoder", "load_encoder", "FitReport",
+    "GaussianReadout", "LinearReadout", "FactorizedReadout", "SmallCNNBackbone",
+    "register_backbone", "register_readout", "BACKBONES", "READOUTS",
+    "InceptionBackbone", "ResNet50Backbone", "OnOffBackbone",
     "InceptionEncoder", "ResNet50Encoder", "OnOffEncoder", "build_encoder",
 ]

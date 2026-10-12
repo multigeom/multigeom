@@ -49,18 +49,34 @@ def parse_args(argv=None):
 
 
 @torch.no_grad()
+def precompute_responses(encoder, dataset, batch_size: int = 256, device=None, num_workers: int = 0,
+                         log=None) -> torch.Tensor:
+    """
+    The responses [len(dataset), n_neurons] of `encoder` to every image of `dataset` (images [1, 64, 64] in [-1, 1]; the
+    items may also be (image, label) pairs): the conditioning input of the diffusion model. Works with any encoder that
+    follows the contract of `multigeom.encoder`.
+    """
+    if device is not None:
+        encoder.to(device)
+    device = next(encoder.parameters()).device
+    was_training = encoder.training
+    encoder.eval()
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
+                        pin_memory=device.type == "cuda")
+    responses = []
+    for batch_idx, batch in enumerate(loader):
+        x = batch[0] if isinstance(batch, (tuple, list)) else batch
+        responses.append(encoder(x.to(device, non_blocking=True)).cpu())
+        if log and (batch_idx + 1) % 50 == 0:
+            log(f"    {min((batch_idx + 1) * batch_size, len(dataset)):6d}/{len(dataset)}")
+    encoder.train(was_training)
+    return torch.cat(responses, dim=0)
+
+
 def precompute_split(encoder, split: str, transform, device, batch_size: int):
     dataset = TinyImageNetDataset(split=split, transform=transform)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False,
-                        num_workers=4, pin_memory=True)
-    responses = []
     print(f"  {split}: {len(dataset)} images")
-    for batch_idx, x in enumerate(loader):
-        x = x.to(device, non_blocking=True)
-        responses.append(encoder(x).cpu())
-        if (batch_idx + 1) % 50 == 0:
-            print(f"    {min((batch_idx + 1) * batch_size, len(dataset)):6d}/{len(dataset)}")
-    return torch.cat(responses, dim=0)
+    return precompute_responses(encoder, dataset, batch_size=batch_size, device=device, num_workers=4, log=print)
 
 
 def main(argv=None):

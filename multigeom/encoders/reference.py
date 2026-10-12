@@ -31,10 +31,10 @@ import torch
 import torch.nn as nn
 
 from .backbones import InceptionBackbone, OnOffBackbone, ResNet50Backbone
-from .readout import GaussianReadout
+from .neural import NeuralEncoder
 
 
-class _BaseEncoder(nn.Module):
+class _BaseEncoder(NeuralEncoder):
     """
     Generic encoder = (frozen backbone) ∘ (normalise input) followed by
     a Gaussian spatial-attention readout.
@@ -46,17 +46,11 @@ class _BaseEncoder(nn.Module):
     backbone: nn.Module
     backbone_input_channels: int
     backbone_input_range: tuple[float, float]
+    reference_name: str
 
-    def __init__(self, backbone: nn.Module, n_neurons: int, dropout: float):
-        super().__init__()
-        self.backbone = backbone
-        self.n_neurons = n_neurons
-        self.readout = GaussianReadout(
-            n_neurons=n_neurons,
-            n_channels=backbone.out_channels,
-            spatial=backbone.out_spatial,
-            dropout=dropout,
-        )
+    def __init__(self, backbone: nn.Module, n_neurons: int, dropout: float, **options):
+        super().__init__(backbone, n_neurons, readout="gaussian", dropout=dropout)
+        self._reference_options = {"dropout": dropout, **options}
 
     def _to_backbone_input(self, x: torch.Tensor) -> torch.Tensor:
         """Convert canonical [B, 1, 64, 64] in [-1, 1] to the backbone's format."""
@@ -67,45 +61,51 @@ class _BaseEncoder(nn.Module):
             x = x.repeat(1, 3, 1, 1)
         return x
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        x : [B, 1, 64, 64] in [-1, 1] (canonical pipeline input).
-        returns : [B, n_neurons]
-        """
-        x_bb = self._to_backbone_input(x)
-        # No explicit torch.no_grad(): the backbone is frozen, so no graph is built for it unless the input
-        # requires grad, and then the gradient w.r.t. the input flows (the encoder contract, rule R5).
-        features = self.backbone(x_bb)
-        return self.readout(features)
+    _prepare = _to_backbone_input
 
-    def features(self, x: torch.Tensor) -> torch.Tensor:
-        """Return the frozen backbone features only (no readout). Useful for caching."""
-        with torch.no_grad():
-            return self.backbone(self._to_backbone_input(x))
+    @property
+    def config(self) -> dict:
+        """The architecture, by reference-encoder name (see `NeuralEncoder.config`)."""
+        return {"reference": self.reference_name, "n_neurons": self.n_neurons, **self._reference_options}
 
 
 class InceptionEncoder(_BaseEncoder):
     backbone_input_channels = 3
     backbone_input_range = (-1.0, 1.0)
+    reference_name = "inception"
 
     def __init__(self, n_neurons: int = 50, layer: str = "Conv2d_4a_3x3", dropout: float = 0.25):
-        super().__init__(InceptionBackbone(layer=layer), n_neurons, dropout)
+        super().__init__(InceptionBackbone(layer=layer), n_neurons, dropout, layer=layer)
 
 
 class ResNet50Encoder(_BaseEncoder):
     backbone_input_channels = 3
     backbone_input_range = (-1.0, 1.0)
+    reference_name = "resnet50"
 
     def __init__(self, n_neurons: int = 50, layer: str = "layer1.0", dropout: float = 0.25):
-        super().__init__(ResNet50Backbone(layer=layer), n_neurons, dropout)
+        super().__init__(ResNet50Backbone(layer=layer), n_neurons, dropout, layer=layer)
 
 
 class OnOffEncoder(_BaseEncoder):
     backbone_input_channels = 1
     backbone_input_range = (0.0, 1.0)
+    reference_name = "onoff"
 
     def __init__(self, n_neurons: int = 50, kernel_size: int = 31, dropout: float = 0.25):
-        super().__init__(OnOffBackbone(kernel_size=kernel_size), n_neurons, dropout)
+        super().__init__(OnOffBackbone(kernel_size=kernel_size), n_neurons, dropout, kernel_size=kernel_size)
+
+
+REFERENCE_ENCODERS = {"inception": InceptionEncoder, "resnet50": ResNet50Encoder, "onoff": OnOffEncoder}
+
+
+def build_reference(config: dict) -> _BaseEncoder:
+    """A reference encoder (fresh readout) from its description, `{"reference": "inception", "n_neurons": 50, ...}`."""
+    config = dict(config)
+    name = str(config.pop("reference")).lower()
+    if name not in REFERENCE_ENCODERS:
+        raise ValueError(f"unknown reference encoder {name!r}; available: {sorted(REFERENCE_ENCODERS)}")
+    return REFERENCE_ENCODERS[name](**config)
 
 
 # ────────────────────────────────────────────────────────────────────────────

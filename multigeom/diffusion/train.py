@@ -83,51 +83,58 @@ def cosine_with_warmup(step: int, warmup: int, total: int) -> float:
     return 0.5 * (1.0 + math.cos(math.pi * progress))
 
 
-def main(argv=None):
-    args = parse_args(argv)
-    cfg = load_config(args.config)
-    if args.data_dir:
-        os.environ["NEURIPS_DATA_DIR"] = args.data_dir
+def train_diffusion(
+    cfg,
+    image_dataset,
+    responses: torch.Tensor,
+    out_dir,
+    *,
+    device=None,
+    num_workers: int = 4,
+    save_every: int = 20,
+    resume: bool = False,
+    metadata: dict | None = None,
+    prov: dict | None = None,
+    log=print,
+):
+    """
+    Train the conditional diffusion model of an encoder, and write `final_model.pt` (rewritten after every epoch),
+    `train_log.json`, and `last.pt` (to resume an interrupted run with `resume=True`) to `out_dir`.
 
-    device = get_device(args.device)
+    Args:
+        cfg: the diffusion configuration (`DiffusionConfig.for_encoder(encoder)` sets the conditioning width). The
+            recipe (epochs, batch size, learning rate, ...) is `cfg.train`; copy and edit `cfg` for a shorter run.
+        image_dataset: a dataset of images [1, 64, 64] in [-1, 1] (for example `TinyImageNetDataset`).
+        responses: [len(image_dataset), n_neurons] responses of the encoder to those images
+            (see `multigeom.diffusion.responses.precompute_responses`).
+        out_dir: output folder.
+        metadata: extra entries saved in the checkpoint (for example the encoder name and area).
+
+    Returns:
+        The loss history, `{"epoch": [...], "loss": [...]}`.
+    """
+    device = get_device(device) if not isinstance(device, torch.device) else device
     set_seed(cfg.train.seed)
-
-    out_dir = Path(args.out_dir)
+    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    metadata = metadata or {}
+    prov = prov if prov is not None else provenance({"diffusion": "diffusion"}, seed=cfg.train.seed)
+    say = log or (lambda *_: None)
 
-    # ── Load responses produced by Stage 2 ───────────────────────────────
-    print(f"[Stage 3] Loading responses from {args.responses} ...")
-    resp_pkg = torch.load(args.responses, map_location="cpu", weights_only=False)
-    responses = resp_pkg["responses"]                    # [N, n_neurons]
     n_neurons = int(responses.shape[1])
     if n_neurons != cfg.conditioning.mlp_layers[0]:
         raise ValueError(
             f"Response dimension {n_neurons} doesn't match "
-            f"diffusion config conditioning.mlp_layers[0]={cfg.conditioning.mlp_layers[0]}"
+            f"diffusion config conditioning.mlp_layers[0]={cfg.conditioning.mlp_layers[0]} "
+            f"(use DiffusionConfig.for_encoder(encoder))"
         )
-    print(f"  responses: {tuple(responses.shape)}, encoder='{resp_pkg.get('encoder_name', '?')}', "
-          f"area='{resp_pkg.get('area', '?')}'")
-
-    # ── Build paired dataset and loader ──────────────────────────────────
-    image_dataset = TinyImageNetDataset(split=cfg.train.data_split, transform=CANONICAL_TRANSFORM)
-    if len(image_dataset) > cfg.train.n_train_images:
-        # Truncate deterministically (sorted order from the data loader).
-        image_dataset.image_paths = image_dataset.image_paths[: cfg.train.n_train_images]
-        responses = responses[: cfg.train.n_train_images]
-    if len(image_dataset) != responses.shape[0]:
-        raise ValueError(
-            f"After truncation: dataset has {len(image_dataset)} images but "
-            f"responses has {responses.shape[0]} rows."
-        )
-    print(f"  paired dataset size: {len(image_dataset)}")
-
     dataset = TinyImageNetWithResponses(image_dataset, responses)
     loader = DataLoader(
         dataset,
         batch_size=cfg.train.batch_size,
         shuffle=True,
-        num_workers=args.num_workers,
-        pin_memory=True,
+        num_workers=num_workers,
+        pin_memory=device.type == "cuda",
         drop_last=True,
     )
 
@@ -135,7 +142,7 @@ def main(argv=None):
     model = build_diffusion_model(cfg).to(device)
     scheduler = build_scheduler(cfg)
     n_train, n_total = count_parameters(model)
-    print(f"[Stage 3] Model parameters: {n_train:,} trainable / {n_total:,} total")
+    say(f"[Stage 3] Model parameters: {n_train:,} trainable / {n_total:,} total")
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -146,13 +153,12 @@ def main(argv=None):
     total_steps = cfg.train.epochs * steps_per_epoch
     warmup_steps = cfg.train.warmup_steps
 
-    use_bf16 = cfg.train.precision == "bfloat16"
+    use_bf16 = cfg.train.precision == "bfloat16" and device.type == "cuda"
     autocast_dtype = torch.bfloat16 if use_bf16 else torch.float32
     grad_clip = float(cfg.train.gradient_clip)
     sigma = float(cfg.conditioning.observation_noise_sigma)
     p_drop = float(cfg.conditioning.cfg_dropout_rate)
 
-    prov = provenance({"diffusion": args.config}, seed=cfg.train.seed)
     history = {"epoch": [], "loss": []}
     start_epoch, global_step = 1, 0
 
@@ -162,7 +168,7 @@ def main(argv=None):
     # as if the run had not stopped). It is rewritten after every epoch and
     # deleted when the run completes.
     last_path = out_dir / "last.pt"
-    if args.resume and last_path.exists():
+    if resume and last_path.exists():
         state = torch.load(last_path, map_location="cpu", weights_only=False)
         model.load_state_dict(state["model_state_dict"])
         optimizer.load_state_dict(state["optimizer_state_dict"])
@@ -171,14 +177,14 @@ def main(argv=None):
         torch.set_rng_state(state["rng_cpu"])
         if device.type == "cuda" and state.get("rng_cuda") is not None:
             torch.cuda.set_rng_state(state["rng_cuda"], device)
-        print(f"[Stage 3] Resuming from {last_path} after epoch {state['epoch']}")
-    print(f"[Stage 3] Training for {cfg.train.epochs} epochs "
-          f"({total_steps} steps, batch={cfg.train.batch_size}) ...")
+        say(f"[Stage 3] Resuming from {last_path} after epoch {state['epoch']}")
+    say(f"[Stage 3] Training for {cfg.train.epochs} epochs "
+        f"({total_steps} steps, batch={cfg.train.batch_size}) ...")
 
     for epoch in range(start_epoch, cfg.train.epochs + 1):
         model.train()
         epoch_loss, n_batches = 0.0, 0
-        pbar = tqdm(loader, desc=f"epoch {epoch:3d}/{cfg.train.epochs}", leave=False)
+        pbar = tqdm(loader, desc=f"epoch {epoch:3d}/{cfg.train.epochs}", leave=False, disable=log is None)
         for x, r in pbar:
             x = x.to(device, non_blocking=True)                 # [B, 1, 64, 64] in [-1, 1]
             r = r.to(device, non_blocking=True)                 # [B, n_neurons]
@@ -223,7 +229,7 @@ def main(argv=None):
         epoch_loss /= max(1, n_batches)
         history["epoch"].append(epoch)
         history["loss"].append(epoch_loss)
-        print(f"  epoch {epoch:3d}/{cfg.train.epochs}: mean loss = {epoch_loss:.4f}")
+        say(f"  epoch {epoch:3d}/{cfg.train.epochs}: mean loss = {epoch_loss:.4f}")
 
         # Overwrite the latest model every epoch (so a crash loses at most one
         # epoch) and keep a periodic snapshot. After the last epoch,
@@ -232,13 +238,11 @@ def main(argv=None):
             "model_state_dict": model.state_dict(),
             "epoch": epoch,
             "loss": epoch_loss,
-            "config": {"diffusion": str(args.config), "responses_path": str(args.responses)},
-            "encoder_name": resp_pkg.get("encoder_name"),
-            "area": resp_pkg.get("area"),
             "provenance": prov,
+            **metadata,
         }
         torch.save(ckpt, out_dir / "final_model.pt")
-        if epoch % args.save_every == 0:
+        if epoch % save_every == 0:
             torch.save(ckpt, out_dir / f"model_epoch_{epoch:03d}.pt")
         with open(out_dir / "train_log.json", "w") as f:
             json.dump(history, f, indent=2)
@@ -255,8 +259,43 @@ def main(argv=None):
         tmp.replace(last_path)                     # atomic: never a half-written last.pt
 
     last_path.unlink(missing_ok=True)
-    print(f"[Stage 3] Saved checkpoint to {out_dir / 'final_model.pt'} "
-          f"(epoch {cfg.train.epochs})")
+    say(f"[Stage 3] Saved checkpoint to {out_dir / 'final_model.pt'} (epoch {cfg.train.epochs})")
+    return history
+
+
+def main(argv=None):
+    args = parse_args(argv)
+    cfg = load_config(args.config)
+    if args.data_dir:
+        os.environ["NEURIPS_DATA_DIR"] = args.data_dir
+
+    device = get_device(args.device)
+
+    # ── Load responses produced by Stage 2 ───────────────────────────────
+    print(f"[Stage 3] Loading responses from {args.responses} ...")
+    resp_pkg = torch.load(args.responses, map_location="cpu", weights_only=False)
+    responses = resp_pkg["responses"]                    # [N, n_neurons]
+    print(f"  responses: {tuple(responses.shape)}, encoder='{resp_pkg.get('encoder_name', '?')}', "
+          f"area='{resp_pkg.get('area', '?')}'")
+
+    # ── Pair the images with the responses ───────────────────────────────
+    image_dataset = TinyImageNetDataset(split=cfg.train.data_split, transform=CANONICAL_TRANSFORM)
+    if len(image_dataset) > cfg.train.n_train_images:
+        # Truncate deterministically (sorted order from the data loader).
+        image_dataset.image_paths = image_dataset.image_paths[: cfg.train.n_train_images]
+        responses = responses[: cfg.train.n_train_images]
+    print(f"  paired dataset size: {len(image_dataset)}")
+
+    train_diffusion(
+        cfg, image_dataset, responses, args.out_dir,
+        device=device, num_workers=args.num_workers, save_every=args.save_every, resume=args.resume,
+        metadata={
+            "config": {"diffusion": str(args.config), "responses_path": str(args.responses)},
+            "encoder_name": resp_pkg.get("encoder_name"),
+            "area": resp_pkg.get("area"),
+        },
+        prov=provenance({"diffusion": args.config}, seed=cfg.train.seed),
+    )
 
 
 if __name__ == "__main__":

@@ -44,6 +44,7 @@ from torch.utils.data import DataLoader
 from ..config import data_dir, load_config
 from ..data import CANONICAL_TRANSFORM
 from ..encoders import build_encoder
+from ..encoders.fitting import correlation_per_neuron, fit_readout_on_features
 from ..utils import count_parameters, get_device, provenance, set_seed
 from .tvsd import TVSDDataset, existing_image_mask, load_tvsd
 
@@ -64,19 +65,6 @@ def parse_args(argv=None):
     if args.evaluate_only and not args.encoder_ckpt:
         p.error("--evaluate-only needs --encoder-ckpt")
     return args
-
-
-def correlation_per_neuron(pred: torch.Tensor, target: torch.Tensor) -> np.ndarray:
-    """Pearson correlation per neuron over all images. Inputs: [N, n_neurons]."""
-    corrs = []
-    for n in range(pred.shape[1]):
-        p = pred[:, n].cpu().numpy()
-        t = target[:, n].cpu().numpy()
-        if p.std() > 1e-8 and t.std() > 1e-8:
-            corrs.append(float(np.corrcoef(p, t)[0, 1]))
-        else:
-            corrs.append(0.0)
-    return np.array(corrs)
 
 
 def test_set_fields(test_pred: torch.Tensor, test_resp: torch.Tensor,
@@ -187,77 +175,24 @@ def main(argv=None):
     train_feats, train_resp = splits["train"]
     print(f"  Feature shape (train): {tuple(train_feats.shape)}")
 
-    # ── 4. Train/val split (image-level, fixed seed; 5% validation) ──
-    n = len(train_feats)
-    n_val = int(round(cfg.train.validation_fraction * n))
-    n_tr = n - n_val
-    perm = torch.randperm(n, generator=torch.Generator().manual_seed(cfg.train.seed))
-    tr_idx, val_idx = perm[:n_tr], perm[n_tr:]
-    print(f"  train/val split: {n_tr}/{n_val}")
-
     # Move cached features to GPU for fast iteration
     train_feats = train_feats.to(device)
     train_resp = train_resp.to(device)
     test_feats = test_feats.to(device)
     test_resp = test_resp.to(device)
 
-    # ── 5. Optimiser & schedule ──
-    optimizer = torch.optim.AdamW(
-        encoder.readout.parameters(),
-        lr=cfg.train.lr, weight_decay=cfg.train.weight_decay,
-    )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=cfg.train.epochs,
-    )
-
-    # ── 6. Training loop on cached features ──
+    # ── 4. Fit the readout on the cached features (image-level train/val split, fixed seed) ──
     print(f"[Stage 1] Training readout for {cfg.train.epochs} epochs ...")
-    best_val_corr = -float("inf")
-    best_state = None
-    history = {"epoch": [], "train_loss": [], "val_loss": [], "val_corr": []}
-
-    for epoch in range(1, cfg.train.epochs + 1):
-        # --- train ---
-        encoder.readout.train()
-        perm_tr = tr_idx[torch.randperm(len(tr_idx))]
-        train_loss_sum, n_batches = 0.0, 0
-        for i in range(0, len(perm_tr), cfg.train.batch_size):
-            idx = perm_tr[i : i + cfg.train.batch_size]
-            pred = encoder.readout(train_feats[idx])
-            loss = F.mse_loss(pred, train_resp[idx])
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(encoder.readout.parameters(), 1.0)
-            optimizer.step()
-            train_loss_sum += loss.item()
-            n_batches += 1
-        train_loss = train_loss_sum / n_batches
-
-        # --- validate ---
-        encoder.readout.eval()
-        with torch.no_grad():
-            val_pred = encoder.readout(train_feats[val_idx])
-            val_loss = F.mse_loss(val_pred, train_resp[val_idx]).item()
-            val_corr = correlation_per_neuron(val_pred, train_resp[val_idx]).mean()
-
-        scheduler.step()
-        history["epoch"].append(epoch)
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-        history["val_corr"].append(float(val_corr))
-
-        if val_corr > best_val_corr:
-            best_val_corr = val_corr
-            best_state = {k: v.detach().cpu().clone()
-                          for k, v in encoder.state_dict().items()}
-
-        if epoch == 1 or epoch % 10 == 0 or epoch == cfg.train.epochs:
-            print(f"  epoch {epoch:4d}/{cfg.train.epochs}: "
-                  f"train={train_loss:.4f}  val={val_loss:.4f}  "
-                  f"corr={val_corr:.3f}  (best={best_val_corr:.3f})")
+    report = fit_readout_on_features(
+        encoder.readout, train_feats, train_resp,
+        epochs=cfg.train.epochs, lr=cfg.train.lr, weight_decay=cfg.train.weight_decay,
+        batch_size=cfg.train.batch_size, val_fraction=cfg.train.validation_fraction, seed=cfg.train.seed,
+    )
+    history = report.history
+    best_val_corr = report.best_val_corr
+    best_state = {k: v.detach().cpu().clone() for k, v in encoder.state_dict().items()}
 
     # ── 7. Test on best checkpoint ──
-    encoder.load_state_dict(best_state)
     encoder.eval()
     with torch.no_grad():
         fields = test_set_fields(encoder.readout(test_feats), test_resp, tvsd["oracle"])
