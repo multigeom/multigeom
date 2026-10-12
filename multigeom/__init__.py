@@ -2,19 +2,27 @@
 multigeom: the multi-scale Fisher information geometry of neural population codes, estimated with conditional diffusion
 models (Azeglio, Laquitaine, Ferrari, Chalk; NeurIPS 2026).
 
-Bring an encoder that is already fitted to your neural data (any PyTorch model that follows the contract of
-`multigeom.encoder`) and compute
+Encoders: use one that is already fitted, build your own, or bring any PyTorch model that follows the contract of
+`multigeom.encoder`:
 
-    compute_fisher(image, encoder, sigma)         the Fisher information J(x): its top eigenvalues and eigenvectors
-    estimate_g(image, encoder, unet, ...)         the multi-scale Fisher metric G(x) (needs a trained diffusion model)
-    align(eigvecs_a, eigvecs_b)                   the subspace alignment of two sets of eigenvectors
-    bures_wasserstein(...)                        the Bures-Wasserstein distance between two reconstructed metrics
-    validate_encoder(encoder)                     check that an encoder follows the contract
     load_encoder(name, area)                      an encoder of the paper, fitted to macaque V1 or V4 (downloaded)
     NeuralEncoder(backbone, n_neurons)            build your own encoder: fit_readout, predict, save, load
+    validate_encoder(encoder)                     check that an encoder follows the contract
 
-The core needs torch, numpy and scipy (and `diffusers` for the diffusion model). The extra `[paper]` adds what reproducing the paper needs (the ON-OFF encoder
-and the TVSD loaders), and `[all]` also Jupyter and the Modal launcher. Subpackages: `geometry`, `diffusion`, `pipeline`, `data`, `encoders`, `fit`, `viz`.
+The Fisher metric, the diffusion model and the multi-scale metric:
+
+    compute_fisher(image, encoder, sigma)         the Fisher information J(x): its top eigenvalues and eigenvectors
+    multigeom.diffusion                           the conditional diffusion model of an encoder: train it on its responses
+    estimate_g(image, encoder, unet, ...)         the multi-scale Fisher metric G(x) (needs the trained diffusion model)
+
+Information-geometric analyses of the metrics:
+
+    align(eigvecs_a, eigvecs_b)                   the subspace alignment of two sets of eigenvectors
+    bures_wasserstein(...)                        the Bures-Wasserstein distance between two reconstructed metrics
+
+Install the core with `pip install multigeom`; the extra `[paper]` adds what reproducing the paper needs (the ON-OFF
+encoder and the TVSD loaders), and `[all]` also Jupyter and the Modal launcher. Subpackages: `encoders`, `geometry`,
+`diffusion`, `pipeline`, `data`, `fit`, `viz`.
 """
 from .encoder import Encoder, EncoderContractError, EncoderReport, validate_encoder
 from .geometry.estimator import EstimatorOutput
