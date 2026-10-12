@@ -10,8 +10,8 @@ From PyPI
 
    pip install multigeom
 
-This installs the core: the Fisher metric :math:`J(x)`, the :math:`G(x)` estimator, encoders, the diffusion model, the pipeline and the
-figures (PyTorch, torchvision, diffusers, NumPy, SciPy, matplotlib). Two extras add the rest:
+This installs the core: encoders, the Fisher metric :math:`J(x)`, the diffusion model, the :math:`G(x)` estimator, and the
+information-geometric analyses. Two extras add the rest:
 
 .. list-table::
    :header-rows: 1

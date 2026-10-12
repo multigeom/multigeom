@@ -56,11 +56,11 @@ unconditional-conditional estimator, backbone layer sweep) are in `multigeom.fit
 
 ## Installation
 
-The package is `multigeom`. The core install gives the Fisher metric J(x), the G(x) estimator, the encoder contract,
-the diffusion model, the pipeline and the figures; two extras add the rest.
+The package is `multigeom`. The core install gives encoders, the Fisher metric J(x), the diffusion model, the G(x) estimator,
+and the information-geometric analyses; two extras add the rest.
 
 ```bash
-pip install multigeom                 # core: encoders, J(x), G(x), the diffusion model, the pipeline, the figures
+pip install multigeom                 # core: encoders, J(x), the diffusion model, the G(x) estimator, the analyses
 pip install "multigeom[paper]"        # + what reproducing the paper needs: the ON-OFF encoder (plenoptic), the TVSD loaders (h5py)
 pip install "multigeom[all]"          # + Jupyter and Modal (serverless GPUs)
 ```
