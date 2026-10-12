@@ -160,6 +160,7 @@ def test_save_and_load_round_trip(tmp_path, readout):
     assert loaded.config == enc.config
     ckpt = torch.load(path, weights_only=False)
     assert ckpt["metadata"] == {"area": "V1", "note": "hello"} and ckpt["format_version"] == 1
+    assert loaded.metadata == {"area": "V1", "note": "hello"}
     assert ckpt["multigeom_version"] == multigeom.__version__
 
 
@@ -232,6 +233,7 @@ def test_loading_a_checkpoint_of_the_paper_format(tmp_path, monkeypatch):
     x = images(3)
     torch.testing.assert_close(loaded.predict(x), src.predict(x))
     assert loaded.config["reference"] == "tinyref" and loaded.n_neurons == 5
+    assert loaded.metadata == {"area": "V1", "val_corr": 0.5}
     new = tmp_path / "new.pt"
     src.save(new)
     torch.testing.assert_close(NeuralEncoder.load(new).predict(x), src.predict(x))

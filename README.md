@@ -81,6 +81,8 @@ pip install -e ".[all]"
 ```python
 import multigeom
 
+encoder = multigeom.load_encoder("inception", area="V1")  # an encoder of the paper, fitted to macaque V1 (downloaded)
+responses = encoder.predict(images)                       # predicted neural responses [N, 50]
 multigeom.validate_encoder(encoder)                       # check the encoder contract
 J = multigeom.compute_fisher(image, encoder, sigma=0.22)  # eigenpairs of the Fisher metric J(x)
 G = multigeom.estimate_g(image=image, encoder=encoder, unet=unet, alphas_cumprod=a, cfg=cfg, device=device)

@@ -56,6 +56,7 @@ class NeuralEncoder(nn.Module):
             readout = READOUTS[readout](n_neurons=self.n_neurons, n_channels=backbone.out_channels,
                                         spatial=backbone.out_spatial, dropout=dropout)
         self.readout = readout
+        self.metadata: dict = {}                      # what a checkpoint said about the fit (see `load`)
         self._backbone_frozen = not any(p.requires_grad for p in backbone.parameters()) and \
             any(True for _ in backbone.parameters())
 
@@ -180,11 +181,16 @@ class NeuralEncoder(nn.Module):
 
     @classmethod
     def load(cls, path: str | Path, device: str | torch.device | None = None) -> "NeuralEncoder":
-        """Rebuild an encoder from a checkpoint written by `save` (or one of the paper's checkpoints) and load its weights."""
+        """
+        Rebuild an encoder from a checkpoint written by `save` (or one of the paper's checkpoints) and load its weights.
+        What the checkpoint says about the fit (the metadata given to `save`, or the paper's validation and test
+        correlations) is in `encoder.metadata`.
+        """
         ckpt = _read_checkpoint(path)
         encoder = _encoder_from_checkpoint(ckpt)
         encoder.load_state_dict(ckpt["model_state_dict"])
         encoder.eval()
+        encoder.metadata = _metadata_of(ckpt)
         if device is not None:
             encoder.to(device)
         return encoder
@@ -226,6 +232,15 @@ def _read_checkpoint(path: str | Path) -> dict:
     if "model_state_dict" not in ckpt:
         raise ValueError(f"{path} is not an encoder checkpoint (no 'model_state_dict')")
     return ckpt
+
+
+def _metadata_of(ckpt: dict) -> dict:
+    """What the checkpoint says about the encoder: the metadata given to `save`, or the fit scores of the paper's checkpoints."""
+    if "metadata" in ckpt:
+        return dict(ckpt["metadata"])
+    meta = {k: float(ckpt[k]) for k in ("val_corr", "test_corr", "test_corr_noise_corrected") if k in ckpt}
+    area = ckpt.get("config", {}).get("area")
+    return ({"area": area} if area else {}) | meta
 
 
 def _encoder_from_checkpoint(ckpt: dict) -> NeuralEncoder:

@@ -21,28 +21,65 @@ and follows the contract below.
    * - :func:`multigeom.bures_wasserstein`
      - Bures-Wasserstein distance between two reconstructed metrics.
 
-Bring your own encoder
-----------------------
+Encoders: use one, build one
+----------------------------
+
+An encoder predicts neural responses from images. The package represents it as a :class:`~multigeom.encoders.NeuralEncoder`: a
+**backbone** (a feature extractor) followed by a **readout** (the part fitted to neural data). Images are always
+``[N, 1, 64, 64]`` tensors with values in ``[-1, 1]``.
+
+**Use an encoder that is already fitted.** The encoders of the paper (``"inception"`` and ``"resnet50"``, areas ``"V1"`` and
+``"V4"``) are downloaded from Hugging Face once and cached:
 
 .. code-block:: python
 
-   import torch, torch.nn as nn
+   from multigeom import load_encoder
+
+   encoder = load_encoder("inception", area="V1")
+   print(encoder.summary())
+   responses = encoder.predict(images)            # [N, 50] predicted neural responses
+   encoder2 = load_encoder("path/to/encoder.pt")  # or a checkpoint on disk
+
+**Build your own.** Choose a backbone, a readout, fit the readout to neural data, save:
+
+.. code-block:: python
+
+   from multigeom import NeuralEncoder
+   from multigeom.encoders import SmallCNNBackbone
+
+   backbone = SmallCNNBackbone()                  # train it first, on any task (plain PyTorch)
+   encoder = NeuralEncoder(backbone, n_neurons=50, readout="gaussian")
+   report = encoder.fit_readout(images, responses)   # freezes the backbone, fits the readout, keeps the best epoch
+   encoder.save("my_encoder.pt", area="V1")
+   encoder = NeuralEncoder.load("my_encoder.pt")
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Readout
+     - Each neuron computes
+   * - ``"linear"``
+     - a weighted sum of the feature channels, averaged over space
+   * - ``"gaussian"``
+     - the same over a Gaussian window of its own (position and width learned): the readout of the paper
+   * - ``"factorized"``
+     - the same over a window of any shape (one learned weight per location)
+
+Your own backbone or readout needs the decorator ``@register_backbone("name")`` or ``@register_readout("name")`` so that a saved encoder
+can be rebuilt from its file. A backbone is an ``nn.Module`` with attributes ``out_channels`` and ``out_spatial`` that maps images to
+``[B, C, S, S]``.
+
+**Any other PyTorch model** works too, without ``NeuralEncoder``, if it follows the contract below:
+
+.. code-block:: python
+
    import multigeom
 
-   class MyEncoder(nn.Module):
-       def __init__(self, n_neurons=20):
-           super().__init__()
-           self.linear = nn.Linear(64 * 64, n_neurons)
-       def forward(self, x):                                  # x: [B, 1, 64, 64] in [-1, 1]
-           return torch.tanh(self.linear(x.flatten(1)))       # responses: [B, N]
+   multigeom.validate_encoder(model)
+   fisher = multigeom.compute_fisher(image=x, encoder=model, sigma=0.22, top_k=10)
 
-   encoder = MyEncoder()
-   report = multigeom.validate_encoder(encoder, sigma=0.22)   # raises EncoderContractError on a violation
-
-   x = torch.rand(1, 1, 64, 64) * 2 - 1
-   fisher = multigeom.compute_fisher(image=x, encoder=encoder, sigma=0.22, top_k=10)
-
-The :doc:`demo notebook <demo_notebooks/0_bring_your_own_encoder>` runs this end to end.
+The :doc:`demo notebooks <demos>` go through each step, with synthetic neural data that has a known ground truth.
 
 The encoder contract
 --------------------

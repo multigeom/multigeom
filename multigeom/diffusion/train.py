@@ -96,6 +96,7 @@ def train_diffusion(
     metadata: dict | None = None,
     prov: dict | None = None,
     log=print,
+    progress: bool = True,
 ):
     """
     Train the conditional diffusion model of an encoder, and write `final_model.pt` (rewritten after every epoch),
@@ -109,6 +110,8 @@ def train_diffusion(
             (see `multigeom.diffusion.responses.precompute_responses`).
         out_dir: output folder.
         metadata: extra entries saved in the checkpoint (for example the encoder name and area).
+        log: where progress messages go (`print`, a function taking a string, or None for silence).
+        progress: show a progress bar over the batches of each epoch.
 
     Returns:
         The loss history, `{"epoch": [...], "loss": [...]}`.
@@ -184,7 +187,7 @@ def train_diffusion(
     for epoch in range(start_epoch, cfg.train.epochs + 1):
         model.train()
         epoch_loss, n_batches = 0.0, 0
-        pbar = tqdm(loader, desc=f"epoch {epoch:3d}/{cfg.train.epochs}", leave=False, disable=log is None)
+        pbar = tqdm(loader, desc=f"epoch {epoch:3d}/{cfg.train.epochs}", leave=False, disable=not progress)
         for x, r in pbar:
             x = x.to(device, non_blocking=True)                 # [B, 1, 64, 64] in [-1, 1]
             r = r.to(device, non_blocking=True)                 # [B, n_neurons]

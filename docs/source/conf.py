@@ -61,7 +61,7 @@ nbsphinx_prolog = r"""
 
     <div class="nb-note">
       <a href="https://github.com/""" + TUTORIALS_REPO + r"""/blob/""" + TUTORIALS_BRANCH + r"""/notebooks/{{ nb }}">View on GitHub</a>
-      {% if nb.startswith('0_') %}
+      {% if nb.startswith('0_') or nb.startswith('1_') or nb.startswith('2_') %}
       <a href="https://colab.research.google.com/github/""" + TUTORIALS_REPO + r"""/blob/""" + TUTORIALS_BRANCH + r"""/notebooks/{{ nb }}">Open in Colab</a>
       {% else %}
       Needs the datasets and trained checkpoints, and a GPU (see the notebook's first cells).
@@ -76,11 +76,13 @@ html_css_files = ["css/custom.css"]
 html_logo = "_static/img/logo.svg"
 # Thumbnails of the demo grid (docs/source/demos.rst), by notebook.
 nbsphinx_thumbnails = {
-    "demo_notebooks/0_bring_your_own_encoder": "_static/thumbnails/bring_your_own_encoder.png",
-    "demo_notebooks/1_leading_eigenvectors_of_G": "_static/thumbnails/leading_eigenvectors.png",
-    "demo_notebooks/2_subspace_alignment": "_static/thumbnails/subspace_alignment.png",
-    "demo_notebooks/3_local_metric_field": "_static/thumbnails/local_metric_field.png",
-    "demo_notebooks/4_bures_wasserstein": "_static/thumbnails/bures_wasserstein.png",
+    "demo_notebooks/0_getting_started_use_a_builtin_encoder": "_static/thumbnails/use_builtin_encoder.png",
+    "demo_notebooks/1_getting_started_synthetic_neural_data": "_static/thumbnails/synthetic_neural_data.png",
+    "demo_notebooks/2_getting_started_diffusion_and_g": "_static/thumbnails/diffusion_and_g.png",
+    "demo_notebooks/3_leading_eigenvectors_of_G": "_static/thumbnails/leading_eigenvectors.png",
+    "demo_notebooks/4_subspace_alignment": "_static/thumbnails/subspace_alignment.png",
+    "demo_notebooks/5_local_metric_field": "_static/thumbnails/local_metric_field.png",
+    "demo_notebooks/6_bures_wasserstein": "_static/thumbnails/bures_wasserstein.png",
 }
 
 # Navigation on the left only, as in the CEBRA docs: the section pages and the headings of the current page share the

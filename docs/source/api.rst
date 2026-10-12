@@ -9,6 +9,8 @@ The functions and classes exported by ``import multigeom``.
 .. autosummary::
    :toctree: api/generated
 
+   multigeom.load_encoder
+   multigeom.NeuralEncoder
    multigeom.validate_encoder
    multigeom.compute_fisher
    multigeom.estimate_g
