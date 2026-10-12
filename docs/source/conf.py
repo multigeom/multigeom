@@ -78,7 +78,7 @@ html_logo = "_static/img/logo.svg"
 nbsphinx_thumbnails = {
     "demo_notebooks/0_getting_started_use_a_builtin_encoder": "_static/thumbnails/use_builtin_encoder.png",
     "demo_notebooks/1_getting_started_synthetic_neural_data": "_static/thumbnails/synthetic_neural_data.png",
-    "demo_notebooks/2_getting_started_diffusion_and_g": "_static/thumbnails/diffusion_and_g.png",
+    "demo_notebooks/2_getting_started_diffusion_and_pipeline": "_static/thumbnails/diffusion_and_g.png",
     "demo_notebooks/3_leading_eigenvectors_of_G": "_static/thumbnails/leading_eigenvectors.png",
     "demo_notebooks/4_subspace_alignment": "_static/thumbnails/subspace_alignment.png",
     "demo_notebooks/5_local_metric_field": "_static/thumbnails/local_metric_field.png",

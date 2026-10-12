@@ -15,7 +15,7 @@ dataset beyond TinyImageNet (notebooks 1 and 2) and run in minutes on a GPU.
 
    demo_notebooks/0_getting_started_use_a_builtin_encoder
    demo_notebooks/1_getting_started_synthetic_neural_data
-   demo_notebooks/2_getting_started_diffusion_and_g
+   demo_notebooks/2_getting_started_diffusion_and_pipeline
 
 Reproduce the paper
 -------------------
