@@ -13,9 +13,9 @@ dataset beyond TinyImageNet (notebooks 1 and 2) and run in minutes on a GPU.
 .. nbgallery::
    :name: demo-gallery-getting-started
 
-   demo_notebooks/0_getting_started_use_a_builtin_encoder
-   demo_notebooks/1_getting_started_synthetic_neural_data
-   demo_notebooks/2_getting_started_diffusion_and_pipeline
+   demo_notebooks/0_use_a_builtin_encoder
+   demo_notebooks/1_create_your_encoder
+   demo_notebooks/2_compute_g
 
 Reproduce the paper
 -------------------
@@ -41,7 +41,7 @@ These notebooks need the datasets, the trained checkpoints of the paper and a GP
      - load an encoder of the paper, predict responses, compute :math:`J(x)`
      - a CPU, a minute (Colab works)
    * - 1 Build your own encoder
-     - synthetic neural data, backbone, readout, ``fit_readout``, ``save``, ``load``
+     - synthetic neural data, your own backbone and readout, ``fit_readout``, ``save``, ``load``, how to contribute it
      - TinyImageNet, about 1 min on a GPU
    * - 2 Train the diffusion model and compute G(x)
      - ``precompute_responses``, ``train_diffusion``, ``compute_g``

@@ -23,10 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The notebooks come from the branch that matches the one built: develop for develop (and pull requests into it),
+      # main otherwise. The docs name the notebooks, so both repositories must be at the same stage.
       - name: Check out the demo notebooks
         uses: actions/checkout@v4
         with:
           repository: multigeom/multigeom-tutorials
+          ref: ${{ (github.base_ref || github.ref_name) == 'develop' && 'develop' || 'main' }}
           path: multigeom-tutorials
 
       - uses: actions/setup-python@v5

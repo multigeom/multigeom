@@ -12,6 +12,8 @@ First release of the package, refactored from the code of the paper
 - `NeuralEncoder` (backbone and readout) with `predict`, `fit_readout`, `save` and `load`; `load_encoder` for the encoders of the paper
   (downloaded from Hugging Face); the readouts `gaussian`, `linear` and `factorized`; the trainable `SmallCNNBackbone`;
   registries to add your own backbones and readouts.
+- Documentation: a complete example of an encoder with a custom backbone and readout fitted to synthetic data, and a guide to
+  contributing an encoder to the package.
 - Synthetic neural data with a known ground truth (`GaborTeacher`, `make_synthetic_neural_data`, `noise_ceiling`).
 - The Fisher information `compute_fisher`, the multi-scale metric `compute_g`, the encoder contract `validate_encoder`, the analyses
   `subspace_alignment` and `bures_wasserstein`. The functions are grouped in the subpackages `multigeom.encoders`, `multigeom.geometry`

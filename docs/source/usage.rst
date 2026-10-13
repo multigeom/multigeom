@@ -91,9 +91,76 @@ An encoder predicts neural responses from images. The package represents it as a
    * - ``"factorized"``
      - the same over a window of any shape (one learned weight per location)
 
-Your own backbone or readout needs the decorator ``@register_backbone("name")`` or ``@register_readout("name")`` so that a saved encoder
-can be rebuilt from its file. A backbone is an ``nn.Module`` with attributes ``out_channels`` and ``out_spatial`` that maps images to
-``[B, C, S, S]``.
+Write your own backbone and readout
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Both parts are ordinary ``nn.Module`` classes. A backbone maps images ``[B, 1, 64, 64]`` to a feature map ``[B, C, S, S]`` and has
+the attributes ``out_channels`` (C) and ``out_spatial`` (S). A readout maps that feature map to responses ``[B, N]`` and is built
+as ``(n_neurons, n_channels, spatial, dropout)``. The decorators ``@register_backbone("name")`` and ``@register_readout("name")``
+write the name into the saved file, so that ``NeuralEncoder.load`` can rebuild the encoder. This example fits an encoder to
+synthetic neural data from start to finish:
+
+.. code-block:: python
+
+   import math
+   import torch, torch.nn as nn, torch.nn.functional as F
+   from multigeom import NeuralEncoder, validate_encoder
+   from multigeom.data import GaborTeacher, make_synthetic_neural_data
+   from multigeom.encoders import register_backbone, register_readout
+
+
+   @register_backbone("gabor_bank")
+   class GaborBankBackbone(nn.Module):
+       """The energy of oriented Gabor filters: hand-designed features, nothing to train."""
+
+       out_spatial = 16                                          # 64 x 64 pixels pooled by 4
+
+       def __init__(self, n_orientations: int = 8, size: int = 11, wavelength: float = 6.0):
+           super().__init__()
+           self.out_channels = 2 * n_orientations                # two phases per orientation
+           r = torch.arange(size) - size // 2
+           yy, xx = torch.meshgrid(r, r, indexing="ij")
+           envelope = torch.exp(-(xx**2 + yy**2) / (2 * (size / 4) ** 2))
+           filters = []
+           for k in range(n_orientations):
+               u = xx * math.cos(math.pi * k / n_orientations) + yy * math.sin(math.pi * k / n_orientations)
+               for phase in (0.0, math.pi / 2):
+                   g = envelope * torch.cos(2 * math.pi * u / wavelength + phase)
+                   filters.append(g - g.mean())
+           w = torch.stack(filters)[:, None]
+           self.register_buffer("filters", w / w.flatten(1).norm(dim=1)[:, None, None, None])
+
+       def forward(self, x):
+           return F.avg_pool2d(F.conv2d(x, self.filters, padding="same") ** 2, 4)
+
+
+   @register_readout("softplus")
+   class SoftplusReadout(nn.Module):
+       """Average the feature map over space, one linear map, positive responses."""
+
+       def __init__(self, n_neurons: int, n_channels: int, spatial: int, dropout: float = 0.0):
+           super().__init__()
+           self.linear = nn.Linear(n_channels, n_neurons)
+           self.dropout = nn.Dropout(dropout)
+
+       def forward(self, features):                              # [B, C, S, S] -> [B, N]
+           return F.softplus(self.linear(self.dropout(features).mean(dim=(2, 3))))
+
+
+   low = torch.randn(1200, 1, 8, 8)                              # smooth random images, a stand-in for natural ones
+   images = F.interpolate(low, size=64, mode="bicubic").clamp(-1, 1)   # use TinyImageNet for a real fit
+   teacher = GaborTeacher(20, seed=0).calibrate(images)          # synthetic neurons with a known ground truth
+   noisy, clean = make_synthetic_neural_data(teacher, images, noise_sigma=0.22, seed=1)
+
+   encoder = NeuralEncoder(GaborBankBackbone(), n_neurons=20, readout="softplus")
+   encoder.fit_readout(images[:1000], noisy[:1000], epochs=60)   # fits the readout, the backbone stays fixed
+   responses = encoder.predict(images[1000:])                    # [200, 20] predicted neural responses
+   validate_encoder(encoder)                                     # the encoder contract
+
+   encoder.save("my_encoder.pt")
+   encoder = NeuralEncoder.load("my_encoder.pt")                 # works because both names are registered
+
+To share a new backbone or readout with everyone, see :ref:`add-an-encoder`.
 
 **Any other PyTorch model** works too, without ``NeuralEncoder``, if it follows the contract below:
 
