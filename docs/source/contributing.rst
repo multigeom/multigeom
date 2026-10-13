@@ -50,8 +50,18 @@ section "Write your own backbone and readout" of the demo notebook 1 and the :do
    into ``multigeom/encoders/readout.py``. Keep the ``@register_backbone("name")`` or ``@register_readout("name")`` decorator
    (imported from ``.registry``), give every constructor argument a default (the saved architecture records the arguments), and
    write a Google-style docstring with ``Args:`` and ``Returns:`` that says what the model is and cites its source.
-3. Export it in ``multigeom/encoders/__init__.py``: add it to the import line of its module and to ``__all__``. Importing the
-   module registers the name, so a saved encoder loads in a fresh Python session.
+3. Make it importable from ``multigeom.encoders``. In ``multigeom/encoders/__init__.py``, add the class name to the import line of
+   the module it lives in, and to the ``__all__`` list. For a backbone called ``GaborBankBackbone``:
+
+   .. code-block:: python
+
+      from .backbones import GaborBankBackbone, InceptionBackbone, ...       # add the name to the existing import
+      __all__ = [..., "GaborBankBackbone", ...]                             # and to the list of public names
+
+   Users can then write ``from multigeom.encoders import GaborBankBackbone``. The import also matters for saved encoders: a saved
+   file stores only the registered names (``"gabor_bank"``), and ``NeuralEncoder.load`` finds the class by importing
+   ``multigeom.encoders``, which imports your module and runs its ``@register_backbone`` decorator. A class placed in a new
+   module is registered only if ``__init__.py`` imports that module.
 4. Add a unit test in ``tests/unit``. It must run on a CPU without data or downloads:
 
    .. code-block:: python
