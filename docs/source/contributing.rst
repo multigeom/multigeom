@@ -46,12 +46,12 @@ section "Write your own backbone and readout" of the demo notebook 1 and the :do
 
 1. Fork ``multigeom/multigeom``, clone your fork and branch from ``develop``:
    ``git switch -c encoder/my-encoder origin/develop``. Install with ``pip install -e ".[all,dev]"``.
-2. Move the classes into the package: a backbone into a new module ``multigeom/encoders/my_encoder.py``, a readout into
-   ``multigeom/encoders/readout.py``. Keep the ``@register_backbone("name")`` or ``@register_readout("name")`` decorator, give every
-   constructor argument a default (the saved architecture records the arguments), and write a Google-style docstring with ``Args:``
-   and ``Returns:`` that says what the model is and cites its source.
-3. Import it in ``multigeom/encoders/__init__.py`` and add it to ``__all__``. The import registers the name, so a saved encoder
-   loads in a fresh Python session.
+2. Move the classes into the package, next to the existing ones: a backbone into ``multigeom/encoders/backbones.py``, a readout
+   into ``multigeom/encoders/readout.py``. Keep the ``@register_backbone("name")`` or ``@register_readout("name")`` decorator
+   (imported from ``.registry``), give every constructor argument a default (the saved architecture records the arguments), and
+   write a Google-style docstring with ``Args:`` and ``Returns:`` that says what the model is and cites its source.
+3. Export it in ``multigeom/encoders/__init__.py``: add it to the import line of its module and to ``__all__``. Importing the
+   module registers the name, so a saved encoder loads in a fresh Python session.
 4. Add a unit test in ``tests/unit``. It must run on a CPU without data or downloads:
 
    .. code-block:: python
@@ -67,7 +67,8 @@ section "Write your own backbone and readout" of the demo notebook 1 and the :do
 5. Run the tests as in the section above, add a line to ``CHANGELOG.md``, and build the documentation (warnings are errors).
 6. Push to your fork and open a pull request against ``develop``. Tests, build and docs must pass before review.
 
-A model that needs trained weights or a large dataset is shared as a checkpoint instead: open an issue, and the weights can be
+A complete encoder with its own ``forward`` (not just a new backbone or readout) can go in a new module of ``multigeom/encoders/``,
+exported the same way. A model that needs trained weights or a large dataset is shared as a checkpoint instead: open an issue, and the weights can be
 hosted next to the paper's encoders and loaded with ``load_encoder``.
 
 Pull requests
