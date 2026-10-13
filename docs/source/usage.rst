@@ -12,30 +12,32 @@ The package does three things: it gives you **encoders** (models that predict ne
      - Function
      - What it does
    * - Encoders
-     - :func:`multigeom.load_encoder`
+     - :func:`multigeom.encoders.load_encoder`
      - Returns an encoder of the paper, fitted to macaque V1 or V4 (downloaded once).
    * - Encoders
-     - :class:`multigeom.NeuralEncoder`
+     - :class:`multigeom.encoders.NeuralEncoder`
      - Builds your own encoder (backbone and readout). Methods: ``predict``, ``fit_readout``, ``save``, ``load``,
        ``load_checkpoint`` and ``summary``.
    * - Encoders
-     - :func:`multigeom.validate_encoder`
+     - :func:`multigeom.encoders.validate_encoder`
      - Checks that any PyTorch model follows the encoder contract below, and names the rule it breaks.
    * - Geometry
-     - :func:`multigeom.compute_fisher`
+     - :func:`multigeom.geometry.compute_fisher`
      - Top eigenvalues and eigenvectors of the Fisher information :math:`J(x)` of an image, for an encoder.
    * - Geometry
-     - :func:`multigeom.compute_g`
+     - :func:`multigeom.geometry.compute_g`
      - Top eigenpairs of the multi-scale Fisher metric :math:`G(x)` of an image, for an encoder and its trained diffusion model
        (see ``multigeom.diffusion``: ``precompute_responses`` and ``train_diffusion``).
    * - Analysis
-     - :func:`multigeom.align`
+     - :func:`multigeom.analysis.subspace_alignment`
      - Subspace alignment of two sets of eigenvectors.
    * - Analysis
-     - :func:`multigeom.bures_wasserstein`
+     - :func:`multigeom.analysis.bures_wasserstein`
      - Bures-Wasserstein distance between two reconstructed metrics.
 
 The geometry functions take an encoder and an image. The analysis functions take the eigenvectors that the geometry functions return.
+Each group is a subpackage (``multigeom.encoders``, ``multigeom.geometry``, ``multigeom.analysis``), and the main functions are also
+available directly from ``multigeom``, for example ``multigeom.compute_fisher``.
 
 Encoders: use one, build one
 ----------------------------

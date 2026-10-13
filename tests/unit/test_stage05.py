@@ -14,7 +14,7 @@ import numpy as np
 import pytest
 import torch
 
-from multigeom.geometry.metrics import bures_wasserstein, subspace_alignment
+from multigeom.analysis.metrics import bures_wasserstein, subspace_alignment
 
 P, K = 30, 6
 CONFIGS = [("inception", "V1"), ("inception", "V4"), ("resnet50", "V1"), ("resnet50", "V4")]

@@ -8,6 +8,7 @@ Encoders, the models that predict neural responses from images: a backbone follo
 
 Any other fitted PyTorch model can be used instead: see `multigeom.encoder` for the contract it must satisfy.
 """
+from ..encoder import EncoderContractError, EncoderReport, validate_encoder
 from .backbones import InceptionBackbone, OnOffBackbone, ResNet50Backbone, SmallCNNBackbone, _FrozenBackbone
 from .fitting import FitReport, correlation_per_neuron, fit_readout_on_features
 from .neural import NeuralEncoder, load_encoder
@@ -16,7 +17,7 @@ from .reference import InceptionEncoder, OnOffEncoder, ResNet50Encoder, _BaseEnc
 from .registry import BACKBONES, READOUTS, register_backbone, register_readout
 
 __all__ = [
-    "NeuralEncoder", "load_encoder", "FitReport",
+    "NeuralEncoder", "load_encoder", "validate_encoder", "EncoderContractError", "EncoderReport", "FitReport",
     "GaussianReadout", "LinearReadout", "FactorizedReadout", "SmallCNNBackbone",
     "register_backbone", "register_readout", "BACKBONES", "READOUTS",
     "InceptionBackbone", "ResNet50Backbone", "OnOffBackbone",

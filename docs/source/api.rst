@@ -4,23 +4,41 @@ API Docs
 Public API
 ----------
 
-The functions and classes exported by ``import multigeom``.
+The functions and classes of the three groups. The main ones are also available directly from ``multigeom`` (for example
+``multigeom.compute_fisher``).
+
+Encoders
+~~~~~~~~
 
 .. autosummary::
    :toctree: api/generated
 
-   multigeom.load_encoder
-   multigeom.NeuralEncoder
-   multigeom.validate_encoder
-   multigeom.compute_fisher
-   multigeom.compute_g
-   multigeom.align
-   multigeom.bures_wasserstein
+   multigeom.encoders.load_encoder
+   multigeom.encoders.NeuralEncoder
+   multigeom.encoders.validate_encoder
+   multigeom.encoders.EncoderReport
+   multigeom.encoders.EncoderContractError
    multigeom.Encoder
-   multigeom.EncoderReport
-   multigeom.EncoderContractError
-   multigeom.FisherOutput
-   multigeom.EstimatorOutput
+
+Geometry
+~~~~~~~~
+
+.. autosummary::
+   :toctree: api/generated
+
+   multigeom.geometry.compute_fisher
+   multigeom.geometry.compute_g
+   multigeom.geometry.FisherOutput
+   multigeom.geometry.EstimatorOutput
+
+Analysis
+~~~~~~~~
+
+.. autosummary::
+   :toctree: api/generated
+
+   multigeom.analysis.subspace_alignment
+   multigeom.analysis.bures_wasserstein
 
 Module reference
 ----------------

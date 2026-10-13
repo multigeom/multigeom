@@ -14,7 +14,7 @@ import pytest
 import scipy.linalg
 import torch
 
-from multigeom.geometry.metrics import bures_wasserstein, bures_wasserstein_from_overlap, subspace_alignment
+from multigeom.analysis.metrics import bures_wasserstein, bures_wasserstein_from_overlap, subspace_alignment
 
 
 def _orthonormal_rows(k: int, P: int, seed: int) -> torch.Tensor:

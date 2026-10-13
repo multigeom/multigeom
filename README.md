@@ -258,13 +258,14 @@ identifier; this section will link to them.
 
 ```
 multigeom/
-    __init__.py     public API: compute_fisher, compute_g, align, validate_encoder, ...
+    __init__.py     public API: load_encoder, NeuralEncoder, compute_fisher, compute_g, subspace_alignment, ...
     encoder.py      the encoder contract (Protocol and validate_encoder)
-    geometry/       core: fisher, estimator, metrics, metric_field
+    encoders/       core: NeuralEncoder, load_encoder, validate_encoder, readouts, the reference encoders (ON-OFF needs the [paper] extra)
+    geometry/       core: fisher (compute_fisher), estimator (compute_g), metric_field
+    analysis/       core: subspace_alignment, bures_wasserstein
     diffusion/      core: model, config, responses, train
     pipeline/       core: per_image, alignment, metric_field, distribute (local and Modal workers)
     data/           TinyImageNet loader and the canonical image transform
-    encoders/       NeuralEncoder, readouts, the reference encoders (Inception, ResNet-50; ON-OFF needs the [paper] extra)
     fit/            extra [paper]: fitting encoders to the TVSD recordings, layer sweep, noise calibration
     viz/            the figures of the paper
     configs/        packaged YAML settings (encoders, diffusion, estimator)

@@ -7,7 +7,7 @@ For every unordered pair of (encoder, area) configurations, for both metrics
 compute as a function of k = 1, ..., max_k:
 
   - the subspace alignment 𝒜_k = (1/k)‖V_Aᵀ V_B‖_F²     (Fig. 4D-E;
-    same definition as multigeom.geometry.metrics.subspace_alignment)
+    same definition as multigeom.analysis.subspace_alignment)
   - the Bures-Wasserstein distance d_BW between the rank-k
     reconstructions V Λ Vᵀ of the two metrics            (appendix BW figure)
 
@@ -38,7 +38,7 @@ import torch
 
 
 from ..config import project_root
-from ..geometry.metrics import bures_wasserstein_from_overlap
+from ..analysis.metrics import bures_wasserstein_from_overlap
 from ..utils import provenance, subprocess_env
 
 ENCODER_ORDER = ("inception", "resnet50", "onoff")

@@ -14,7 +14,8 @@ First release of the package, refactored from the code of the paper
   registries to add your own backbones and readouts.
 - Synthetic neural data with a known ground truth (`GaborTeacher`, `make_synthetic_neural_data`, `noise_ceiling`).
 - The Fisher information `compute_fisher`, the multi-scale metric `compute_g`, the encoder contract `validate_encoder`, the analyses
-  `align` and `bures_wasserstein`.
+  `subspace_alignment` and `bures_wasserstein`. The functions are grouped in the subpackages `multigeom.encoders`, `multigeom.geometry`
+  and `multigeom.analysis`, and the main ones are also available directly from `multigeom`.
 - The conditional diffusion model with callable `train_diffusion` and `precompute_responses`; the pipeline for many images (resumable,
   local GPUs or Modal) and the command line `multigeom`.
 - Documentation at <https://multigeom.github.io/multigeom/> and the demo notebooks in `multigeom-tutorials`.
