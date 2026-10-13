@@ -1,11 +1,12 @@
 name: docs
 
-# Build the documentation on every pull request (warnings fail the build) and publish it to GitHub Pages
-# (https://multigeom.github.io/multigeom/) when changes land on main. Needs Settings > Pages > Source: GitHub Actions.
+# Build the documentation on every pull request and every push to develop or main (warnings fail the build), and publish it
+# to GitHub Pages (https://multigeom.github.io/multigeom/) only when changes land on main. Needs Settings > Pages > Source:
+# GitHub Actions.
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 permissions:
@@ -42,8 +43,8 @@ jobs:
       - name: Build the documentation
         run: make -C docs docs TUTORIALS_DIR=../multigeom-tutorials
 
-      - name: Keep the built site of a pull request, to download and open it
-        if: github.event_name == 'pull_request'
+      - name: Keep the built site of a pull request or of develop, to download and open it
+        if: github.ref != 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: docs-html
@@ -51,12 +52,12 @@ jobs:
           retention-days: 7
 
       - uses: actions/upload-pages-artifact@v3
-        if: github.event_name != 'pull_request'
+        if: github.ref == 'refs/heads/main'
         with:
           path: docs/build/html
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:

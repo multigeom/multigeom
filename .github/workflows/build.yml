@@ -1,10 +1,11 @@
 name: build
 
-# Build the distribution (sdist and wheel) on every pull request and check that it installs and imports.
+# Build the distribution (sdist and wheel) on every pull request and on every push to develop or main, and check that it
+# installs and imports.
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
