@@ -184,3 +184,19 @@ def test_style_keeps_the_notebook_backend_in_a_jupyter_kernel(monkeypatch):
     monkeypatch.delitem(sys.modules, "IPython")
     monkeypatch.setitem(sys.modules, "IPython", None)               # not installed
     assert style._in_notebook() is False
+
+
+@pytest.mark.parametrize("layout", ["older paper checkpoint", "NeuralEncoder.save"])
+def test_encoder_checkpoint_gives_the_scores_in_both_layouts(tmp_path, layout):
+    from multigeom.viz.style import encoder_checkpoint
+
+    scores = {"per_neuron_test_corr": np.array([0.5, 0.6]), "oracle": np.array([0.9, 0.9]), "test_corr": 0.55}
+    ckpt = {"model_state_dict": {"readout.mu": torch.zeros(2, 2)}}
+    ckpt.update(scores if layout == "older paper checkpoint" else {"metadata": {"area": "V1", **scores}})
+    d = tmp_path / "encoders" / "inception" / "V1"
+    d.mkdir(parents=True)
+    torch.save(ckpt, d / "best_model.pt")
+    got = encoder_checkpoint(tmp_path, "inception", "V1", "test")
+    np.testing.assert_array_equal(got["per_neuron_test_corr"], scores["per_neuron_test_corr"])
+    assert got["test_corr"] == 0.55 and "model_state_dict" in got
+    assert encoder_checkpoint(tmp_path, "inception", "V4", "test") is None

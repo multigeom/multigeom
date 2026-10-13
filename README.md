@@ -26,7 +26,7 @@ conditional diffusion model. The package also reproduces the macaque V1/V4 analy
 
 ## What the pipeline does
 
-1. **Encoders** (`multigeom.fit.train_encoder`). A frozen backbone
+1. **Encoders** (`NeuralEncoder.fit_readout`; the paper's recipe is `multigeom.fit.train_encoder`). A frozen backbone
    (InceptionV3 truncated at `Conv2d_4a_3x3`, ResNet-50 truncated at
    `layer1.0`, or the ON-OFF front-end of Berardino et al.) followed by a
    per-neuron Gaussian spatial-attention readout, fitted to the trial-averaged

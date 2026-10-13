@@ -53,11 +53,12 @@ An encoder predicts neural responses from images. The package represents it as a
 
    from multigeom import load_encoder
 
-   encoder = load_encoder("inception", area="V1")   # an encoder of the paper, downloaded once
+   # An encoder of the paper, downloaded once.
+   encoder = load_encoder("inception", area="V1")
    print(encoder.summary())
 
-   images = ...                                     # [N, 1, 64, 64] tensor, values in [-1, 1]
-   responses = encoder.predict(images)              # [N, 50] predicted neural responses
+   images = ...                         # [N, 1, 64, 64], values in [-1, 1]
+   responses = encoder.predict(images)  # [N, 50] predicted responses
 
    # A checkpoint on disk works too:
    encoder = load_encoder("path/to/encoder.pt")
@@ -69,11 +70,13 @@ An encoder predicts neural responses from images. The package represents it as a
    from multigeom import NeuralEncoder
    from multigeom.encoders import SmallCNNBackbone
 
-   backbone = SmallCNNBackbone()                    # train it first, on any task (plain PyTorch)
+   # Train the backbone first, on any task (plain PyTorch).
+   backbone = SmallCNNBackbone()
    encoder = NeuralEncoder(backbone, n_neurons=50, readout="gaussian")
 
-   # Freezes the backbone, fits the readout, and keeps the best epoch.
-   report = encoder.fit_readout(images, responses)  # images [N, 1, 64, 64], responses [N, 50]
+   # Freezes the backbone, fits the readout, keeps the best epoch.
+   # images [N, 1, 64, 64], responses [N, 50]
+   report = encoder.fit_readout(images, responses)
 
    encoder.save("my_encoder.pt", area="V1")
    encoder = NeuralEncoder.load("my_encoder.pt")
@@ -91,14 +94,18 @@ An encoder predicts neural responses from images. The package represents it as a
    * - ``"factorized"``
      - the same over a window of any shape (one learned weight per location)
 
+``encoder.fit_readout`` is the one way to fit a readout, whatever the data: synthetic neurons, your own recordings, or the
+macaque recordings of the paper. The script of the paper, ``multigeom.fit.train_encoder`` (command ``multigeom train-encoder``,
+extra ``paper``), only loads those recordings, calls ``fit_readout``, scores the encoder on the test images and saves it.
+
 Write your own backbone and readout
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Both parts are ordinary ``nn.Module`` classes. A backbone maps images ``[B, 1, 64, 64]`` to a feature map ``[B, C, S, S]`` and has
 the attributes ``out_channels`` (C) and ``out_spatial`` (S). A readout maps that feature map to responses ``[B, N]`` and is built
 as ``(n_neurons, n_channels, spatial, dropout)``. The decorators ``@register_backbone("name")`` and ``@register_readout("name")``
-write the name into the saved file, so that ``NeuralEncoder.load`` can rebuild the encoder. This example fits an encoder to
-synthetic neural data from start to finish:
+give each class a name (see below for what the name is used for). This example fits an encoder to synthetic neural data from
+start to finish:
 
 .. code-block:: python
 
@@ -111,54 +118,87 @@ synthetic neural data from start to finish:
 
    @register_backbone("gabor_bank")
    class GaborBankBackbone(nn.Module):
-       """The energy of oriented Gabor filters: hand-designed features, nothing to train."""
+       """Energy of oriented Gabor filters. Nothing to train."""
 
-       out_spatial = 16                                          # 64 x 64 pixels pooled by 4
+       out_spatial = 16                   # 64 x 64 pixels, pooled by 4
 
-       def __init__(self, n_orientations: int = 8, size: int = 11, wavelength: float = 6.0):
+       def __init__(self, n_orientations: int = 8, size: int = 11,
+                    wavelength: float = 6.0):
            super().__init__()
-           self.out_channels = 2 * n_orientations                # two phases per orientation
+           self.out_channels = 2 * n_orientations      # 2 phases each
            r = torch.arange(size) - size // 2
            yy, xx = torch.meshgrid(r, r, indexing="ij")
-           envelope = torch.exp(-(xx**2 + yy**2) / (2 * (size / 4) ** 2))
+           env = torch.exp(-(xx**2 + yy**2) / (2 * (size / 4) ** 2))
            filters = []
            for k in range(n_orientations):
-               u = xx * math.cos(math.pi * k / n_orientations) + yy * math.sin(math.pi * k / n_orientations)
+               a = math.pi * k / n_orientations
+               u = xx * math.cos(a) + yy * math.sin(a)
                for phase in (0.0, math.pi / 2):
-                   g = envelope * torch.cos(2 * math.pi * u / wavelength + phase)
+                   g = env * torch.cos(2 * math.pi * u / wavelength + phase)
                    filters.append(g - g.mean())
            w = torch.stack(filters)[:, None]
-           self.register_buffer("filters", w / w.flatten(1).norm(dim=1)[:, None, None, None])
+           norm = w.flatten(1).norm(dim=1)[:, None, None, None]
+           self.register_buffer("filters", w / norm)
 
        def forward(self, x):
-           return F.avg_pool2d(F.conv2d(x, self.filters, padding="same") ** 2, 4)
+           out = F.conv2d(x, self.filters, padding="same") ** 2
+           return F.avg_pool2d(out, 4)
 
 
    @register_readout("softplus")
    class SoftplusReadout(nn.Module):
-       """Average the feature map over space, one linear map, positive responses."""
+       """Spatial mean, one linear map, positive responses."""
 
-       def __init__(self, n_neurons: int, n_channels: int, spatial: int, dropout: float = 0.0):
+       def __init__(self, n_neurons: int, n_channels: int, spatial: int,
+                    dropout: float = 0.0):
            super().__init__()
            self.linear = nn.Linear(n_channels, n_neurons)
            self.dropout = nn.Dropout(dropout)
 
-       def forward(self, features):                              # [B, C, S, S] -> [B, N]
-           return F.softplus(self.linear(self.dropout(features).mean(dim=(2, 3))))
+       def forward(self, features):       # [B, C, S, S] -> [B, N]
+           x = self.dropout(features).mean(dim=(2, 3))
+           return F.softplus(self.linear(x))
 
 
-   low = torch.randn(1200, 1, 8, 8)                              # smooth random images, a stand-in for natural ones
-   images = F.interpolate(low, size=64, mode="bicubic").clamp(-1, 1)   # use TinyImageNet for a real fit
-   teacher = GaborTeacher(20, seed=0).calibrate(images)          # synthetic neurons with a known ground truth
-   noisy, clean = make_synthetic_neural_data(teacher, images, noise_sigma=0.22, seed=1)
+   # Smooth random images stand in for natural ones (use TinyImageNet).
+   low = torch.randn(1200, 1, 8, 8)
+   images = F.interpolate(low, size=64, mode="bicubic").clamp(-1, 1)
 
-   encoder = NeuralEncoder(GaborBankBackbone(), n_neurons=20, readout="softplus")
-   encoder.fit_readout(images[:1000], noisy[:1000], epochs=60)   # fits the readout, the backbone stays fixed
-   responses = encoder.predict(images[1000:])                    # [200, 20] predicted neural responses
-   validate_encoder(encoder)                                     # the encoder contract
+   # Synthetic neurons with a known ground truth.
+   teacher = GaborTeacher(20, seed=0).calibrate(images)
+   noisy, clean = make_synthetic_neural_data(
+       teacher, images, noise_sigma=0.22, seed=1)
+
+   encoder = NeuralEncoder(GaborBankBackbone(), n_neurons=20,
+                           readout="softplus")
+   # Fits the readout; the backbone stays fixed.
+   encoder.fit_readout(images[:1000], noisy[:1000], epochs=60)
+   responses = encoder.predict(images[1000:])      # [200, 20]
+   validate_encoder(encoder)                       # the encoder contract
 
    encoder.save("my_encoder.pt")
-   encoder = NeuralEncoder.load("my_encoder.pt")                 # works because both names are registered
+   print(encoder.config["backbone"]["name"],       # gabor_bank
+         encoder.config["readout"]["name"])        # softplus
+
+**What the names are for.** A registered name is used in two places:
+
+* *Building an encoder from a name.* A readout can be given by its name, ``readout="softplus"``, as above. A backbone is passed as
+  an object (``GaborBankBackbone()``), so its name is not used when you build the encoder.
+* *Saving and loading.* ``encoder.save`` stores the name and the constructor arguments of the backbone and the readout next to
+  the weights. ``NeuralEncoder.load`` reads them and looks the names up in the registry to rebuild the encoder, so it needs no
+  other code. This works in the session above because both classes are registered. In a new Python session they are registered
+  only once their code has run, by importing the module that defines them:
+
+.. code-block:: python
+
+   from multigeom import NeuralEncoder
+   import my_encoders       # registers "gabor_bank" and "softplus"
+   # Without the import: "the backbone 'gabor_bank' is not registered"
+   encoder = NeuralEncoder.load("my_encoder.pt")
+
+The registries are ``multigeom.encoders.BACKBONES`` and ``READOUTS`` (dictionaries from name to class). A class that is part of
+``multigeom`` itself is registered as soon as ``multigeom.encoders`` is imported, which is why the encoders of the package need no
+extra import.
 
 To share a new backbone or readout with everyone, see :ref:`add-an-encoder`.
 
@@ -168,13 +208,15 @@ To share a new backbone or readout with everyone, see :ref:`add-an-encoder`.
 
    import multigeom
 
-   multigeom.validate_encoder(model)                # raises an error naming the rule that is broken
-   fisher = multigeom.compute_fisher(image=x, encoder=model, sigma=0.22, top_k=10)
+   # Raises an error that names the rule that is broken.
+   multigeom.validate_encoder(model)
+   fisher = multigeom.compute_fisher(
+       image=x, encoder=model, sigma=0.22, top_k=10)
 
 The :doc:`demo notebooks <demos>` go through each step, with synthetic neural data that has a known ground truth.
 
 The encoder contract
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 ``validate_encoder`` runs a few forward and backward passes on random images and raises
 :class:`multigeom.EncoderContractError`, naming the rule and what to change, at the first violation.
@@ -208,36 +250,55 @@ Training the diffusion model on the encoder's responses needs R1 to R4, R6 and R
 needs all of them. The quality of the fit and the 64 x 64 grayscale natural-image domain are not checked. The diffusion
 model's conditioning layer is sized by N, so each encoder needs its own diffusion model.
 
-The pipeline
-------------
+Geometry
+--------
 
-The paper's analysis runs in stages, each a module with a command line (``python -m multigeom...`` or ``multigeom <command>``):
+The geometry functions take an encoder and an image: :func:`multigeom.geometry.compute_fisher` returns the Fisher information
+:math:`J(x)`, and :func:`multigeom.geometry.compute_g` returns the multi-scale metric :math:`G(x)`. :math:`G(x)` needs a
+conditional diffusion model of the images, trained on the responses of the encoder. These steps are also modules of the package. Run
+them in this order, either through the ``multigeom`` command or by calling the module directly, for example
+``python -m multigeom.diffusion.train --help``:
 
 .. list-table::
    :header-rows: 1
-   :widths: 5 40 55
+   :widths: 40 22 38
 
-   * -
-     - Module
+   * - Module
+     - Command
      - What it does
-   * - 1
-     - ``multigeom.fit.train_encoder``
-     - Fit a readout on a frozen backbone to neural data (extra ``paper``).
-   * - 2
-     - ``multigeom.diffusion.responses``
-     - Evaluate the encoder on TinyImageNet; these responses condition the diffusion model.
-   * - 3
-     - ``multigeom.diffusion.train``
-     - Train the conditional diffusion model (resumable).
-   * - 4
-     - ``multigeom.pipeline.per_image``
+   * - ``multigeom.diffusion.responses``
+     - ``multigeom responses``
+     - Evaluates the encoder on TinyImageNet. These responses condition the diffusion model.
+   * - ``multigeom.diffusion.train``
+     - ``multigeom train-diffusion``
+     - Trains the conditional diffusion model (resumable).
+   * - ``multigeom.pipeline.per_image``
+     - ``multigeom compute-g``
      - :math:`G(x)` and :math:`J(x)` for a set of images (resumable, seeded per image).
-   * - 5
-     - ``multigeom.pipeline.alignment``
+   * - ``multigeom.pipeline.metric_field``
+     - ``multigeom metric-field``
+     - The local metric field on a grid of perturbed images (paper Fig. 5).
+
+Analysis
+--------
+
+The analysis functions compare the eigenvectors that the geometry functions return: :func:`multigeom.analysis.subspace_alignment`
+and :func:`multigeom.analysis.bures_wasserstein`. To run them over all images, encoders and areas, use the module that does so. It
+too can be called directly, with ``python -m multigeom.pipeline.alignment --help``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 22 38
+
+   * - Module
+     - Command
+     - What it does
+   * - ``multigeom.pipeline.alignment``
+     - ``multigeom align``
      - Subspace alignment and Bures-Wasserstein distance between encoders and areas.
-   * - 6
-     - ``multigeom.pipeline.metric_field``
-     - The local metric field of paper Fig. 5.
+
+Command line and settings
+-------------------------
 
 .. code-block:: bash
 
@@ -250,5 +311,5 @@ loaded by name with :func:`multigeom.config.load_config`.
 Working folders
 ---------------
 
-The pipeline reads and writes ``runs/`` (checkpoints and per-image results) and ``data/`` (datasets) in the current directory.
+The command-line modules read and write ``runs/`` (checkpoints and per-image results) and ``data/`` (datasets) in the current directory.
 Set ``MULTIGEOM_REPO`` to use another root, and ``NEURIPS_DATA_DIR`` to read the datasets from elsewhere.
