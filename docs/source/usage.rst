@@ -1,25 +1,41 @@
 Usage
 =====
 
-The Python API has five entry points. Each takes an *encoder*: any fitted PyTorch model that maps images to neural responses
-and follows the contract below.
+The package does three things: it gives you **encoders** (models that predict neural responses from images), it computes the
+**geometry** of an encoder, and it offers **analyses** that compare geometries. These are the functions you call, by group.
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 70
+   :widths: 14 38 48
 
-   * - Function
+   * - Group
+     - Function
      - What it does
-   * - :func:`multigeom.validate_encoder`
-     - Checks that an encoder follows the contract and names the rule it breaks.
-   * - :func:`multigeom.compute_fisher`
-     - Top eigenvalues and eigenvectors of the Fisher information :math:`J(x)` of one image.
-   * - :func:`multigeom.compute_g`
-     - Top eigenpairs of the multi-scale Fisher metric :math:`G(x)`, with a trained diffusion model.
-   * - :func:`multigeom.align`
+   * - Encoders
+     - :func:`multigeom.load_encoder`
+     - Returns an encoder of the paper, fitted to macaque V1 or V4 (downloaded once).
+   * - Encoders
+     - :class:`multigeom.NeuralEncoder`
+     - Builds your own encoder (backbone and readout). Methods: ``predict``, ``fit_readout``, ``save``, ``load``,
+       ``load_checkpoint`` and ``summary``.
+   * - Encoders
+     - :func:`multigeom.validate_encoder`
+     - Checks that any PyTorch model follows the encoder contract below, and names the rule it breaks.
+   * - Geometry
+     - :func:`multigeom.compute_fisher`
+     - Top eigenvalues and eigenvectors of the Fisher information :math:`J(x)` of an image, for an encoder.
+   * - Geometry
+     - :func:`multigeom.compute_g`
+     - Top eigenpairs of the multi-scale Fisher metric :math:`G(x)` of an image, for an encoder and its trained diffusion model
+       (see ``multigeom.diffusion``: ``precompute_responses`` and ``train_diffusion``).
+   * - Analysis
+     - :func:`multigeom.align`
      - Subspace alignment of two sets of eigenvectors.
-   * - :func:`multigeom.bures_wasserstein`
+   * - Analysis
+     - :func:`multigeom.bures_wasserstein`
      - Bures-Wasserstein distance between two reconstructed metrics.
+
+The geometry functions take an encoder and an image. The analysis functions take the eigenvectors that the geometry functions return.
 
 Encoders: use one, build one
 ----------------------------
