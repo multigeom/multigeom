@@ -67,6 +67,7 @@ ELLIPSE_CONVENTION = ("width = 2*sqrt(mu_max), height = 2*sqrt(mu_min) of the 2x
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.pipeline.metric_field`."""
     p = argparse.ArgumentParser()
     p.add_argument("--img-idx", type=int, default=0,
                    help="index into the TinyImageNet val list (same order as Stage 4)")
@@ -135,6 +136,7 @@ def eigendecomposition(metric: str, x: torch.Tensor, encoder, unet, alphas_cumpr
 
 
 def main(argv: list[str] | None = None):
+    """Compute the local metric field around a reference image (command-line entry point)."""
     args = parse_args(argv)
     if args.reference_encoder == args.other_encoder:
         raise ValueError("--reference-encoder and --other-encoder must differ")

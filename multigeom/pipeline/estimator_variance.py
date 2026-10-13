@@ -236,6 +236,7 @@ def run_variance_study(
         })
 
     def agg(key):
+        """The per-image values of `key`, as an array."""
         return np.array([p[key] for p in per_image])
 
     var_red, cv2_red = agg("variance_reduction"), agg("cv2_reduction")
@@ -265,6 +266,7 @@ def run_variance_study(
 # CLI
 # ────────────────────────────────────────────────────────────────────────────
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.pipeline.estimator_variance`."""
     p = argparse.ArgumentParser(description="CC vs UC Monte-Carlo variance of G(x)")
     p.add_argument("--config", default=str(REPO / "configs" / "estimator.yaml"))
     p.add_argument("--encoder-cfg", required=True)
@@ -309,6 +311,7 @@ def _load_images(args) -> torch.Tensor:
 
 
 def main(argv: list[str] | None = None) -> dict:
+    """Compare the Monte-Carlo variance of the two estimators (command-line entry point)."""
     from ..diffusion.model import build_diffusion_model, build_scheduler
     from ..encoders import build_encoder
 

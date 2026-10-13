@@ -44,6 +44,7 @@ LINESTYLES = ("-", (0, (4, 2)))          # reference solid, comparison dashed
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.viz.fig5`."""
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
@@ -131,6 +132,7 @@ def make_figure(records: dict, fill: float = 0.9, show_x0: bool = False):
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
+    """Draw Figure 5 from the results of the local metric field and write it (command-line entry point)."""
     args = parse_args(argv)
     field_dir = Path(args.metric_field_dir) if args.metric_field_dir else \
         Path(args.runs_dir) / "metric_field" / f"img{args.img_idx:04d}"

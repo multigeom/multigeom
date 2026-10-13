@@ -61,6 +61,7 @@ class GaborTeacher(nn.Module):
         self.register_buffer("gain", torch.ones(n_neurons))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Responses [B, n_neurons] to the images [B, 1, size, size]."""
         flat = x.flatten(1)                                               # [B, P]
         w = self.filters.flatten(2)                                       # [N, 2, P]
         out = torch.einsum("bp,nkp->bnk", flat, w)                        # [B, N, 2]

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/multigeom/multigeom/main/docs/source/_static/img/logo.png" alt="multigeom" width="320">
+</p>
+
 # multigeom
 
 Multi-scale information geometry of neural population codes, in Python.

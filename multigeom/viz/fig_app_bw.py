@@ -27,6 +27,7 @@ TITLES = {"G": "Multi-scale inf. geom.", "J": "Information geom."}
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.viz.fig_app_bw`."""
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
@@ -51,6 +52,7 @@ def make_figure(metrics: dict):
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
+    """Draw the Bures-Wasserstein figure and write it (command-line entry point)."""
     args = parse_args(argv)
     metrics = cross_encoder_metrics(Path(args.runs_dir), SCRIPT)
     if metrics is None:

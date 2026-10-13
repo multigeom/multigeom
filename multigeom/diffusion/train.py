@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import math
 import os
@@ -40,6 +41,7 @@ from .model import build_diffusion_model, build_scheduler
 
 
 def parse_args(argv=None):
+    """Command-line arguments of `python -m multigeom.diffusion.train`."""
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True)
     p.add_argument("--responses", required=True,
@@ -157,7 +159,8 @@ def train_diffusion(
     warmup_steps = cfg.train.warmup_steps
 
     use_bf16 = cfg.train.precision == "bfloat16" and device.type == "cuda"
-    autocast_dtype = torch.bfloat16 if use_bf16 else torch.float32
+    # bfloat16 only on a GPU; otherwise no autocast at all (older torch versions refuse a float32 autocast on the CPU)
+    autocast = (lambda: torch.autocast(device_type=device.type, dtype=torch.bfloat16)) if use_bf16 else contextlib.nullcontext
     grad_clip = float(cfg.train.gradient_clip)
     sigma = float(cfg.conditioning.observation_noise_sigma)
     p_drop = float(cfg.conditioning.cfg_dropout_rate)
@@ -208,7 +211,7 @@ def train_diffusion(
                 r_tilde = torch.where(drop_mask, torch.zeros_like(r_tilde), r_tilde)
 
             # 4) Predict + MSE on noise
-            with torch.autocast(device_type=device.type, dtype=autocast_dtype, enabled=use_bf16):
+            with autocast():
                 eps_pred = model(x_t, t, r_tilde)
                 loss = F.mse_loss(eps_pred, z)
 
@@ -267,6 +270,7 @@ def train_diffusion(
 
 
 def main(argv=None):
+    """Train the diffusion model from a responses file (command-line entry point)."""
     args = parse_args(argv)
     cfg = load_config(args.config)
     if args.data_dir:

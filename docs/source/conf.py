@@ -74,6 +74,7 @@ html_title = "multigeom"
 html_static_path = ["_static"]
 html_css_files = ["css/custom.css"]
 html_logo = "_static/img/logo.svg"
+html_favicon = "_static/img/logo.svg"
 # Thumbnails of the demo grid (docs/source/demos.rst), by notebook.
 nbsphinx_thumbnails = {
     "demo_notebooks/0_getting_started_use_a_builtin_encoder": "_static/thumbnails/use_builtin_encoder.png",

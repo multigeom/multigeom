@@ -133,11 +133,13 @@ class ProgressLine:
         self.update(initial)
 
     def text(self, n: int, postfix: str = "") -> str:
+        """The progress line for `n` finished items, in tqdm's format."""
         from tqdm import tqdm
         return tqdm.format_meter(n, self.total, time.time() - self.t0, initial=self.initial, prefix=self.desc,
                                  unit=self.unit, postfix=postfix, ncols=100)
 
     def update(self, n: int, postfix: str = "") -> None:
+        """Show `n` finished items; does nothing if neither `n` nor `postfix` changed."""
         if (n, postfix) == self._last:
             return                                  # nothing but the clock changed: leave the line alone
         self._last = (n, postfix)
@@ -155,6 +157,7 @@ class ProgressLine:
             sys.stdout.flush()
 
     def close(self) -> None:
+        """End the line (terminal only)."""
         if not self._notebook:
             sys.stdout.write("\n")
             sys.stdout.flush()

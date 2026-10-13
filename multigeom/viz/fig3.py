@@ -47,6 +47,7 @@ FEATURE_SIDE = {"inception": 12, "resnet50": 16, "onoff": 64}
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.viz.fig3`."""
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
@@ -87,6 +88,7 @@ def readout_rf_union(state: dict, encoder: str = ENCODER, resolution: int = 256)
 
 
 def panel_scatter(ax, ckpt: dict | None, area: str) -> None:
+    """Scatter of measured against predicted test responses of one area (Fig. 3B-C)."""
     if ckpt is None or "test_predictions" not in ckpt:
         if ckpt is not None:
             skip(SCRIPT, f"{area} scatter: checkpoint has no test_predictions")
@@ -111,6 +113,7 @@ def panel_scatter(ax, ckpt: dict | None, area: str) -> None:
 
 
 def panel_rf(ax, image, ckpts: dict) -> None:
+    """The image with the receptive-field regions of V1 and V4 outlined (Fig. 3D)."""
     if image is None:
         blank(ax)
         return
@@ -157,6 +160,7 @@ def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int):
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
+    """Draw Figure 3 from the pipeline outputs and write it (command-line entry point)."""
     args = parse_args(argv)
     runs_dir = Path(args.runs_dir)
     ckpts = {area: encoder_checkpoint(runs_dir, ENCODER, area, SCRIPT) for area in AREAS}

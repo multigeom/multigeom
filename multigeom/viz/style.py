@@ -127,6 +127,7 @@ def plot_comparisons(ax, metrics: dict | None, metric: str, quantity: str, scrip
 
 
 def as_numpy(x) -> np.ndarray:
+    """A tensor or array as a NumPy array."""
     return x.detach().cpu().numpy() if torch.is_tensor(x) else np.asarray(x)
 
 

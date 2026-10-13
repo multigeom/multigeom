@@ -44,6 +44,7 @@ REFERENCE = "inception"
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.viz.fig4`."""
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
@@ -56,6 +57,7 @@ def parse_args(argv: list[str] | None = None):
 
 
 def panel_performance(ax, ckpts: dict) -> None:
+    """Box plot of the per-neuron test correlations of each encoder and area (Fig. 4A)."""
     width, gap = 0.24, 0.04
     handles = []
     for ei, enc in enumerate(ENCODERS):
@@ -137,6 +139,7 @@ def panel_eigvecs(fig, spec, records: dict, metric: str, n_show: int, pool: int)
 
 
 def panel_alignment(ax, metrics, metric: str) -> None:
+    """Subspace alignment against the number of eigenvectors, for one metric (Fig. 4D-E)."""
     n = plot_comparisons(ax, metrics, metric, "alignment", SCRIPT)
     if n == 0:
         blank(ax)
@@ -150,6 +153,7 @@ def panel_alignment(ax, metrics, metric: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
+    """Draw Figure 4 from the pipeline outputs and write it (command-line entry point)."""
     args = parse_args(argv)
     runs_dir = Path(args.runs_dir)
     ckpts, records = {}, {}

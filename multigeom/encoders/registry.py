@@ -23,6 +23,7 @@ READOUTS: dict[str, type] = {}
 
 def _register(registry: dict, kind: str, name: str):
     def decorator(cls):
+        """Register `cls` under the name and record the arguments of each instance."""
         if name in registry and registry[name] is not cls:
             raise ValueError(f"a {kind} named {name!r} is already registered ({registry[name].__name__})")
         original_init = cls.__init__
@@ -30,6 +31,7 @@ def _register(registry: dict, kind: str, name: str):
 
         @functools.wraps(original_init)
         def init(self, *args, **kwargs):
+            """Call the original `__init__` and keep its arguments for the description of the architecture."""
             original_init(self, *args, **kwargs)
             if "_config_kwargs" not in self.__dict__:                       # the outermost class of a hierarchy wins
                 bound = signature.bind(self, *args, **kwargs)

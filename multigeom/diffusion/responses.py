@@ -35,6 +35,7 @@ from ..utils import get_device, provenance
 
 
 def parse_args(argv=None):
+    """Command-line arguments of `python -m multigeom.diffusion.responses`."""
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True, help="encoder config YAML")
     p.add_argument("--area", required=True, choices=["V1", "V4"])
@@ -74,12 +75,14 @@ def precompute_responses(encoder, dataset, batch_size: int = 256, device=None, n
 
 
 def precompute_split(encoder, split: str, transform, device, batch_size: int):
+    """Responses of `encoder` to every image of a TinyImageNet split."""
     dataset = TinyImageNetDataset(split=split, transform=transform)
     print(f"  {split}: {len(dataset)} images")
     return precompute_responses(encoder, dataset, batch_size=batch_size, device=device, num_workers=4, log=print)
 
 
 def main(argv=None):
+    """Precompute and save the responses of an encoder on TinyImageNet (command-line entry point)."""
     args = parse_args(argv)
     cfg = load_config(args.config)
     if args.data_dir:

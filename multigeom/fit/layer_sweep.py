@@ -139,12 +139,14 @@ class TruncatedBackbone(_FrozenBackbone):
         self.out_channels, self.out_spatial = int(shape[1]), int(shape[-1])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Feature map of the truncated backbone."""
         if self.standardise:
             x = (x - self.norm_mean) / self.norm_std
         return self.features(x)
 
 
 def build_torchvision_net(backbone: str, pretrained: bool) -> nn.Module:
+    """A torchvision InceptionV3 or ResNet-50, with ImageNet weights if `pretrained`."""
     from torchvision.models import (
         Inception_V3_Weights, ResNet50_Weights, inception_v3, resnet50,
     )
@@ -165,11 +167,13 @@ class _SweepEncoder(_BaseEncoder):
 
 
 class InceptionSweepEncoder(_SweepEncoder):
+    """Encoder on an InceptionV3 truncated at any layer."""
     backbone_input_channels = InceptionEncoder.backbone_input_channels
     backbone_input_range = InceptionEncoder.backbone_input_range
 
 
 class ResNetSweepEncoder(_SweepEncoder):
+    """Encoder on a ResNet-50 truncated at any block."""
     backbone_input_channels = ResNet50Encoder.backbone_input_channels
     backbone_input_range = ResNet50Encoder.backbone_input_range
 
@@ -288,6 +292,7 @@ def sweep(layers: list[str], backbone: str, images: dict, responses: dict, oracl
 # CLI
 # ────────────────────────────────────────────────────────────────────────────
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.fit.layer_sweep`."""
     p = argparse.ArgumentParser(description="Backbone truncation-layer sweep")
     p.add_argument("--backbone", choices=["inception", "resnet50"], default="inception")
     p.add_argument("--area", required=True, choices=["V1", "V4"])
@@ -323,6 +328,7 @@ def _load_split(paths, responses, images_root, max_n=None):
 
 
 def main(argv: list[str] | None = None) -> dict:
+    """Fit and score an encoder at every candidate layer (command-line entry point)."""
     from .tvsd import load_tvsd
 
     args = parse_args(argv)

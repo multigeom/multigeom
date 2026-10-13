@@ -61,6 +61,7 @@ MAT_NAME = "monkeyN_THINGS_normMUA.mat"
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.fit.calibrate_sigma`."""
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--tvsd-dir", default=None,
                    help="directory with monkeyN_THINGS_normMUA.mat and things_imgs.mat "
@@ -138,6 +139,7 @@ def calibrate(tvsd_dir: str | Path, areas: list[str], n_neurons: int) -> dict:
 
 
 def main(argv: list[str] | None = None) -> dict:
+    """Measure the observation noise from the TVSD repetitions and write the JSON (command-line entry point)."""
     args = parse_args(argv)
     tvsd_dir = Path(args.tvsd_dir) if args.tvsd_dir else data_dir() / "tvsd"
     result = calibrate(tvsd_dir, args.areas, args.n_neurons)

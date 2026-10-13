@@ -48,3 +48,18 @@ def test_the_readme_has_no_latex_that_pypi_would_show_raw():
     text = (ROOT / "README.md").read_text()
     text = re.sub(r"```.*?```", "", text, flags=re.S)
     assert "$$" not in text and not re.search(r"\$[A-Za-z\\][^$\n]*\$", text)
+
+
+def test_every_public_function_class_and_module_has_a_docstring():
+    import ast
+    missing = []
+    for path in sorted((ROOT / "multigeom").rglob("*.py")):
+        tree = ast.parse(path.read_text())
+        rel = path.relative_to(ROOT)
+        if not ast.get_docstring(tree):
+            missing.append(f"{rel}: module")
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and not node.name.startswith("_") \
+                    and not ast.get_docstring(node):
+                missing.append(f"{rel}:{node.lineno}: {node.name}")
+    assert not missing, "no docstring:\n" + "\n".join(missing)

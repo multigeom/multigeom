@@ -124,6 +124,7 @@ class Shard:
 
     @property
     def n_images(self) -> int:
+        """Number of images of the shard."""
         return self.end - self.start
 
 
@@ -190,6 +191,7 @@ def run_shards(shards, *, device: str, runs_dir: str = "runs", cwd: str | Path =
 # ── cost ────────────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class CostEstimate:
+    """Estimated GPU time and cost of a scenario."""
     n_computations: int
     n_workers: int
     gpu_seconds: float
@@ -207,6 +209,7 @@ def estimate_cost(n_computations: int, n_workers: int, seconds_per_image: float,
 
 
 def scenario_estimate(s: Scenario) -> CostEstimate:
+    """Estimate the time and the cost of running the scenario `s`."""
     n_workers = len(make_shards(s.configs, s.n_images, s.num_workers))
     price = GPU_PRICE_USD_PER_S.get(s.gpu_type) if s.backend == "modal" else None
     return estimate_cost(len(s.configs) * s.n_images, n_workers, s.seconds, s.startup_s, price)
@@ -521,11 +524,13 @@ def launch_modal(workers: list[list[Shard]], *, gpu_type: str = "A100", volume_n
 
     @app.function(image=image, gpu=gpu_type, volumes={"/vol": vol}, timeout=timeout_s, serialized=True)
     def worker(shard_dicts: list[dict]) -> int:
+        """Run the shards of one worker in a Modal container; returns the number of images done."""
         import threading
         from multigeom.pipeline.distribute import Shard, run_shards
         stop = threading.Event()
 
         def commit_regularly():                        # makes the finished images visible to the notebook
+            """Save the volume every few seconds so that the notebook sees the finished images."""
             while not stop.wait(commit_every):
                 vol.commit()
 
@@ -595,6 +600,7 @@ def modal_download(configs, n_images: int, runs_dir: str = "runs", volume_name: 
 
 # ── command line (used by the detached local workers) ───────────────────────
 def main(argv=None):
+    """Command-line entry point of the workers started by the launchers."""
     p = argparse.ArgumentParser(description=__doc__.split("\n")[1])
     sub = p.add_subparsers(dest="cmd", required=True)
     w = sub.add_parser("worker", help="run the shards listed in a JSON file with the G(x) estimation script")

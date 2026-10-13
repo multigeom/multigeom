@@ -50,6 +50,7 @@ from .tvsd import TVSDDataset, existing_image_mask, load_tvsd
 
 
 def parse_args(argv=None):
+    """Command-line arguments of `python -m multigeom.fit.train_encoder`."""
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True, help="encoder config YAML")
     p.add_argument("--area", required=True, choices=["V1", "V4"])
@@ -87,6 +88,7 @@ def test_set_fields(test_pred: torch.Tensor, test_resp: torch.Tensor,
 
 
 def print_test_summary(fields: dict) -> None:
+    """Print the mean, median and range of the per-neuron test correlations."""
     c = fields["per_neuron_test_corr"]
     print(f"[Stage 1] Test correlation: mean={c.mean():.3f}  median={np.median(c):.3f}  "
           f"range=[{c.min():.3f}, {c.max():.3f}]  "
@@ -108,6 +110,7 @@ def preextract(encoder, paths, responses, images_root, transform, device, batch_
 
 
 def main(argv=None):
+    """Fit the readout of an encoder to the TVSD recordings, or evaluate a checkpoint (command-line entry point)."""
     args = parse_args(argv)
     cfg = load_config(args.config)
     if args.data_dir:

@@ -85,6 +85,7 @@ class NeuralEncoder(nn.Module):
         return self
 
     def train(self, mode: bool = True):  # noqa: A003
+        """Set the mode; a frozen backbone stays in evaluation mode."""
         super().train(mode)
         if self._backbone_frozen:
             self.backbone.eval()

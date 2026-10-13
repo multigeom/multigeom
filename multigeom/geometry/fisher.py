@@ -33,6 +33,7 @@ from ..encoder import ensure_valid
 
 @dataclass
 class FisherOutput:
+    """Top eigenpairs of J(x) returned by `compute_fisher`: eigenvalues [k] and eigenvectors [k, P], largest first."""
     eigenvalues: torch.Tensor   # [k]   top-k eigenvalues of J(x), descending
     eigenvectors: torch.Tensor  # [k, P] rows are top-k eigenvectors of J(x)
 

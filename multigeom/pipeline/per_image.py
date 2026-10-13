@@ -108,6 +108,7 @@ def estimate_images(encoder, unet, alphas_cumprod, images, indices, cfg, out_dir
 
 
 def parse_args(argv=None):
+    """Command-line arguments of `python -m multigeom.pipeline.per_image`."""
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True,
                    help="estimator config: a packaged name ('estimator') or a YAML path")
@@ -129,6 +130,7 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
+    """Estimate G(x) and J(x) for the test images (command-line entry point)."""
     args = parse_args(argv)
     cfg = load_config(args.config)
 

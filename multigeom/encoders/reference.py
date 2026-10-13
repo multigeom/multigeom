@@ -70,6 +70,7 @@ class _BaseEncoder(NeuralEncoder):
 
 
 class InceptionEncoder(_BaseEncoder):
+    """Encoder of the paper: frozen InceptionV3 backbone (truncated at `layer`) and a Gaussian readout."""
     backbone_input_channels = 3
     backbone_input_range = (-1.0, 1.0)
     reference_name = "inception"
@@ -79,6 +80,7 @@ class InceptionEncoder(_BaseEncoder):
 
 
 class ResNet50Encoder(_BaseEncoder):
+    """Encoder of the paper: frozen ResNet-50 backbone (truncated at `layer`) and a Gaussian readout."""
     backbone_input_channels = 3
     backbone_input_range = (-1.0, 1.0)
     reference_name = "resnet50"
@@ -88,6 +90,7 @@ class ResNet50Encoder(_BaseEncoder):
 
 
 class OnOffEncoder(_BaseEncoder):
+    """Encoder of the paper: frozen ON-OFF front-end (plenoptic) and a Gaussian readout."""
     backbone_input_channels = 1
     backbone_input_range = (0.0, 1.0)
     reference_name = "onoff"

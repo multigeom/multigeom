@@ -30,6 +30,7 @@ SCRIPT = "table1"
 
 
 def parse_args(argv: list[str] | None = None):
+    """Command-line arguments of `python -m multigeom.viz.table1`."""
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", default="runs")
     p.add_argument("--out-dir", default="figures/out")
@@ -47,6 +48,7 @@ def encoder_scores(ckpt: dict) -> tuple[float, float]:
 
 
 def collect(runs_dir: Path) -> dict[tuple[str, str], tuple[float, float]]:
+    """The mean test correlation and its noise-corrected version of every (encoder, area) found under `runs_dir`."""
     scores = {}
     for enc in ENCODERS:
         for area in AREAS:
@@ -79,6 +81,7 @@ def _cells(scores, bold) -> dict[str, list[tuple[str, bool]]]:
 
 
 def to_markdown(scores) -> str:
+    """The table of scores as Markdown."""
     lines = ["| Encoder | V1 r | V1 r_nc | V4 r | V4 r_nc |",
              "|---|---|---|---|---|"]
     for enc, cells in _cells(scores, bold=True).items():
@@ -88,6 +91,7 @@ def to_markdown(scores) -> str:
 
 
 def to_latex(scores) -> str:
+    """The table of scores as LaTeX."""
     lines = [
         r"\begin{tabular}{lcccc}",
         r"\toprule",
@@ -105,6 +109,7 @@ def to_latex(scores) -> str:
 
 
 def main(argv: list[str] | None = None) -> list[Path]:
+    """Write Table 1 from the encoder checkpoints (command-line entry point)."""
     args = parse_args(argv)
     out_dir = Path(args.out_dir)
     scores = collect(Path(args.runs_dir))

@@ -20,6 +20,7 @@ class _FrozenBackbone(nn.Module):
     a parent module is switched to training mode."""
 
     def train(self, mode: bool = True):  # noqa: A003 (shadows nn.Module.train)
+        """Stay in evaluation mode (BatchNorm statistics fixed), whatever the mode of the parent module."""
         return super().train(False)
 
 
@@ -52,6 +53,7 @@ class InceptionBackbone(_FrozenBackbone):
         # inputs at any reasonable resolution; the 64x64 case is undocumented
         # but well-defined and is the choice made in the paper for parity
         # with the diffusion model).
+        """Feature map [B, C, S, S] of the image batch."""
         return self.features(x)
 
 
@@ -96,6 +98,7 @@ class ResNet50Backbone(_FrozenBackbone):
         self.eval()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Feature map [B, C, S, S] of the image batch."""
         return self.features((x - self.norm_mean) / self.norm_std)
 
 
@@ -129,6 +132,7 @@ class OnOffBackbone(_FrozenBackbone):
             self.frontend(torch.zeros(1, 1, 64, 64))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Feature map [B, C, S, S] of the image batch."""
         return self.frontend(x)
 
 
@@ -156,4 +160,5 @@ class SmallCNNBackbone(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Feature map [B, C, S, S] of the image batch."""
         return self.features(x)

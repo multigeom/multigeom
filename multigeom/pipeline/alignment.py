@@ -45,6 +45,7 @@ ENCODER_ORDER = ("inception", "resnet50", "onoff")
 
 
 def parse_args(argv=None):
+    """Command-line arguments of `python -m multigeom.pipeline.alignment`."""
     p = argparse.ArgumentParser()
     p.add_argument("--runs-dir", required=True,
                    help="root containing per_image/<encoder>/<area>/imgXXXX.pt files")
@@ -66,6 +67,7 @@ def discover_configs(per_image_root: Path) -> list[tuple[str, str]]:
     ]
 
     def order(c):
+        """Sort key of a configuration: its encoder, then its area."""
         enc, area = c
         rank = ENCODER_ORDER.index(enc) if enc in ENCODER_ORDER else len(ENCODER_ORDER)
         return (rank, enc, area)
@@ -121,6 +123,7 @@ def aggregate_pair(A: dict[int, dict], B: dict[int, dict], metric: str, max_k: i
 
 
 def pair_label(a: tuple[str, str], b: tuple[str, str], metric: str) -> str:
+    """Name of the comparison of two (encoder, area) configurations for one metric (`G` or `J`)."""
     return f"{a[0]}_{a[1]}__VS__{b[0]}_{b[1]}__{metric}"
 
 
@@ -140,6 +143,7 @@ def named_comparisons(configs: list[tuple[str, str]]) -> dict[str, tuple]:
 
 
 def main(argv=None):
+    """Compare every pair of configurations and write the metrics file (command-line entry point)."""
     args = parse_args(argv)
     runs_dir = Path(args.runs_dir)
     per_image_root = runs_dir / "per_image"
@@ -195,6 +199,7 @@ Config = tuple[str, str]
 
 
 def configs_with_images(runs_dir: str = "runs") -> list[Config]:
+    """The (encoder, area) configurations that have per-image files under `runs_dir`."""
     root = REPO / runs_dir / "per_image"
     if not root.exists():
         return []
@@ -275,6 +280,10 @@ def _avg(values):
 
 
 def print_ordering(metrics: dict) -> dict:
+    """
+    Print, for G and for J, the mean Bures-Wasserstein distance of the cross-model and the cross-area comparisons and whether
+    their order is the paper's (G: cross-model below cross-area; J: above). Returns the result.
+    """
     result = ordering(metrics)
     expected = {"G": "cross-model below cross-area", "J": "cross-model above cross-area"}
     for metric, r in result.items():
@@ -287,6 +296,7 @@ def print_ordering(metrics: dict) -> dict:
 
 
 def load_metrics(path) -> dict:
+    """Read a metrics file written by `compute_metrics`."""
     return json.loads(Path(path).read_text())
 
 

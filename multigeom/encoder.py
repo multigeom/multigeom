@@ -52,6 +52,7 @@ class EncoderContractError(ValueError):
 
 @dataclass
 class EncoderReport:
+    """Result of `validate_encoder`: the number of neurons, the scale of the responses and any warnings."""
     n_neurons: int
     response_std: float                          # mean over neurons of the std across the random test images
     warnings: list[str] = field(default_factory=list)

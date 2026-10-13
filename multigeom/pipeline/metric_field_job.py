@@ -107,6 +107,7 @@ def _as_tuple(x) -> tuple[str, ...]:
 
 
 def out_dir(job: MetricFieldJob, runs_dir: str = "runs") -> Path:
+    """The folder with the results of `job`."""
     return REPO / runs_dir / "metric_field" / f"img{job.img_idx:04d}"
 
 
@@ -119,12 +120,14 @@ def expected_files(job: MetricFieldJob, runs_dir: str = "runs") -> list[Path]:
 # ── cost ────────────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class MetricFieldEstimate:
+    """Estimated number of G(x) estimates and time of a job."""
     g_estimates: int
     j_evaluations: int
     seconds: float
 
     @property
     def minutes(self) -> float:
+        """Estimated time in minutes."""
         return self.seconds / 60
 
 
@@ -139,6 +142,7 @@ def estimate_cost(job: MetricFieldJob, seconds_per_g: float = SECONDS_PER_G,
 
 
 def print_estimate(job: MetricFieldJob) -> MetricFieldEstimate:
+    """Print what `job` will take and return the estimate."""
     est = estimate_cost(job)
     print(f"{est.g_estimates} G(x) estimates and {est.j_evaluations} J(x) evaluations: about {est.minutes:.1f} min "
           f"on one {'GPU' if job.device == 'gpu' else 'CPU'} (a G(x) estimate takes ~{SECONDS_PER_G:.0f} s on an RTX 5090"
@@ -172,12 +176,14 @@ def metric_field_commands(job: MetricFieldJob, *, runs_dir: str = "runs", out: s
 
 
 def job_to_json(job: MetricFieldJob) -> str:
+    """Serialise `job` to JSON (to pass it to the background process)."""
     return json.dumps({"img_idx": job.img_idx, "grid_size": job.grid_size, "steps": job.steps,
                        "reference_encoder": job.reference_encoder, "other_encoder": job.other_encoder,
                        "areas": list(job.areas), "metrics": list(job.metrics), "device": job.device})
 
 
 def job_from_json(text: str) -> MetricFieldJob:
+    """Rebuild a job from the JSON written by `job_to_json`."""
     return MetricFieldJob(**json.loads(text))
 
 
@@ -209,6 +215,7 @@ def progress(job: MetricFieldJob, runs_dir: str = "runs") -> tuple[int, int]:
 
 
 def is_complete(job: MetricFieldJob, runs_dir: str = "runs") -> bool:
+    """True if every (metric, area) part of `job` has its result file."""
     done, total = progress(job, runs_dir)
     return done == total
 
@@ -344,6 +351,7 @@ def run(job: MetricFieldJob, runs_dir: str = "runs") -> None:
 
 
 def main(argv=None):
+    """Run a job (entry point of the background process)."""
     p = argparse.ArgumentParser(description="run the stage-6 computation of a MetricFieldJob")
     sub = p.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run")

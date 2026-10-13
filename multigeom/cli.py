@@ -75,6 +75,7 @@ def jacobian(argv: list[str] | None = None) -> list[Path]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run `multigeom <command>`; returns the exit code."""
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help"):
         print("usage: multigeom <command> [options]\n\ncommands:")

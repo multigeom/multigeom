@@ -46,6 +46,7 @@ class ConditioningMLP(nn.Module):
     def forward(self, r: torch.Tensor) -> torch.Tensor:
         # r: [B, n_neurons]
         # → [B, embedding_dim] → unsqueeze to [B, 1, embedding_dim]
+        """Map the responses [B, N] to the conditioning token [B, 1, D]."""
         return self.mlp(r).unsqueeze(1)
 
 

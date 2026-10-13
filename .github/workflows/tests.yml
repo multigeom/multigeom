@@ -1,11 +1,11 @@
 name: tests
 
-# Run the CPU unit tests on every pull request, and when changes land on the
-# integration branch (develop).
+# Run the CPU unit tests on every pull request, and on every push to main or develop.
 on:
   pull_request:
   push:
-    branches: [develop]
+    branches: [main, develop]
+  workflow_dispatch:
 
 jobs:
   pytest:
@@ -37,3 +37,46 @@ jobs:
           USE_TF: "0"
           USE_FLAX: "0"
         run: pytest tests/unit -m "not slow and not gpu and not pretrained"
+
+  # The same tests with the newest and with the oldest versions of the dependencies that pyproject.toml allows.
+  pip-latest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install the package with the newest allowed dependencies
+        run: pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[paper,dev]"
+      - name: Unit tests
+        env:
+          USE_TF: "0"
+          USE_FLAX: "0"
+        run: pytest tests/unit -q --tb=line -m "not slow and not gpu and not pretrained"
+
+  pip-oldest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+      - name: Install the oldest allowed dependencies (the lower bounds of pyproject.toml)
+        run: |
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+            "torch==2.1.0+cpu" "torchvision==0.16.0+cpu" "diffusers==0.30.0" "huggingface_hub==0.25.0" "numpy==1.24.0" \
+            "scipy==1.10.0" "Pillow==9.3.0" "PyYAML==6.0" "tqdm==4.65.0" "matplotlib==3.7.0" "h5py==3.8.0" pytest
+          pip install --no-deps -e .
+      - name: Unit tests
+        env:
+          USE_TF: "0"
+          USE_FLAX: "0"
+        run: pytest tests/unit -q --tb=line -m "not slow and not gpu and not pretrained"
