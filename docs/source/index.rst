@@ -44,9 +44,11 @@ Quick start
 
    import multigeom
 
-   multigeom.validate_encoder(encoder)                       # checks the encoder contract
+   multigeom.validate_encoder(encoder)               # checks the encoder contract (any fitted PyTorch model)
+
+   # The leading eigenvalues and eigenvectors of J(x) at an image x:
    fisher = multigeom.compute_fisher(image=x, encoder=encoder, sigma=0.22, top_k=10)
-   fisher.eigenvalues, fisher.eigenvectors                   # leading eigenpairs of J(x)
+   print(fisher.eigenvalues, fisher.eigenvectors.shape)
 
 Links
 -----

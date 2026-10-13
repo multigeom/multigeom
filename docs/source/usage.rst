@@ -53,10 +53,14 @@ An encoder predicts neural responses from images. The package represents it as a
 
    from multigeom import load_encoder
 
-   encoder = load_encoder("inception", area="V1")
+   encoder = load_encoder("inception", area="V1")   # an encoder of the paper, downloaded once
    print(encoder.summary())
-   responses = encoder.predict(images)            # [N, 50] predicted neural responses
-   encoder2 = load_encoder("path/to/encoder.pt")  # or a checkpoint on disk
+
+   images = ...                                     # [N, 1, 64, 64] tensor, values in [-1, 1]
+   responses = encoder.predict(images)              # [N, 50] predicted neural responses
+
+   # A checkpoint on disk works too:
+   encoder = load_encoder("path/to/encoder.pt")
 
 **Build your own.** Choose a backbone, a readout, fit the readout to neural data, save:
 
@@ -65,9 +69,12 @@ An encoder predicts neural responses from images. The package represents it as a
    from multigeom import NeuralEncoder
    from multigeom.encoders import SmallCNNBackbone
 
-   backbone = SmallCNNBackbone()                  # train it first, on any task (plain PyTorch)
+   backbone = SmallCNNBackbone()                    # train it first, on any task (plain PyTorch)
    encoder = NeuralEncoder(backbone, n_neurons=50, readout="gaussian")
-   report = encoder.fit_readout(images, responses)   # freezes the backbone, fits the readout, keeps the best epoch
+
+   # Freezes the backbone, fits the readout, and keeps the best epoch.
+   report = encoder.fit_readout(images, responses)  # images [N, 1, 64, 64], responses [N, 50]
+
    encoder.save("my_encoder.pt", area="V1")
    encoder = NeuralEncoder.load("my_encoder.pt")
 
@@ -94,7 +101,7 @@ can be rebuilt from its file. A backbone is an ``nn.Module`` with attributes ``o
 
    import multigeom
 
-   multigeom.validate_encoder(model)
+   multigeom.validate_encoder(model)                # raises an error naming the rule that is broken
    fisher = multigeom.compute_fisher(image=x, encoder=model, sigma=0.22, top_k=10)
 
 The :doc:`demo notebooks <demos>` go through each step, with synthetic neural data that has a known ground truth.
