@@ -117,6 +117,14 @@ def existing_image_mask(paths: Sequence[str], images_root: str | Path) -> np.nda
     return np.array([(root / p).exists() for p in paths], dtype=bool)
 
 
+def load_images(paths: Sequence[str], images_root: str | Path, transform=None, batch_size: int = 64,
+                num_workers: int = 4) -> torch.Tensor:
+    """The images at `paths` (under `images_root`) as one tensor [N, 1, 64, 64] in [-1, 1], in the order of `paths`."""
+    dataset = TVSDDataset(torch.zeros(len(paths), 1), paths, images_root, transform=transform)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return torch.cat([img for img, _ in loader], dim=0)
+
+
 class TVSDDataset(Dataset):
     """
     Pairs THINGS images with macaque normMUA responses.

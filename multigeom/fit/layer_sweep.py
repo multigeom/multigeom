@@ -59,11 +59,11 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 from ..config import config_path, data_dir, load_config
 from ..encoders import InceptionEncoder, ResNet50Backbone, ResNet50Encoder, _BaseEncoder, _FrozenBackbone
+from ..encoders.fitting import correlation_per_neuron, fit_readout_on_features
 from ..utils import get_device, provenance, set_seed
 
 INCEPTION_LAYERS = [
@@ -77,12 +77,6 @@ RESNET_LAYERS = (
     + [f"layer1.{i}" for i in range(3)] + [f"layer2.{i}" for i in range(4)]
     + [f"layer3.{i}" for i in range(6)] + [f"layer4.{i}" for i in range(3)]
 )
-
-
-def _load_stage1():
-    """The module with the helpers of the encoder training (`multigeom.fit.train_encoder`)."""
-    from . import train_encoder
-    return train_encoder
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -195,40 +189,6 @@ def _predict(readout: nn.Module, feats: torch.Tensor, device, batch_size: int = 
                       for i in range(0, len(feats), batch_size)])
 
 
-def train_readout(readout: nn.Module, feats: torch.Tensor, resp: torch.Tensor,
-                  tr_idx: torch.Tensor, val_idx: torch.Tensor, train_cfg, device,
-                  correlation_per_neuron) -> tuple[dict, float, int]:
-    """
-    Fit `readout` on cached features with the Stage-1 schedule
-    (multigeom.fit.train_encoder, step 5-6) and return the state with the best
-    mean validation correlation, that correlation and its epoch.
-
-    feats/resp stay on the CPU; batches are moved to `device`.
-    """
-    readout.to(device)
-    opt = torch.optim.AdamW(readout.parameters(), lr=train_cfg.lr,
-                            weight_decay=train_cfg.weight_decay)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=train_cfg.epochs)
-    best, best_corr, best_epoch = None, -float("inf"), 0
-    for epoch in range(1, train_cfg.epochs + 1):
-        readout.train()
-        perm = tr_idx[torch.randperm(len(tr_idx))]
-        for i in range(0, len(perm), train_cfg.batch_size):
-            idx = perm[i:i + train_cfg.batch_size]
-            loss = F.mse_loss(readout(feats[idx].to(device)), resp[idx].to(device))
-            opt.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(readout.parameters(), 1.0)
-            opt.step()
-        val_corr = float(correlation_per_neuron(_predict(readout, feats[val_idx], device),
-                                                resp[val_idx]).mean())
-        sched.step()
-        if val_corr > best_corr:
-            best_corr, best_epoch = val_corr, epoch
-            best = {k: v.detach().cpu().clone() for k, v in readout.state_dict().items()}
-    return best, best_corr, best_epoch
-
-
 @torch.no_grad()
 def extract(encoder: _BaseEncoder, images: torch.Tensor, device, batch_size: int = 128):
     """Frozen-backbone features of in-memory canonical images, kept on the CPU."""
@@ -248,12 +208,7 @@ def sweep(layers: list[str], backbone: str, images: dict, responses: dict, oracl
         responses: {"train": [N_tr, n], "test": [N_te, n]}
         oracle:    [n] split-half reliabilities of the target neurons
     """
-    stage1 = _load_stage1()
-    corr_fn = stage1.correlation_per_neuron
-    n = len(images["train"])
-    n_val = int(round(train_cfg.validation_fraction * n))
-    perm = torch.randperm(n, generator=torch.Generator().manual_seed(seed))
-    tr_idx, val_idx = perm[: n - n_val], perm[n - n_val:]
+    corr_fn = correlation_per_neuron
     net = build_torchvision_net(backbone, pretrained)
 
     results = {}
@@ -268,9 +223,12 @@ def sweep(layers: list[str], backbone: str, images: dict, responses: dict, oracl
             continue
         f_tr = extract(enc, images["train"], device)
         f_te = extract(enc, images["test"], device)
-        state, val_corr, best_epoch = train_readout(
-            enc.readout, f_tr, responses["train"], tr_idx, val_idx, train_cfg, device, corr_fn)
-        enc.readout.load_state_dict(state)
+        # The one readout-fitting loop of the package; the cached features stay on the CPU, batches go to `device`.
+        fit = fit_readout_on_features(
+            enc.readout, f_tr, responses["train"], epochs=train_cfg.epochs, lr=train_cfg.lr,
+            weight_decay=train_cfg.weight_decay, batch_size=train_cfg.batch_size,
+            val_fraction=train_cfg.validation_fraction, seed=seed, device=device, log=None)
+        val_corr, best_epoch = fit.best_val_corr, fit.best_epoch
         test_corrs = corr_fn(_predict(enc.readout, f_te, device), responses["test"])
         results[layer] = {
             "feature_shape": list(f_tr.shape[1:]),

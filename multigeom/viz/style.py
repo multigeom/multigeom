@@ -81,9 +81,18 @@ def load_torch(path: Path, script: str, what: str):
 
 
 def encoder_checkpoint(runs_dir: Path, encoder: str, area: str, script: str):
-    """Stage-1 checkpoint runs/encoders/<encoder>/<area>/best_model.pt, or None."""
-    return load_torch(runs_dir / "encoders" / encoder / area / "best_model.pt",
+    """
+    Encoder checkpoint runs/encoders/<encoder>/<area>/best_model.pt, or None.
+
+    The scores of the fit (`per_neuron_test_corr`, `test_predictions`, `oracle`, ...) are returned as top-level entries
+    for both layouts: the paper's older checkpoints have them there, those written by `NeuralEncoder.save` keep them
+    in their `metadata`.
+    """
+    ckpt = load_torch(runs_dir / "encoders" / encoder / area / "best_model.pt",
                       script, f"{encoder}/{area} encoder")
+    if isinstance(ckpt, dict) and "metadata" in ckpt:
+        ckpt = {**ckpt, **ckpt["metadata"]}
+    return ckpt
 
 
 def per_image(runs_dir: Path, encoder: str, area: str, img_idx: int, script: str):

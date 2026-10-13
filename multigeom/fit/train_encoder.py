@@ -1,19 +1,15 @@
 """
-Stage 1: Train the per-neuron Gaussian spatial-attention readout on top of a
-frozen backbone (Inception, ResNet-50, or ON-OFF), targeting the 50 most
-reliable channels of macaque V1 or V4 from the THINGS Ventral-stream Spiking
-Dataset (Papale et al.).
+The paper's recipe for fitting an encoder to macaque recordings: load the 50 most reliable channels of V1 or V4 from the
+THINGS Ventral-stream Spiking Dataset (Papale et al.), build a reference encoder (Inception, ResNet-50 or ON-OFF
+backbone, Gaussian readout), fit its readout and score it on the test images.
 
-Backbone weights are held fixed; only the ~300-13,000 readout parameters are
-optimised. To keep training fast we pre-extract backbone features once over
-the full TVSD train + test split, then fit the readout on the cached
-[N, C, H, W] features with AdamW + cosine schedule.
+This module holds only what is specific to that dataset. The readout is fitted by `NeuralEncoder.fit_readout`
+(`multigeom.encoders.fitting`), the same method as for any other data, and the checkpoint is written by
+`NeuralEncoder.save`: the weights and architecture, with the test scores (`per_neuron_test_corr`, `test_predictions`,
+`oracle`, ...) in its metadata, which the figure and table code read (Fig. 3B-C, Fig. 4A, Table 1).
 
-With --evaluate-only, an existing encoder (--encoder-ckpt) is not trained: it
-is run on the TVSD test images, and its test-set predictions and per-neuron
-correlations (raw and noise-corrected) are added to a copy of the checkpoint
-written to --out-dir. These are the fields the figure and table scripts read
-(Fig. 3B-C, Fig. 4A, Table 1). Only the test images are needed.
+With --evaluate-only, an existing encoder (--encoder-ckpt) is not trained: it is run on the TVSD test images and written
+to --out-dir with its test scores. Only the test images are needed.
 
 Usage:
     python -m multigeom.fit.train_encoder \\
@@ -31,22 +27,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sys
 from pathlib import Path
 
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
 
 
 from ..config import data_dir, load_config
 from ..data import CANONICAL_TRANSFORM
 from ..encoders import build_encoder
-from ..encoders.fitting import correlation_per_neuron, fit_readout_on_features
+from ..encoders.fitting import correlation_per_neuron
 from ..utils import count_parameters, get_device, provenance, set_seed
-from .tvsd import TVSDDataset, existing_image_mask, load_tvsd
+from .tvsd import existing_image_mask, load_images, load_tvsd
 
 
 def parse_args(argv=None):
@@ -62,7 +54,8 @@ def parse_args(argv=None):
                         "write it, with the test-set fields added, to <out-dir>/best_model.pt")
     p.add_argument("--encoder-ckpt", default=None,
                    help="existing encoder checkpoint (with --evaluate-only)")
-    args = p.parse_args()
+    p.add_argument("--num-workers", type=int, default=4, help="worker processes that read the images")
+    args = p.parse_args(argv)
     if args.evaluate_only and not args.encoder_ckpt:
         p.error("--evaluate-only needs --encoder-ckpt")
     return args
@@ -95,20 +88,6 @@ def print_test_summary(fields: dict) -> None:
           f"noise-corrected mean={fields['test_corr_noise_corrected']:.3f}")
 
 
-@torch.no_grad()
-def preextract(encoder, paths, responses, images_root, transform, device, batch_size: int = 64):
-    """Run the frozen backbone over (paths, responses), returning cached features."""
-    dataset = TVSDDataset(responses, paths, images_root, transform=transform)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False,
-                        num_workers=4, pin_memory=True)
-    feats, resp = [], []
-    for img, r in loader:
-        img = img.to(device, non_blocking=True)
-        feats.append(encoder.features(img).cpu())
-        resp.append(r)
-    return torch.cat(feats, dim=0), torch.cat(resp, dim=0)
-
-
 def main(argv=None):
     """Fit the readout of an encoder to the TVSD recordings, or evaluate a checkpoint (command-line entry point)."""
     args = parse_args(argv)
@@ -132,19 +111,18 @@ def main(argv=None):
     # ── 2. Build encoder ──
     print(f"[Stage 1] Building {cfg.encoder.name} encoder ...")
     encoder = build_encoder(cfg).to(device)
-    encoder.eval()  # backbone is frozen; readout flips into train mode below
+    encoder.eval()  # backbone is frozen; the fit switches the readout to training mode
     n_train, n_total = count_parameters(encoder)
     print(f"  Parameters: {n_train:,} trainable / {n_total:,} total")
 
+    previous = {}
     if args.evaluate_only:
-        ckpt = torch.load(args.encoder_ckpt, map_location="cpu", weights_only=False)
-        encoder.load_state_dict(ckpt["model_state_dict"], strict=True)
-        encoder.eval()
+        encoder.load_checkpoint(args.encoder_ckpt)
+        previous = checkpoint_scores(args.encoder_ckpt)
 
-    # ── 3. Pre-extract frozen features (train + test; test only to evaluate) ──
-    # Every encoder receives the canonical [-1, 1] image and converts it to
-    # its backbone's range internally (multigeom/encoders).
-    print("[Stage 1] Pre-extracting frozen-backbone features (one-time) ...")
+    # ── 3. Load the images of the splits (train + test; test only to evaluate) ──
+    # Every encoder receives the canonical [-1, 1] image and converts it to its backbone's range internally.
+    print("[Stage 1] Loading the THINGS images ...")
     images_root = data_dir() / "things_images" / "object_images"
     splits = {}
     for split in (("test",) if args.evaluate_only else ("train", "test")):
@@ -155,71 +133,53 @@ def main(argv=None):
         if not keep.all():
             print(f"  {split}: {int((~keep).sum())}/{len(paths)} images missing on disk, skipped")
         idx = np.flatnonzero(keep)
-        splits[split] = preextract(
-            encoder, [paths[i] for i in idx], tvsd[f"{split}_responses"][idx],
-            images_root, CANONICAL_TRANSFORM, device,
-        )
-    test_feats, test_resp = splits["test"]
+        splits[split] = (load_images([paths[i] for i in idx], images_root, CANONICAL_TRANSFORM,
+                                     num_workers=args.num_workers),
+                         tvsd[f"{split}_responses"][idx])
+    test_images, test_resp = splits["test"]
 
-    if args.evaluate_only:
-        with torch.no_grad():
-            fields = test_set_fields(encoder.readout(test_feats.to(device)),
-                                     test_resp, tvsd["oracle"])
-        print_test_summary(fields)
-        ckpt.update(fields)
-        ckpt["neuron_indices"] = tvsd["neuron_indices"]
-        ckpt["oracle"] = tvsd["oracle"]
-        ckpt["evaluation_provenance"] = provenance({"encoder": args.config})
-        ckpt_path = out_dir / "best_model.pt"
-        torch.save(ckpt, ckpt_path)
-        print(f"[Stage 1] Evaluated {args.encoder_ckpt}; saved to {ckpt_path}")
-        return
+    # ── 4. Fit the readout: the same method as for any other data ──
+    history = None
+    if not args.evaluate_only:
+        train_images, train_resp = splits["train"]
+        print(f"[Stage 1] Training readout for {cfg.train.epochs} epochs on {len(train_images)} images ...")
+        report = encoder.fit_readout(
+            train_images, train_resp, epochs=cfg.train.epochs, lr=cfg.train.lr, weight_decay=cfg.train.weight_decay,
+            batch_size=cfg.train.batch_size, val_fraction=cfg.train.validation_fraction, seed=cfg.train.seed,
+            device=device)
+        history = report.history
+        previous = {"best_epoch": report.best_epoch, "val_corr": float(report.best_val_corr)}
 
-    train_feats, train_resp = splits["train"]
-    print(f"  Feature shape (train): {tuple(train_feats.shape)}")
-
-    # Move cached features to GPU for fast iteration
-    train_feats = train_feats.to(device)
-    train_resp = train_resp.to(device)
-    test_feats = test_feats.to(device)
-    test_resp = test_resp.to(device)
-
-    # ── 4. Fit the readout on the cached features (image-level train/val split, fixed seed) ──
-    print(f"[Stage 1] Training readout for {cfg.train.epochs} epochs ...")
-    report = fit_readout_on_features(
-        encoder.readout, train_feats, train_resp,
-        epochs=cfg.train.epochs, lr=cfg.train.lr, weight_decay=cfg.train.weight_decay,
-        batch_size=cfg.train.batch_size, val_fraction=cfg.train.validation_fraction, seed=cfg.train.seed,
-    )
-    history = report.history
-    best_val_corr = report.best_val_corr
-    best_state = {k: v.detach().cpu().clone() for k, v in encoder.state_dict().items()}
-
-    # ── 7. Test on best checkpoint ──
-    encoder.eval()
-    with torch.no_grad():
-        fields = test_set_fields(encoder.readout(test_feats), test_resp, tvsd["oracle"])
+    # ── 5. Test the (best) readout ──
+    fields = test_set_fields(encoder.predict(test_images, device=device), test_resp, tvsd["oracle"])
     print_test_summary(fields)
 
-    # ── 8. Save checkpoint + training log ──
+    # ── 6. Save in the layout of `encoder.save`: the scores are its metadata ──
     ckpt_path = out_dir / "best_model.pt"
-    torch.save({
-        "model_state_dict": best_state,
-        "config": {
-            "encoder": vars(cfg.encoder),
-            "train": vars(cfg.train),
-            "area": args.area,
-        },
-        "best_epoch": int(np.argmax(history["val_corr"]) + 1),
-        "val_corr": float(best_val_corr),
+    metadata = {
+        "area": args.area,
+        "encoder": cfg.encoder.name,
+        **previous,
         **fields,
         "neuron_indices": tvsd["neuron_indices"],
         "oracle": tvsd["oracle"],
-        "provenance": provenance({"encoder": args.config}, seed=cfg.train.seed),
-    }, ckpt_path)
-    with open(out_dir / "train_log.json", "w") as f:
-        json.dump(history, f, indent=2)
+    }
+    if args.evaluate_only:
+        metadata["evaluation_provenance"] = provenance({"encoder": args.config})
+    else:
+        metadata["train"] = vars(cfg.train)
+        metadata["provenance"] = provenance({"encoder": args.config}, seed=cfg.train.seed)
+        with open(out_dir / "train_log.json", "w") as f:
+            json.dump(history, f, indent=2)
+    encoder.save(ckpt_path, **metadata)
     print(f"[Stage 1] Saved checkpoint to {ckpt_path}")
+
+
+def checkpoint_scores(path) -> dict:
+    """The fit scores an existing checkpoint carries (`val_corr`, `best_epoch`), in either checkpoint layout."""
+    ckpt = torch.load(path, map_location="cpu", weights_only=False)
+    scores = {**ckpt, **ckpt.get("metadata", {})}
+    return {k: scores[k] for k in ("best_epoch", "val_corr") if k in scores}
 
 
 if __name__ == "__main__":

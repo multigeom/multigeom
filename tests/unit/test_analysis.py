@@ -243,9 +243,9 @@ def test_sweep_encoder_input_convention(nets):
         assert not enc.backbone.training and enc.readout.training
 
 
-def test_train_readout_recovers_planted_readout():
-    from multigeom.fit.layer_sweep import _load_stage1, train_readout
+def test_the_sweep_fits_readouts_with_the_shared_loop_on_cached_cpu_features():
     from multigeom.encoders import GaussianReadout
+    from multigeom.encoders.fitting import fit_readout_on_features
 
     torch.manual_seed(0)
     N, C, S, n = 600, 4, 6, 3
@@ -255,14 +255,10 @@ def test_train_readout_recovers_planted_readout():
     feats = torch.randn(N, C, S, S)
     with torch.no_grad():
         resp = truth(feats) + 0.05 * torch.randn(N, n)
-    perm = torch.randperm(N)
-    cfg = SimpleNamespace(lr=3e-2, weight_decay=0.0, epochs=30, batch_size=64)
     model = GaussianReadout(n, C, S, dropout=0.0)
-    state, val_corr, epoch = train_readout(model, feats, resp, perm[:500], perm[500:], cfg,
-                                           torch.device("cpu"),
-                                           _load_stage1().correlation_per_neuron)
-    assert val_corr > 0.9 and 1 <= epoch <= 30
-    assert set(state) == set(model.state_dict())
+    report = fit_readout_on_features(model, feats, resp, epochs=30, lr=3e-2, weight_decay=0.0, batch_size=64,
+                                     val_fraction=0.1, seed=0, device="cpu", log=None)
+    assert report.best_val_corr > 0.9 and 1 <= report.best_epoch <= 30
 
 
 @pytest.mark.slow

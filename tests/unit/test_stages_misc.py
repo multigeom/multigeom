@@ -58,17 +58,12 @@ def test_test_set_fields_match_independent_computation(stage01):
     torch.testing.assert_close(f["test_predictions"], pred)
 
 
-def test_evaluate_only_adds_test_set_fields(stage01, tmp_path, monkeypatch):
-    """Run stage 01 --evaluate-only on synthetic TVSD files and images with a small
-    stand-in encoder; the stored predictions must equal the encoder applied to the
-    test images, and the weights must be unchanged."""
-    import sys
+def _tiny_tvsd_setup(stage01, tmp_path, monkeypatch, n_train, epochs=3):
+    """Fake TVSD files and images, a small stand-in encoder, and a config; returns (data dir, config path, encoder)."""
     import torch.nn as nn
     from PIL import Image
 
     from conftest import write_fake_tvsd
-    from multigeom.data import CANONICAL_TRANSFORM
-    from multigeom.fit.tvsd import load_tvsd
     from multigeom.encoders import _BaseEncoder, _FrozenBackbone
 
     class SmallBackbone(_FrozenBackbone):
@@ -86,67 +81,96 @@ def test_evaluate_only_adds_test_set_fields(stage01, tmp_path, monkeypatch):
 
     class SmallEncoder(_BaseEncoder):
         backbone_input_channels, backbone_input_range = 3, (-1.0, 1.0)
+        reference_name = "small"
 
     def build(cfg):
         torch.manual_seed(0)
         return SmallEncoder(SmallBackbone(), n_neurons=50, dropout=0.25)
 
     data = tmp_path / "data"
-    fake = write_fake_tvsd(data / "tvsd", n_train=3, n_test=5)
+    fake = write_fake_tvsd(data / "tvsd", n_train=n_train, n_test=5)
     rng = np.random.default_rng(0)
-    for p in fake["paths"]["test"]:
+    for p in fake["paths"]["train"] + fake["paths"]["test"]:
         path = data / "things_images" / "object_images" / p.replace("\\", "/")
         path.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(rng.integers(0, 255, (80, 80, 3), dtype=np.uint8)).save(path)
 
     cfg = tmp_path / "enc.yaml"
     cfg.write_text("encoder:\n  name: inception\n  n_neurons: 50\n  dropout: 0.25\n"
-                   "train:\n  seed: 0\n")
-    enc = build(None)
+                   f"train:\n  seed: 0\n  epochs: {epochs}\n  lr: 0.01\n  weight_decay: 0.0001\n  batch_size: 8\n  validation_fraction: 0.25\n")
+    monkeypatch.setattr(stage01, "build_encoder", build)
+    return data, cfg, build(None)
+
+
+def _images_of(data, paths):
+    from PIL import Image
+
+    from multigeom.data import CANONICAL_TRANSFORM
+    return torch.stack([CANONICAL_TRANSFORM(Image.open(
+        data / "things_images" / "object_images" / p).convert("RGB")) for p in paths])
+
+
+def test_evaluate_only_adds_test_set_fields(stage01, tmp_path, monkeypatch):
+    """--evaluate-only on fake TVSD files with a small stand-in encoder, from a checkpoint of the paper's older layout:
+    the stored predictions equal the encoder applied to the test images, the weights are unchanged and the file is
+    written in the layout of `NeuralEncoder.save` with the scores as metadata."""
+    from multigeom.fit.tvsd import load_tvsd
+
+    data, cfg, enc = _tiny_tvsd_setup(stage01, tmp_path, monkeypatch, n_train=3)
     with torch.no_grad():
         enc.readout.feature_weights.normal_()
     ckpt_in = tmp_path / "legacy" / "best_model.pt"
     ckpt_in.parent.mkdir()
     torch.save({"model_state_dict": enc.state_dict(), "val_corr": 0.5}, ckpt_in)
 
-    monkeypatch.setattr(stage01, "build_encoder", build)
-    monkeypatch.setattr(stage01, "preextract", _preextract_without_workers(stage01))
     out = tmp_path / "out"
-    monkeypatch.setattr(sys, "argv", [
-        "01_train_encoder.py", "--config", str(cfg), "--area", "V1", "--device", "cpu",
-        "--data-dir", str(data), "--out-dir", str(out),
-        "--evaluate-only", "--encoder-ckpt", str(ckpt_in)])
-    stage01.main()
+    stage01.main(["--config", str(cfg), "--area", "V1", "--device", "cpu", "--data-dir", str(data),
+                  "--out-dir", str(out), "--num-workers", "0", "--evaluate-only", "--encoder-ckpt", str(ckpt_in)])
 
     got = torch.load(out / "best_model.pt", weights_only=False)
+    meta = got["metadata"]
     tvsd = load_tvsd("V1", 50, tvsd_dir=data / "tvsd")
-    images = torch.stack([CANONICAL_TRANSFORM(Image.open(
-        data / "things_images" / "object_images" / p).convert("RGB")) for p in tvsd["test_paths"]])
     enc.eval()
     with torch.no_grad():
-        expected = enc(images)
-    torch.testing.assert_close(got["test_predictions"], expected)
-    torch.testing.assert_close(got["test_responses"], tvsd["test_responses"])
-    assert got["val_corr"] == 0.5
+        expected = enc(_images_of(data, tvsd["test_paths"]))
+    torch.testing.assert_close(meta["test_predictions"], expected)
+    torch.testing.assert_close(meta["test_responses"], tvsd["test_responses"])
+    assert meta["val_corr"] == 0.5 and meta["area"] == "V1"
     for k, v in enc.state_dict().items():
         torch.testing.assert_close(got["model_state_dict"][k], v)
-    assert got["per_neuron_test_corr"].shape == (50,)
-    np.testing.assert_array_equal(got["neuron_indices"], tvsd["neuron_indices"])
+    assert meta["per_neuron_test_corr"].shape == (50,)
+    np.testing.assert_array_equal(meta["neuron_indices"], tvsd["neuron_indices"])
 
 
-def _preextract_without_workers(stage01):
-    """stage01.preextract with a single-process DataLoader (no worker processes in tests)."""
-    from torch.utils.data import DataLoader
-    from multigeom.fit.tvsd import TVSDDataset
+def test_training_fits_the_readout_with_fit_readout_and_saves_it(stage01, tmp_path, monkeypatch):
+    """The training path: the readout is fitted by `NeuralEncoder.fit_readout`, tested, and saved with its scores."""
+    from multigeom.fit.tvsd import load_tvsd
 
-    @torch.no_grad()
-    def preextract(encoder, paths, responses, images_root, transform, device, batch_size=64):
-        loader = DataLoader(TVSDDataset(responses, paths, images_root, transform=transform),
-                            batch_size=batch_size, shuffle=False, num_workers=0)
-        feats, resp = [], []
-        for img, r in loader:
-            feats.append(encoder.features(img.to(device)).cpu())
-            resp.append(r)
-        return torch.cat(feats), torch.cat(resp)
+    data, cfg, enc = _tiny_tvsd_setup(stage01, tmp_path, monkeypatch, n_train=16)
+    before = {k: v.clone() for k, v in enc.backbone.state_dict().items()}
+    calls = []
+    original = type(enc).fit_readout
 
-    return preextract
+    def spy(self, images, responses, **kwargs):
+        calls.append((len(images), kwargs["epochs"], kwargs["val_fraction"]))
+        return original(self, images, responses, **kwargs)
+
+    monkeypatch.setattr(type(enc), "fit_readout", spy)
+    out = tmp_path / "out"
+    stage01.main(["--config", str(cfg), "--area", "V1", "--device", "cpu", "--data-dir", str(data),
+                  "--out-dir", str(out), "--num-workers", "0"])
+
+    assert calls == [(16, 3, 0.25)]
+    got = torch.load(out / "best_model.pt", weights_only=False)
+    meta = got["metadata"]
+    assert meta["area"] == "V1" and 1 <= meta["best_epoch"] <= 3 and np.isfinite(meta["val_corr"])
+    assert meta["per_neuron_test_corr"].shape == (50,) and meta["test_predictions"].shape == (5, 50)
+    assert meta["train"]["epochs"] == 3 and (out / "train_log.json").exists()
+    for k, v in before.items():                                     # the backbone is frozen
+        torch.testing.assert_close(got["model_state_dict"]["backbone." + k], v)
+    tvsd = load_tvsd("V1", 50, tvsd_dir=data / "tvsd")
+    state = {k: v for k, v in got["model_state_dict"].items()}
+    enc.load_state_dict(state)
+    enc.eval()
+    with torch.no_grad():
+        torch.testing.assert_close(meta["test_predictions"], enc(_images_of(data, tvsd["test_paths"])), atol=1e-5, rtol=1e-4)

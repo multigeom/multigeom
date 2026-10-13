@@ -3,8 +3,8 @@ Fitting the readout of an encoder to neural responses.
 
 The backbone of an encoder is kept fixed, so its features are computed once and the readout is fitted on the cached
 features (fast, and the same for a pretrained backbone as for one that you trained yourself). `fit_readout_on_features`
-is the loop; `NeuralEncoder.fit_readout` caches the features and calls it, and so does the paper's pipeline
-(`multigeom.fit.train_encoder`).
+is the loop and the only place where a readout is fitted: `NeuralEncoder.fit_readout` caches the features and calls it,
+and so do the paper's scripts (`multigeom.fit.train_encoder`, `multigeom.fit.layer_sweep`).
 """
 from __future__ import annotations
 
@@ -56,13 +56,15 @@ def fit_readout_on_features(
     val_fraction: float = 0.05,
     seed: int = 42,
     grad_clip: float = 1.0,
+    device: str | torch.device | None = None,
     log: Callable[[str], None] | None = print,
 ) -> FitReport:
     """
     Fit `readout` (features [N, C, S, S] -> responses [N, n_neurons]) with AdamW, a cosine schedule and mean squared
     error. A fixed-seed image-level split keeps `val_fraction` of the images for validation; the readout of the epoch
     with the highest mean validation correlation is restored at the end. `features` and `responses` are used on
-    their own device (put them on the GPU for speed).
+    their own device (put them on the GPU for speed), unless `device` is given: each batch is then moved there, so the
+    cached features can stay on the CPU while the readout is on the GPU.
     """
     n = len(features)
     if len(responses) != n:
@@ -87,8 +89,11 @@ def fit_readout_on_features(
         train_loss_sum, n_batches = 0.0, 0
         for i in range(0, len(perm_tr), batch_size):
             idx = perm_tr[i: i + batch_size]
-            pred = readout(features[idx])
-            loss = F.mse_loss(pred, responses[idx])
+            x, y = features[idx], responses[idx]
+            if device is not None:
+                x, y = x.to(device), y.to(device)
+            pred = readout(x)
+            loss = F.mse_loss(pred, y)
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(readout.parameters(), grad_clip)
@@ -101,9 +106,12 @@ def fit_readout_on_features(
         val_loss, val_corr = float("nan"), float("nan")
         if n_val:
             with torch.no_grad():
-                val_pred = readout(features[val_idx])
-                val_loss = F.mse_loss(val_pred, responses[val_idx]).item()
-                val_corr = correlation_per_neuron(val_pred, responses[val_idx]).mean()
+                x, y = features[val_idx], responses[val_idx]
+                if device is not None:
+                    x, y = x.to(device), y.to(device)
+                val_pred = readout(x)
+                val_loss = F.mse_loss(val_pred, y).item()
+                val_corr = correlation_per_neuron(val_pred, y).mean()
         scheduler.step()
         for key, value in (("epoch", epoch), ("train_loss", train_loss), ("val_loss", val_loss),
                            ("val_corr", float(val_corr))):

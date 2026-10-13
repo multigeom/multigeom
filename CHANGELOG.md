@@ -23,4 +23,7 @@ First release of the package, refactored from the code of the paper
 - Documentation at <https://multigeom.github.io/multigeom/> and the demo notebooks in `multigeom-tutorials`.
 
 ### Changed
+- One way to fit a readout: `NeuralEncoder.fit_readout`. The paper's script `multigeom.fit.train_encoder` and the layer sweep call
+  it instead of keeping their own training loops, and `train-encoder` now writes the checkpoint with `NeuralEncoder.save`
+  (the test scores are in its `metadata`). Older checkpoints of the paper load as before.
 - Installation: the core, `multigeom[paper]` and `multigeom[all]`.

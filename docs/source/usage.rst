@@ -94,6 +94,10 @@ An encoder predicts neural responses from images. The package represents it as a
    * - ``"factorized"``
      - the same over a window of any shape (one learned weight per location)
 
+``encoder.fit_readout`` is the one way to fit a readout, whatever the data: synthetic neurons, your own recordings, or the
+macaque recordings of the paper. The script of the paper, ``multigeom.fit.train_encoder`` (command ``multigeom train-encoder``,
+extra ``paper``), only loads those recordings, calls ``fit_readout``, scores the encoder on the test images and saves it.
+
 Write your own backbone and readout
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -245,22 +249,6 @@ The encoder contract
 Training the diffusion model on the encoder's responses needs R1 to R4, R6 and R9; estimating :math:`G(x)` and :math:`J(x)`
 needs all of them. The quality of the fit and the 64 x 64 grayscale natural-image domain are not checked. The diffusion
 model's conditioning layer is sized by N, so each encoder needs its own diffusion model.
-
-Fit an encoder to recordings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The encoders of the paper were fitted to macaque recordings by a module that you can also call directly (extra ``paper``):
-
-.. list-table::
-   :header-rows: 1
-   :widths: 40 22 38
-
-   * - Module
-     - Command
-     - What it does
-   * - ``multigeom.fit.train_encoder``
-     - ``multigeom train-encoder``
-     - Fits a readout on a frozen backbone to neural data.
 
 Geometry
 --------
