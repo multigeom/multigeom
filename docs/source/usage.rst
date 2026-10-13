@@ -97,8 +97,8 @@ Write your own backbone and readout
 Both parts are ordinary ``nn.Module`` classes. A backbone maps images ``[B, 1, 64, 64]`` to a feature map ``[B, C, S, S]`` and has
 the attributes ``out_channels`` (C) and ``out_spatial`` (S). A readout maps that feature map to responses ``[B, N]`` and is built
 as ``(n_neurons, n_channels, spatial, dropout)``. The decorators ``@register_backbone("name")`` and ``@register_readout("name")``
-write the name into the saved file, so that ``NeuralEncoder.load`` can rebuild the encoder. This example fits an encoder to
-synthetic neural data from start to finish:
+give each class a name (see below for what the name is used for). This example fits an encoder to synthetic neural data from
+start to finish:
 
 .. code-block:: python
 
@@ -158,7 +158,26 @@ synthetic neural data from start to finish:
    validate_encoder(encoder)                                     # the encoder contract
 
    encoder.save("my_encoder.pt")
-   encoder = NeuralEncoder.load("my_encoder.pt")                 # works because both names are registered
+   print(encoder.config["backbone"]["name"], encoder.config["readout"]["name"])   # gabor_bank softplus: the names, as saved
+
+**What the names are for.** A registered name is used in two places:
+
+* *Building an encoder from a name.* A readout can be given by its name, ``readout="softplus"``, as above. A backbone is passed as
+  an object (``GaborBankBackbone()``), so its name is not used when you build the encoder.
+* *Saving and loading.* ``encoder.save`` stores the name and the constructor arguments of the backbone and the readout next to
+  the weights. ``NeuralEncoder.load`` reads them and looks the names up in the registry to rebuild the encoder, so it needs no
+  other code. This works in the session above because both classes are registered. In a new Python session they are registered
+  only once their code has run, by importing the module that defines them:
+
+.. code-block:: python
+
+   from multigeom import NeuralEncoder
+   import my_encoders                                  # your module: running it registers "gabor_bank" and "softplus"
+   encoder = NeuralEncoder.load("my_encoder.pt")       # without the import: "the backbone 'gabor_bank' is not registered"
+
+The registries are ``multigeom.encoders.BACKBONES`` and ``READOUTS`` (dictionaries from name to class). A class that is part of
+``multigeom`` itself is registered as soon as ``multigeom.encoders`` is imported, which is why the encoders of the package need no
+extra import.
 
 To share a new backbone or readout with everyone, see :ref:`add-an-encoder`.
 
