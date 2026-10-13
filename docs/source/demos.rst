@@ -13,9 +13,9 @@ dataset beyond TinyImageNet (notebooks 1 and 2) and run in minutes on a GPU.
 .. nbgallery::
    :name: demo-gallery-getting-started
 
-   demo_notebooks/0_getting_started_use_a_builtin_encoder
+   demo_notebooks/0_use_a_builtin_encoder
    demo_notebooks/1_create_your_encoder
-   demo_notebooks/2_getting_started_diffusion_and_pipeline
+   demo_notebooks/2_compute_g
 
 Reproduce the paper
 -------------------
