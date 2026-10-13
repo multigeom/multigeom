@@ -1,0 +1,6 @@
+include LICENSE README.md CITATION.cff
+recursive-include multigeom/configs *.yaml
+recursive-include tests *.py
+prune docs
+prune tests/__pycache__
+global-exclude __pycache__ *.py[cod] .DS_Store

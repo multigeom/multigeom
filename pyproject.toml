@@ -1,19 +1,27 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "multigeom"
-version = "1.0.0"
+dynamic = ["version"]                                  # from multigeom/__init__.py (__version__)
 description = "Multi-scale Fisher information geometry of neural population codes, estimated with conditional diffusion models."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10,<3.13"
 keywords = ["neuroscience", "information geometry", "Fisher information", "diffusion models", "neural coding"]
 classifiers = [
-  "Programming Language :: Python :: 3",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Information Analysis",
 ]
 authors = [
   { name = "Simone Azeglio", email = "simone.azeglio@gmail.com" },
@@ -54,6 +62,9 @@ Issues = "https://github.com/multigeom/multigeom/issues"
 
 [project.scripts]
 multigeom = "multigeom.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "multigeom.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["multigeom*"]

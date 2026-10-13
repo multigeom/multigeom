@@ -1,0 +1,37 @@
+name: build
+
+# Build the distribution (sdist and wheel) on every pull request and check that it installs and imports.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build the sdist and the wheel
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          twine check --strict dist/*
+      - name: The wheel holds the package and its configuration files
+        run: |
+          python - <<'PY'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          assert any(n.endswith("multigeom/configs/estimator.yaml") for n in names), "configs missing from the wheel"
+          assert not any(n.startswith(("tests/", "docs/")) for n in names), "tests or docs in the wheel"
+          PY
+      - name: Install the wheel with its dependencies and import it
+        run: |
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install --extra-index-url https://download.pytorch.org/whl/cpu dist/*.whl
+          cd /tmp && /tmp/venv/bin/python -c "import multigeom; print(multigeom.__version__); from multigeom import NeuralEncoder, load_encoder"
+          /tmp/venv/bin/multigeom --help

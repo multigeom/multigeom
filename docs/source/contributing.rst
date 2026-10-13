@@ -46,4 +46,16 @@ Pull requests
 Releases
 --------
 
-The version is set in ``multigeom/__init__.py``. Maintainers tag a release, and the package is published to PyPI.
+The version is set once, in ``multigeom/__init__.py`` (``__version__``), and ``pyproject.toml`` reads it. To release:
+
+1. Update the version and ``CHANGELOG.md``, and merge to ``main`` once the tests and the docs build pass.
+2. Try the release on TestPyPI: in the Actions tab, run the *release* workflow by hand. Install from there in a fresh environment
+   (``pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ multigeom``) and import it.
+3. Tag and push: ``git tag v1.0.0 && git push origin v1.0.0``. The *release* workflow checks that the tag equals the version, builds
+   the sdist and the wheel, and publishes them to PyPI.
+
+A version published to PyPI cannot be replaced or reused: fix a mistake with a new version.
+
+One-time setup, on pypi.org and test.pypi.org: create a *pending publisher* for the project ``multigeom`` (owner ``multigeom``,
+repository ``multigeom``, workflow ``release.yml``, environment ``pypi`` or ``testpypi``), and create the two environments in the
+repository settings. No token is stored.

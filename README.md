@@ -2,12 +2,12 @@
 
 Multi-scale information geometry of neural population codes, in Python.
 
-`multigeom` computes the Fisher information metric $J(x)$ of any fitted PyTorch model of neural responses, and the
+`multigeom` computes the Fisher information metric J(x) of any fitted PyTorch model of neural responses, and the
 *multi-scale Fisher metric*
 
-$$G(x) = \int_0^\infty [\phi_t * J_t](x)\,dt ,$$
+    G(x) = ∫₀^∞ [φ_t ∗ J_t](x) dt
 
-the Fisher information of the stimulus-diffused likelihood integrated over all diffusion scales. $G(x)$ is directly
+the Fisher information of the stimulus-diffused likelihood integrated over all diffusion scales. G(x) is directly
 related to the mutual information between stimulus and response, and for natural images it is estimated with a
 conditional diffusion model. The package also reproduces the macaque V1/V4 analyses of the paper.
 
@@ -29,29 +29,29 @@ conditional diffusion model. The package also reproduces the macaque V1/V4 analy
    responses of the 50 most reliable V1 or V4 channels of the THINGS
    Ventral-stream Spiking Dataset (Papale et al., 2025).
 2. **Synthetic responses** (`multigeom.diffusion.responses`). The encoder
-   $f_\phi$ is evaluated on every TinyImageNet training image; these 50-d
+   f_φ is evaluated on every TinyImageNet training image; these 50-d
    vectors condition the diffusion model.
 3. **Conditional diffusion model** (`multigeom.diffusion.train`). A
    `UNet2DConditionModel` (64×64 grayscale, ~68M parameters) conditioned on
    the responses through a 3-layer MLP and cross-attention. Training follows the
-   Gaussian observation model $p(r\mid x)=\mathcal N(f_\phi(x),\sigma^2 I)$
-   with $\sigma=0.22$, and uses classifier-free-guidance dropout (rate 0.1) so
+   Gaussian observation model p(r | x) = N(f_φ(x), σ² I)
+   with σ = 0.22, and uses classifier-free-guidance dropout (rate 0.1) so
    that the same network also gives the unconditional denoiser. 200 epochs.
 4. **G(x) and J(x)** (`multigeom.pipeline.per_image`). The top-50 eigenpairs of
-   $G(x)$ from the conditional-pair estimator (Algorithm 1 of the paper,
-   `multigeom.geometry.estimator`), and of $J(x)=\sigma^{-2}J_{f_\phi}^\top J_{f_\phi}$ by
+   G(x) from the conditional-pair estimator (Algorithm 1 of the paper,
+   `multigeom.geometry.estimator`), and of J(x) = σ⁻² J_fᵀ J_f by
    autograd (`multigeom.geometry.fisher`), on 200 held-out TinyImageNet validation images.
 5. **Cross-model comparison** (`multigeom.pipeline.alignment`). Subspace
-   alignment $\mathcal A_k=\tfrac1k\|V_A^\top V_B\|_F^2$ and Bures-Wasserstein
+   alignment A_k = (1/k) ‖V_Aᵀ V_B‖²_F and Bures-Wasserstein
    distance between every pair of (encoder, area) configurations, for
-   $k=1,\dots,50$, averaged over images.
+   k = 1, …, 50, averaged over images.
 6. **Local metric field** (`multigeom.pipeline.metric_field`). The 2×2 projection of
-   $G$ and $J$ onto the leading two eigenvectors at a reference image, on a grid
+   G and J onto the leading two eigenvectors at a reference image, on a grid
    of images perturbed along those eigenvectors (Fig. 5).
 
 Figures and the encoder table are drawn from these outputs by the modules in
 `multigeom.viz`. Supporting analyses quoted in the paper's appendices (calibration
-of $\sigma$, Monte-Carlo variance of the conditional-pair versus the
+of σ, Monte-Carlo variance of the conditional-pair versus the
 unconditional-conditional estimator, backbone layer sweep) are in `multigeom.fit` and `multigeom.pipeline.estimator_variance`.
 
 ## Installation
