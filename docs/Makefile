@@ -1,10 +1,13 @@
 # Build the documentation:  make docs        (needs: pip install -e ".[docs]")
 # Fetch the demo notebooks: make notebooks TUTORIALS_DIR=../multigeom-tutorials
-# Preview while editing:    make livehtml   (rebuilds and reloads http://127.0.0.1:8000 on every save)
+# Preview while editing:    make livehtml   (rebuilds and reloads http://127.0.0.1:8000 on every save; PORT=8010 HOST=0.0.0.0 to change)
 SPHINXOPTS    ?=
 SOURCEDIR     = source
 BUILDDIR      = build
 TUTORIALS_DIR ?= ../../multigeom-tutorials
+# livehtml: address and port to serve on (HOST=0.0.0.0 makes the preview reachable from other machines)
+HOST          ?= 127.0.0.1
+PORT          ?= 8000
 
 .PHONY: docs livehtml notebooks linkcheck clean
 
@@ -18,7 +21,7 @@ docs: notebooks
 # The notebooks are copied once, when the command starts. The generated API pages and the copies are ignored, otherwise
 # writing them would trigger a new build in a loop. --watch ../multigeom rebuilds on a change of a docstring.
 livehtml: notebooks
-	sphinx-autobuild -W --keep-going $(SPHINXOPTS) $(SOURCEDIR) $(BUILDDIR)/live --port 8000 \
+	sphinx-autobuild -W --keep-going $(SPHINXOPTS) $(SOURCEDIR) $(BUILDDIR)/live --host $(HOST) --port $(PORT) \
 	  --watch ../multigeom --ignore "$(SOURCEDIR)/api/generated/*" --ignore "$(SOURCEDIR)/demo_notebooks/*"
 
 linkcheck: notebooks
