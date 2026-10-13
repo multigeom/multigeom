@@ -1,0 +1,24 @@
+name: pr-source
+
+# A pull request into main is only allowed from the develop branch of this repository. GitHub cannot restrict the source branch
+# of a pull request by itself, so this check fails for any other source. Make it a required status check in the branch
+# protection (or ruleset) of main: check name "only-from-develop".
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  only-from-develop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: The pull request comes from develop of this repository
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          if [ "$HEAD_BRANCH" != "develop" ] || [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "::error::Pull requests into main must come from develop of $THIS_REPO; this one comes from $HEAD_BRANCH of $HEAD_REPO."
+            exit 1
+          fi
+          echo "OK: develop into main"

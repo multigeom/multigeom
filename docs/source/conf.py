@@ -21,7 +21,7 @@ version = release
 
 # Where the demo notebooks live (they are copied into demo_notebooks/ by `make notebooks`).
 TUTORIALS_REPO = "multigeom/multigeom-tutorials"
-TUTORIALS_BRANCH = "master"
+TUTORIALS_BRANCH = "main"
 LANDING_PAGE = "https://multigeom.github.io"
 PAPER = "https://arxiv.org/abs/2605.06304"
 
