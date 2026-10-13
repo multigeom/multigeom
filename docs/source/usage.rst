@@ -193,7 +193,7 @@ To share a new backbone or readout with everyone, see :ref:`add-an-encoder`.
 The :doc:`demo notebooks <demos>` go through each step, with synthetic neural data that has a known ground truth.
 
 The encoder contract
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 ``validate_encoder`` runs a few forward and backward passes on random images and raises
 :class:`multigeom.EncoderContractError`, naming the rule and what to change, at the first violation.
