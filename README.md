@@ -83,10 +83,15 @@ pip install -e ".[all,dev,docs]"
 ```python
 import multigeom
 
-encoder = multigeom.load_encoder("inception", area="V1")  # an encoder of the paper, fitted to macaque V1 (downloaded)
-responses = encoder.predict(images)                       # predicted neural responses [N, 50]
-multigeom.validate_encoder(encoder)                       # check the encoder contract
-J = multigeom.compute_fisher(image, encoder, sigma=0.22)  # eigenpairs of the Fisher metric J(x)
+images = ...                                                # [N, 1, 64, 64] tensor, values in [-1, 1]
+encoder = multigeom.load_encoder("inception", area="V1")    # an encoder of the paper, fitted to macaque V1 (downloaded)
+responses = encoder.predict(images)                         # [N, 50] predicted neural responses
+multigeom.validate_encoder(encoder)                         # checks the encoder contract
+
+image = images[:1]                                          # one image, [1, 1, 64, 64]
+J = multigeom.compute_fisher(image, encoder, sigma=0.22)    # eigenpairs of the Fisher metric J(x)
+
+# G(x) also needs the diffusion model `unet` trained for this encoder and its noise schedule `alphas_cumprod`:
 G = multigeom.compute_g(image=image, encoder=encoder, unet=unet, alphas_cumprod=a, cfg=cfg, device=device)
 ```
 
