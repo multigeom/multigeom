@@ -13,7 +13,7 @@ The functions and classes exported by ``import multigeom``.
    multigeom.NeuralEncoder
    multigeom.validate_encoder
    multigeom.compute_fisher
-   multigeom.estimate_g
+   multigeom.compute_g
    multigeom.align
    multigeom.bures_wasserstein
    multigeom.Encoder

@@ -58,7 +58,7 @@ if TYPE_CHECKING:                                  # the estimator itself needs 
 
 @dataclass
 class EstimatorOutput:
-    """Top eigenpairs of G(x) returned by `estimate_g`: eigenvalues [k] and eigenvectors [k, P], largest first."""
+    """Top eigenpairs of G(x) returned by `compute_g`: eigenvalues [k] and eigenvectors [k, P], largest first."""
     eigenvalues: torch.Tensor   # [k]   top-k eigenvalues of G(x), descending
     eigenvectors: torch.Tensor  # [k, P] rows are top-k eigenvectors of G(x)
 

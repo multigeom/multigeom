@@ -14,7 +14,7 @@ and follows the contract below.
      - Checks that an encoder follows the contract and names the rule it breaks.
    * - :func:`multigeom.compute_fisher`
      - Top eigenvalues and eigenvectors of the Fisher information :math:`J(x)` of one image.
-   * - :func:`multigeom.estimate_g`
+   * - :func:`multigeom.compute_g`
      - Top eigenpairs of the multi-scale Fisher metric :math:`G(x)`, with a trained diffusion model.
    * - :func:`multigeom.align`
      - Subspace alignment of two sets of eigenvectors.
@@ -150,7 +150,7 @@ The paper's analysis runs in stages, each a module with a command line (``python
 .. code-block:: bash
 
    multigeom --help
-   multigeom estimate-g --help
+   multigeom compute-g --help
 
 Settings are YAML files packaged with the library (``estimator``, ``diffusion``, ``inception``, ``resnet50``, ``onoff``) and
 loaded by name with :func:`multigeom.config.load_config`.

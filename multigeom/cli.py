@@ -3,7 +3,7 @@ Command line: `multigeom <command> [options]` (or `python -m multigeom.cli`). Ea
 module that does the work, so `multigeom <command> --help` lists them.
 
     jacobian         the Fisher metric J(x) of an encoder for one image or the first N test images
-    estimate-g       the multi-scale metric G(x) (and J(x)) for the test images, resumable
+    compute-g       the multi-scale metric G(x) (and J(x)) for the test images, resumable
     train-diffusion  the conditional diffusion model on precomputed responses
     align            subspace alignment and Bures-Wasserstein distance between configurations
     train-encoder    fit an encoder readout to neural data              (needs the [paper] extra)
@@ -19,7 +19,7 @@ from pathlib import Path
 
 # command -> (module with a main(argv), one-line help)
 COMMANDS = {
-    "estimate-g": ("multigeom.pipeline.per_image", "estimate G(x) and J(x) for the test images (resumable)"),
+    "compute-g": ("multigeom.pipeline.per_image", "compute G(x) and J(x) for the test images (resumable)"),
     "train-diffusion": ("multigeom.diffusion.train", "train the conditional diffusion model"),
     "align": ("multigeom.pipeline.alignment", "alignment and Bures-Wasserstein distances between configurations"),
     "train-encoder": ("multigeom.fit.train_encoder", "fit an encoder readout to neural data"),

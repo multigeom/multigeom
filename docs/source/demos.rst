@@ -44,7 +44,7 @@ These notebooks need the datasets, the trained checkpoints of the paper and a GP
      - synthetic neural data, backbone, readout, ``fit_readout``, ``save``, ``load``
      - TinyImageNet, about 1 min on a GPU
    * - 2 Train the diffusion model and compute G(x)
-     - ``precompute_responses``, ``train_diffusion``, ``estimate_g``
+     - ``precompute_responses``, ``train_diffusion``, ``compute_g``
      - TinyImageNet, about 2 min on a GPU
    * - 3 Leading eigenvectors of G(x)
      - Fig. 3D-F and Fig. 4B-C

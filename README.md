@@ -87,10 +87,10 @@ encoder = multigeom.load_encoder("inception", area="V1")  # an encoder of the pa
 responses = encoder.predict(images)                       # predicted neural responses [N, 50]
 multigeom.validate_encoder(encoder)                       # check the encoder contract
 J = multigeom.compute_fisher(image, encoder, sigma=0.22)  # eigenpairs of the Fisher metric J(x)
-G = multigeom.estimate_g(image=image, encoder=encoder, unet=unet, alphas_cumprod=a, cfg=cfg, device=device)
+G = multigeom.compute_g(image=image, encoder=encoder, unet=unet, alphas_cumprod=a, cfg=cfg, device=device)
 ```
 
-The command line `multigeom` runs the pipeline: `multigeom jacobian | estimate-g | train-diffusion | align`
+The command line `multigeom` runs the pipeline: `multigeom jacobian | compute-g | train-diffusion | align`
 (`multigeom --help`). The notebooks are in the companion repository [`multigeom-tutorials`](https://github.com/multigeom/multigeom-tutorials); `0_bring_your_own_encoder.ipynb` computes J(x) for a model of your own.
 
 ## Data
@@ -171,7 +171,7 @@ Measured on NVIDIA A100-SXM4-40GB GPUs, per (encoder, area) configuration:
 
 Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `multigeom.encoder`
 checks them (`multigeom.validate_encoder(encoder)`; `multigeom.compute_fisher` does it automatically for models that
-do not use the reference-encoder internals, and `multigeom.estimate_g(..., validate=True)` on request) and
+do not use the reference-encoder internals, and `multigeom.compute_g(..., validate=True)` on request) and
 raises `EncoderContractError` naming the rule.
 
 | Rule | Requirement |
@@ -258,7 +258,7 @@ identifier; this section will link to them.
 
 ```
 multigeom/
-    __init__.py     public API: compute_fisher, estimate_g, align, validate_encoder, ...
+    __init__.py     public API: compute_fisher, compute_g, align, validate_encoder, ...
     encoder.py      the encoder contract (Protocol and validate_encoder)
     geometry/       core: fisher, estimator, metrics, metric_field
     diffusion/      core: model, config, responses, train
