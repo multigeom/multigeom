@@ -33,6 +33,17 @@ Documentation
    make docs TUTORIALS_DIR=../../multigeom-tutorials     # a clone of multigeom-tutorials next to this repository
    python -m http.server -d build/html 8000
 
+To preview the pages while you edit, use ``make livehtml`` instead. It serves the documentation at http://127.0.0.1:8000, rebuilds
+when you save a ``.rst`` file or a docstring of the package, and reloads the browser tab:
+
+.. code-block:: bash
+
+   cd docs
+   make livehtml TUTORIALS_DIR=../../multigeom-tutorials
+
+The demo notebooks are copied when the command starts, so restart it after you change a notebook. After a change of the theme or
+of ``conf.py``, stop it and run ``make clean`` first. Before you push, run ``make docs``: it is the clean build that CI runs.
+
 The build treats warnings as errors. The API pages come from the docstrings (Google style), so document new public functions
 with ``Args:`` and ``Returns:`` sections.
 
