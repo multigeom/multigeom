@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 import re
-import tomllib
 from importlib import metadata
 from pathlib import Path
 
 import pytest
+
+try:
+    import tomllib                      # Python 3.11+
+except ImportError:                     # Python 3.10
+    import tomli as tomllib
 
 import multigeom
 from multigeom.config import CONFIG_DIR, load_config
