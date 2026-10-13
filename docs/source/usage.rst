@@ -246,36 +246,71 @@ Training the diffusion model on the encoder's responses needs R1 to R4, R6 and R
 needs all of them. The quality of the fit and the 64 x 64 grayscale natural-image domain are not checked. The diffusion
 model's conditioning layer is sized by N, so each encoder needs its own diffusion model.
 
-The pipeline
-------------
+Fit an encoder to recordings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The paper's analysis runs in stages, each a module with a command line (``python -m multigeom...`` or ``multigeom <command>``):
+The encoders of the paper were fitted to macaque recordings by a module that you can also call directly (extra ``paper``):
 
 .. list-table::
    :header-rows: 1
-   :widths: 5 40 55
+   :widths: 40 22 38
 
-   * -
-     - Module
+   * - Module
+     - Command
      - What it does
-   * - 1
-     - ``multigeom.fit.train_encoder``
-     - Fit a readout on a frozen backbone to neural data (extra ``paper``).
-   * - 2
-     - ``multigeom.diffusion.responses``
-     - Evaluate the encoder on TinyImageNet; these responses condition the diffusion model.
-   * - 3
-     - ``multigeom.diffusion.train``
-     - Train the conditional diffusion model (resumable).
-   * - 4
-     - ``multigeom.pipeline.per_image``
+   * - ``multigeom.fit.train_encoder``
+     - ``multigeom train-encoder``
+     - Fits a readout on a frozen backbone to neural data.
+
+Geometry
+--------
+
+The geometry functions take an encoder and an image: :func:`multigeom.geometry.compute_fisher` returns the Fisher information
+:math:`J(x)`, and :func:`multigeom.geometry.compute_g` returns the multi-scale metric :math:`G(x)`. :math:`G(x)` needs a
+conditional diffusion model of the images, trained on the responses of the encoder. These steps are also modules of the package. Run
+them in this order, either through the ``multigeom`` command or by calling the module directly, for example
+``python -m multigeom.diffusion.train --help``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 22 38
+
+   * - Module
+     - Command
+     - What it does
+   * - ``multigeom.diffusion.responses``
+     - ``multigeom responses``
+     - Evaluates the encoder on TinyImageNet. These responses condition the diffusion model.
+   * - ``multigeom.diffusion.train``
+     - ``multigeom train-diffusion``
+     - Trains the conditional diffusion model (resumable).
+   * - ``multigeom.pipeline.per_image``
+     - ``multigeom compute-g``
      - :math:`G(x)` and :math:`J(x)` for a set of images (resumable, seeded per image).
-   * - 5
-     - ``multigeom.pipeline.alignment``
+   * - ``multigeom.pipeline.metric_field``
+     - ``multigeom metric-field``
+     - The local metric field on a grid of perturbed images (paper Fig. 5).
+
+Analysis
+--------
+
+The analysis functions compare the eigenvectors that the geometry functions return: :func:`multigeom.analysis.subspace_alignment`
+and :func:`multigeom.analysis.bures_wasserstein`. To run them over all images, encoders and areas, use the module that does so. It
+too can be called directly, with ``python -m multigeom.pipeline.alignment --help``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 22 38
+
+   * - Module
+     - Command
+     - What it does
+   * - ``multigeom.pipeline.alignment``
+     - ``multigeom align``
      - Subspace alignment and Bures-Wasserstein distance between encoders and areas.
-   * - 6
-     - ``multigeom.pipeline.metric_field``
-     - The local metric field of paper Fig. 5.
+
+Command line and settings
+-------------------------
 
 .. code-block:: bash
 
@@ -288,5 +323,5 @@ loaded by name with :func:`multigeom.config.load_config`.
 Working folders
 ---------------
 
-The pipeline reads and writes ``runs/`` (checkpoints and per-image results) and ``data/`` (datasets) in the current directory.
+The command-line modules read and write ``runs/`` (checkpoints and per-image results) and ``data/`` (datasets) in the current directory.
 Set ``MULTIGEOM_REPO`` to use another root, and ``NEURIPS_DATA_DIR`` to read the datasets from elsewhere.
