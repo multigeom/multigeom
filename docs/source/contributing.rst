@@ -66,8 +66,10 @@ section "Write your own backbone and readout" of the demo notebook 1 and the :do
 
    .. code-block:: python
 
-      from .backbones import GaborBankBackbone, InceptionBackbone, ...       # add the name to the existing import
-      __all__ = [..., "GaborBankBackbone", ...]                             # and to the list of public names
+      # Add the name to the existing import ...
+      from .backbones import GaborBankBackbone, InceptionBackbone, ...
+      # ... and to the list of public names.
+      __all__ = [..., "GaborBankBackbone", ...]
 
    Users can then write ``from multigeom.encoders import GaborBankBackbone``. The import also matters for saved encoders: a saved
    file stores only the registered names (``"gabor_bank"``), and ``NeuralEncoder.load`` finds the class by importing
@@ -77,13 +79,16 @@ section "Write your own backbone and readout" of the demo notebook 1 and the :do
 
    .. code-block:: python
 
-      def test_my_encoder_follows_the_contract_and_round_trips(tmp_path):
-          encoder = NeuralEncoder(MyBackbone(), n_neurons=5, readout="my_readout")
-          validate_encoder(encoder)                                     # the encoder contract
+      def test_my_encoder_round_trips(tmp_path):
+          encoder = NeuralEncoder(
+              MyBackbone(), n_neurons=5, readout="my_readout")
+          validate_encoder(encoder)             # the encoder contract
           x = torch.rand(4, 1, 64, 64) * 2 - 1
-          assert encoder.predict(x).shape == (4, 5)                     # one response per neuron
-          loaded = NeuralEncoder.load(encoder.save(tmp_path / "e.pt"))
-          torch.testing.assert_close(loaded.predict(x), encoder.predict(x))
+          assert encoder.predict(x).shape == (4, 5)    # 1 per neuron
+          path = encoder.save(tmp_path / "e.pt")
+          loaded = NeuralEncoder.load(path)
+          torch.testing.assert_close(
+              loaded.predict(x), encoder.predict(x))
 
 5. Run the tests as in the section above, add a line to ``CHANGELOG.md``, and build the documentation (warnings are errors).
 6. Push to your fork and open a pull request against ``develop``. Tests, build and docs must pass before review.

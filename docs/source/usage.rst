@@ -53,11 +53,12 @@ An encoder predicts neural responses from images. The package represents it as a
 
    from multigeom import load_encoder
 
-   encoder = load_encoder("inception", area="V1")   # an encoder of the paper, downloaded once
+   # An encoder of the paper, downloaded once.
+   encoder = load_encoder("inception", area="V1")
    print(encoder.summary())
 
-   images = ...                                     # [N, 1, 64, 64] tensor, values in [-1, 1]
-   responses = encoder.predict(images)              # [N, 50] predicted neural responses
+   images = ...                         # [N, 1, 64, 64], values in [-1, 1]
+   responses = encoder.predict(images)  # [N, 50] predicted responses
 
    # A checkpoint on disk works too:
    encoder = load_encoder("path/to/encoder.pt")
@@ -69,11 +70,13 @@ An encoder predicts neural responses from images. The package represents it as a
    from multigeom import NeuralEncoder
    from multigeom.encoders import SmallCNNBackbone
 
-   backbone = SmallCNNBackbone()                    # train it first, on any task (plain PyTorch)
+   # Train the backbone first, on any task (plain PyTorch).
+   backbone = SmallCNNBackbone()
    encoder = NeuralEncoder(backbone, n_neurons=50, readout="gaussian")
 
-   # Freezes the backbone, fits the readout, and keeps the best epoch.
-   report = encoder.fit_readout(images, responses)  # images [N, 1, 64, 64], responses [N, 50]
+   # Freezes the backbone, fits the readout, keeps the best epoch.
+   # images [N, 1, 64, 64], responses [N, 50]
+   report = encoder.fit_readout(images, responses)
 
    encoder.save("my_encoder.pt", area="V1")
    encoder = NeuralEncoder.load("my_encoder.pt")
@@ -111,54 +114,67 @@ start to finish:
 
    @register_backbone("gabor_bank")
    class GaborBankBackbone(nn.Module):
-       """The energy of oriented Gabor filters: hand-designed features, nothing to train."""
+       """Energy of oriented Gabor filters. Nothing to train."""
 
-       out_spatial = 16                                          # 64 x 64 pixels pooled by 4
+       out_spatial = 16                   # 64 x 64 pixels, pooled by 4
 
-       def __init__(self, n_orientations: int = 8, size: int = 11, wavelength: float = 6.0):
+       def __init__(self, n_orientations: int = 8, size: int = 11,
+                    wavelength: float = 6.0):
            super().__init__()
-           self.out_channels = 2 * n_orientations                # two phases per orientation
+           self.out_channels = 2 * n_orientations      # 2 phases each
            r = torch.arange(size) - size // 2
            yy, xx = torch.meshgrid(r, r, indexing="ij")
-           envelope = torch.exp(-(xx**2 + yy**2) / (2 * (size / 4) ** 2))
+           env = torch.exp(-(xx**2 + yy**2) / (2 * (size / 4) ** 2))
            filters = []
            for k in range(n_orientations):
-               u = xx * math.cos(math.pi * k / n_orientations) + yy * math.sin(math.pi * k / n_orientations)
+               a = math.pi * k / n_orientations
+               u = xx * math.cos(a) + yy * math.sin(a)
                for phase in (0.0, math.pi / 2):
-                   g = envelope * torch.cos(2 * math.pi * u / wavelength + phase)
+                   g = env * torch.cos(2 * math.pi * u / wavelength + phase)
                    filters.append(g - g.mean())
            w = torch.stack(filters)[:, None]
-           self.register_buffer("filters", w / w.flatten(1).norm(dim=1)[:, None, None, None])
+           norm = w.flatten(1).norm(dim=1)[:, None, None, None]
+           self.register_buffer("filters", w / norm)
 
        def forward(self, x):
-           return F.avg_pool2d(F.conv2d(x, self.filters, padding="same") ** 2, 4)
+           out = F.conv2d(x, self.filters, padding="same") ** 2
+           return F.avg_pool2d(out, 4)
 
 
    @register_readout("softplus")
    class SoftplusReadout(nn.Module):
-       """Average the feature map over space, one linear map, positive responses."""
+       """Spatial mean, one linear map, positive responses."""
 
-       def __init__(self, n_neurons: int, n_channels: int, spatial: int, dropout: float = 0.0):
+       def __init__(self, n_neurons: int, n_channels: int, spatial: int,
+                    dropout: float = 0.0):
            super().__init__()
            self.linear = nn.Linear(n_channels, n_neurons)
            self.dropout = nn.Dropout(dropout)
 
-       def forward(self, features):                              # [B, C, S, S] -> [B, N]
-           return F.softplus(self.linear(self.dropout(features).mean(dim=(2, 3))))
+       def forward(self, features):       # [B, C, S, S] -> [B, N]
+           x = self.dropout(features).mean(dim=(2, 3))
+           return F.softplus(self.linear(x))
 
 
-   low = torch.randn(1200, 1, 8, 8)                              # smooth random images, a stand-in for natural ones
-   images = F.interpolate(low, size=64, mode="bicubic").clamp(-1, 1)   # use TinyImageNet for a real fit
-   teacher = GaborTeacher(20, seed=0).calibrate(images)          # synthetic neurons with a known ground truth
-   noisy, clean = make_synthetic_neural_data(teacher, images, noise_sigma=0.22, seed=1)
+   # Smooth random images stand in for natural ones (use TinyImageNet).
+   low = torch.randn(1200, 1, 8, 8)
+   images = F.interpolate(low, size=64, mode="bicubic").clamp(-1, 1)
 
-   encoder = NeuralEncoder(GaborBankBackbone(), n_neurons=20, readout="softplus")
-   encoder.fit_readout(images[:1000], noisy[:1000], epochs=60)   # fits the readout, the backbone stays fixed
-   responses = encoder.predict(images[1000:])                    # [200, 20] predicted neural responses
-   validate_encoder(encoder)                                     # the encoder contract
+   # Synthetic neurons with a known ground truth.
+   teacher = GaborTeacher(20, seed=0).calibrate(images)
+   noisy, clean = make_synthetic_neural_data(
+       teacher, images, noise_sigma=0.22, seed=1)
+
+   encoder = NeuralEncoder(GaborBankBackbone(), n_neurons=20,
+                           readout="softplus")
+   # Fits the readout; the backbone stays fixed.
+   encoder.fit_readout(images[:1000], noisy[:1000], epochs=60)
+   responses = encoder.predict(images[1000:])      # [200, 20]
+   validate_encoder(encoder)                       # the encoder contract
 
    encoder.save("my_encoder.pt")
-   print(encoder.config["backbone"]["name"], encoder.config["readout"]["name"])   # gabor_bank softplus: the names, as saved
+   print(encoder.config["backbone"]["name"],       # gabor_bank
+         encoder.config["readout"]["name"])        # softplus
 
 **What the names are for.** A registered name is used in two places:
 
@@ -172,8 +188,9 @@ start to finish:
 .. code-block:: python
 
    from multigeom import NeuralEncoder
-   import my_encoders                                  # your module: running it registers "gabor_bank" and "softplus"
-   encoder = NeuralEncoder.load("my_encoder.pt")       # without the import: "the backbone 'gabor_bank' is not registered"
+   import my_encoders       # registers "gabor_bank" and "softplus"
+   # Without the import: "the backbone 'gabor_bank' is not registered"
+   encoder = NeuralEncoder.load("my_encoder.pt")
 
 The registries are ``multigeom.encoders.BACKBONES`` and ``READOUTS`` (dictionaries from name to class). A class that is part of
 ``multigeom`` itself is registered as soon as ``multigeom.encoders`` is imported, which is why the encoders of the package need no
@@ -187,8 +204,10 @@ To share a new backbone or readout with everyone, see :ref:`add-an-encoder`.
 
    import multigeom
 
-   multigeom.validate_encoder(model)                # raises an error naming the rule that is broken
-   fisher = multigeom.compute_fisher(image=x, encoder=model, sigma=0.22, top_k=10)
+   # Raises an error that names the rule that is broken.
+   multigeom.validate_encoder(model)
+   fisher = multigeom.compute_fisher(
+       image=x, encoder=model, sigma=0.22, top_k=10)
 
 The :doc:`demo notebooks <demos>` go through each step, with synthetic neural data that has a known ground truth.
 
