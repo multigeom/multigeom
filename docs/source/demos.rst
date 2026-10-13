@@ -41,7 +41,7 @@ These notebooks need the datasets, the trained checkpoints of the paper and a GP
      - load an encoder of the paper, predict responses, compute :math:`J(x)`
      - a CPU, a minute (Colab works)
    * - 1 Build your own encoder
-     - synthetic neural data, backbone, readout, ``fit_readout``, ``save``, ``load``
+     - synthetic neural data, your own backbone and readout, ``fit_readout``, ``save``, ``load``, how to contribute it
      - TinyImageNet, about 1 min on a GPU
    * - 2 Train the diffusion model and compute G(x)
      - ``precompute_responses``, ``train_diffusion``, ``compute_g``

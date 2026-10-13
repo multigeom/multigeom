@@ -36,6 +36,40 @@ Documentation
 The build treats warnings as errors. The API pages come from the docstrings (Google style), so document new public functions
 with ``Args:`` and ``Returns:`` sections.
 
+.. _add-an-encoder:
+
+Add an encoder
+--------------
+
+A new backbone, readout or complete encoder joins the package through a pull request. Write and try it first in a notebook (the
+section "Write your own backbone and readout" of the demo notebook 1 and the :doc:`usage page <usage>` give a working example), then:
+
+1. Fork ``multigeom/multigeom``, clone your fork and branch from ``develop``:
+   ``git switch -c encoder/my-encoder origin/develop``. Install with ``pip install -e ".[all,dev]"``.
+2. Move the classes into the package: a backbone into a new module ``multigeom/encoders/my_encoder.py``, a readout into
+   ``multigeom/encoders/readout.py``. Keep the ``@register_backbone("name")`` or ``@register_readout("name")`` decorator, give every
+   constructor argument a default (the saved architecture records the arguments), and write a Google-style docstring with ``Args:``
+   and ``Returns:`` that says what the model is and cites its source.
+3. Import it in ``multigeom/encoders/__init__.py`` and add it to ``__all__``. The import registers the name, so a saved encoder
+   loads in a fresh Python session.
+4. Add a unit test in ``tests/unit``. It must run on a CPU without data or downloads:
+
+   .. code-block:: python
+
+      def test_my_encoder_follows_the_contract_and_round_trips(tmp_path):
+          encoder = NeuralEncoder(MyBackbone(), n_neurons=5, readout="my_readout")
+          validate_encoder(encoder)                                     # the encoder contract
+          x = torch.rand(4, 1, 64, 64) * 2 - 1
+          assert encoder.predict(x).shape == (4, 5)                     # one response per neuron
+          loaded = NeuralEncoder.load(encoder.save(tmp_path / "e.pt"))
+          torch.testing.assert_close(loaded.predict(x), encoder.predict(x))
+
+5. Run the tests as in the section above, add a line to ``CHANGELOG.md``, and build the documentation (warnings are errors).
+6. Push to your fork and open a pull request against ``develop``. Tests, build and docs must pass before review.
+
+A model that needs trained weights or a large dataset is shared as a checkpoint instead: open an issue, and the weights can be
+hosted next to the paper's encoders and loaded with ``load_encoder``.
+
 Pull requests
 -------------
 
