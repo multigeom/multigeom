@@ -8,6 +8,8 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 ### Added
 - `multigeom.data.download_tinyimagenet()` downloads and unpacks TinyImageNet (240 MB), once; the demo notebooks 1 and 2 call it, so
   they run on Google Colab without a shell script.
+- `download_tvsd()` (237 MB, GIN) and `download_things_images(accept_license=True)` (5 GB, OSF; the licence is shown and must be accepted),
+  both skipped when the data is already there; an interrupted download resumes.
 
 ## [0.1.0.dev2] - 2026-10-14
 

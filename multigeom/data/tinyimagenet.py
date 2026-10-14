@@ -9,7 +9,6 @@ Images are 64 x 64, single-channel, in [-1, 1]. Expected layout, under `data_dir
 from __future__ import annotations
 
 import shutil
-import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from ..config import data_dir
+from .download import download_file
 
 # Primary source first, then a mirror serving the identical archive.
 TINYIMAGENET_URLS = (
@@ -48,15 +48,13 @@ def download_tinyimagenet(
     if (root / "train").is_dir() and (root / "val" / "images").is_dir():
         return root
 
-    data_directory.mkdir(parents=True, exist_ok=True)
     archive = data_directory / "tiny-imagenet-200.zip"
     errors = []
     for url in urls:
         try:
             print(f"downloading {url}")
-            urllib.request.urlretrieve(url, archive)
-            if expected_bytes is not None and archive.stat().st_size != expected_bytes:
-                raise OSError(f"{archive.stat().st_size} bytes, expected {expected_bytes}")
+            archive.unlink(missing_ok=True)
+            download_file(url, archive, expected_bytes)
             with zipfile.ZipFile(archive) as z:
                 if z.testzip() is not None:
                     raise OSError("corrupt archive")
