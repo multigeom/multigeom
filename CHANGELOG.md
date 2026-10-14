@@ -3,6 +3,12 @@
 All notable changes to `multigeom` are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `multigeom.data.download_tinyimagenet()` downloads and unpacks TinyImageNet (240 MB), once; the demo notebooks 1 and 2 call it, so
+  they run on Google Colab without a shell script.
+
 ## [0.1.0.dev2] - 2026-10-14
 
 Python 3.13 is supported (`requires-python` was `<3.13`, so `pip install` failed on Google Colab); the unit tests also run on 3.13.
