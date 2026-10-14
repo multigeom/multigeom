@@ -5,6 +5,10 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `register_backbone` and `register_readout` accept a class defined again with the same name, module and qualified name, so a
+  notebook cell that defines a registered class can be run twice. A different class with a taken name is still refused.
+
 ### Added
 - `multigeom.data.download_tinyimagenet()` downloads and unpacks TinyImageNet (240 MB), once; the demo notebooks 1 and 2 call it, so
   they run on Google Colab without a shell script.

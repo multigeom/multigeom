@@ -324,3 +324,24 @@ def test_the_shared_fitting_loop_reproduces_the_original_stage1_loop():
     _original_stage1_loop(b, feats, resp, 6, 1e-2, 1e-4, 32, 0.1, 2)
     for (k, va), vb in zip(a.state_dict().items(), b.state_dict().values()):
         torch.testing.assert_close(va, vb, msg=k)
+
+
+def test_a_class_defined_again_replaces_its_registration():
+    """Running again the notebook cell that defines a registered class must not fail; another class with the name still does."""
+    from multigeom.encoders.registry import BACKBONES, register_backbone
+
+    def define():
+        @register_backbone("redefined_backbone")
+        class Redefined(torch.nn.Module):
+            out_channels, out_spatial = 1, 1
+        return Redefined
+
+    first, second = define(), define()
+    try:
+        assert BACKBONES["redefined_backbone"] is second and first is not second
+        with pytest.raises(ValueError, match="already registered"):
+            @register_backbone("redefined_backbone")
+            class Other(torch.nn.Module):
+                out_channels, out_spatial = 1, 1
+    finally:
+        BACKBONES.pop("redefined_backbone", None)

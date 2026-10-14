@@ -24,7 +24,9 @@ READOUTS: dict[str, type] = {}
 def _register(registry: dict, kind: str, name: str):
     def decorator(cls):
         """Register `cls` under the name and record the arguments of each instance."""
-        if name in registry and registry[name] is not cls:
+        known = registry.get(name)
+        redefined = known is not None and (known.__module__, known.__qualname__) == (cls.__module__, cls.__qualname__)
+        if known is not None and known is not cls and not redefined:       # a notebook cell run again redefines its class
             raise ValueError(f"a {kind} named {name!r} is already registered ({registry[name].__name__})")
         original_init = cls.__init__
         signature = inspect.signature(original_init)
