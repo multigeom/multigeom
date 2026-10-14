@@ -5,6 +5,14 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- `multigeom.data` is `multigeom.datasets`; the encoder contract `multigeom.encoder` is `multigeom.encoders.contract` (the names
+  `validate_encoder`, `EncoderContractError` and `EncoderReport` are unchanged in `multigeom` and `multigeom.encoders`).
+- `multigeom.viz` is removed: the scripts that draw the figures and the table of the paper are now the `figures/` folder of
+  multigeom-tutorials. What was new moved into the package under a name that says what it does:
+  `multigeom.encoders.receptive_field.readout_receptive_field`, `multigeom.analysis.match_eigenvectors`, and
+  `multigeom.utils.show_figure` / `figure_to_png`. `multigeom.pipeline.metric_field_job.plot_metric_field` is removed.
+
 ### Fixed
 - `register_backbone` and `register_readout` accept a class defined again with the same name, module and qualified name, so a
   notebook cell that defines a registered class can be run twice. A different class with a taken name is still refused.

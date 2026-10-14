@@ -24,7 +24,7 @@ Each group of functions is a subpackage (and the main functions are also availab
 
 Install the core with `pip install multigeom`; the extra `[paper]` adds what reproducing the paper needs (the ON-OFF
 encoder and the TVSD loaders), and `[all]` also Jupyter and the Modal launcher. Subpackages: `encoders`, `geometry`,
-`analysis`, `diffusion`, `pipeline`, `data`, `fit`, `viz`.
+`analysis`, `diffusion`, `pipeline`, `datasets`, `fit`.
 """
 from .encoders.contract import Encoder, EncoderContractError, EncoderReport, validate_encoder
 from .analysis import bures_wasserstein, subspace_alignment

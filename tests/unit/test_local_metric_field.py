@@ -156,11 +156,6 @@ def test_stop_stops_the_recorded_process(tmp_path, monkeypatch):
     assert lmf.stop() == 0
 
 
-def test_plot_needs_results():
-    with pytest.raises(ValueError, match="no results"):
-        lmf.plot_metric_field({})
-
-
 # ── describing a field: radial orientation and size ratio ───────────────────
 def _field(rule, coeffs):
     """[n, n, 2, 2] metrics whose major axis follows rule(a, b) -> unit direction."""

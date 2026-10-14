@@ -33,7 +33,7 @@ Outputs, one file per (metric, area):
 with matrices_2x2[encoder] [n, n, 2, 2] and ellipses[encoder] [n, n, 3]
 indexed [i, j] ↔ (a, b) = (grid_coefficients[i], grid_coefficients[j]),
 plus v1, v2, λ1, λ2, ε1, ε2, x0, the perturbed images [n, n, 64, 64],
-settings and provenance. multigeom.viz.fig5 draws them.
+settings and provenance. `figures/fig5.py` of multigeom-tutorials draws them.
 
 Usage:
     python -m multigeom.pipeline.metric_field --img-idx 0 --out-dir runs/metric_field/img0000

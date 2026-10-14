@@ -31,3 +31,12 @@ def test_importing_the_package_stays_light():
     import sys
     code = "import sys, multigeom; assert 'torchvision' not in sys.modules and 'matplotlib' not in sys.modules"
     assert subprocess.run([sys.executable, "-c", code], capture_output=True).returncode == 0
+
+
+def test_the_builtin_readouts_are_registered_whatever_the_import_order():
+    import subprocess
+    import sys
+    code = ("from multigeom.encoders.neural import NeuralEncoder; from multigeom.encoders.registry import READOUTS, BACKBONES; "
+            "assert {'gaussian', 'linear', 'factorized'} <= set(READOUTS) and 'small_cnn' in BACKBONES, (list(READOUTS), list(BACKBONES))")
+    done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr

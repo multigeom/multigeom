@@ -193,7 +193,7 @@ def test_figure_to_png_is_a_png_whatever_the_backend():
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
     ax.plot([0, 1], [0, 1])
-    from multigeom.viz.display import figure_to_png
+    from multigeom.utils import figure_to_png
     png = figure_to_png(fig)
     plt.close(fig)
     assert png[:8] == b"\x89PNG\r\n\x1a\n" and len(png) > 1000
@@ -348,7 +348,7 @@ def test_show_figure_displays_a_png_and_closes_the_figure(monkeypatch):
     shown = _fake_ipython(monkeypatch)
     fig, ax = plt.subplots()
     ax.plot([0, 1], [0, 1])
-    from multigeom.viz.display import show_figure
+    from multigeom.utils import show_figure
     show_figure(fig)
     assert shown[0][0] == "display" and shown[0][1][:8] == b"\x89PNG\r\n\x1a\n"
     assert not plt.fignum_exists(fig.number)

@@ -4,9 +4,9 @@ onto the leading eigenvectors of G(x).
 
 A reference image x0 is perturbed along the two leading eigenvectors of the reference encoder's G(x) (Inception);
 at every point of the n x n grid both encoders' metrics G(x) (and the Fisher metric J(x)) are projected onto
-that 2-D subspace and drawn as ellipses. The computation is `multigeom.pipeline.metric_field` and the drawing
-`multigeom.viz.fig5`; this module only describes the job, estimates its cost, runs it as a detached background
-process that survives a notebook crash, shows the progress, and draws the figure.
+that 2-D subspace and drawn as ellipses. The computation is `multigeom.pipeline.metric_field` and the drawing `figures/fig5.py` of multigeom-tutorials; this
+module only describes the job, estimates its cost, runs it as a detached background process that survives a notebook
+crash, and shows the progress.
 
 Step sizes. The perturbation of the reference image is x(a, b) = x0 + a*e1*v1 + b*e2*v2 along the leading two
 eigenvectors v1, v2 of the metric being drawn. For G(x) the steps are 0.5*sqrt(lambda) (the stage default), about
@@ -331,16 +331,6 @@ def load_records(job: MetricFieldJob, runs_dir: str = "runs") -> dict:
             if path.exists():
                 out[(m, a)] = torch.load(path, map_location="cpu", weights_only=False)
     return out
-
-
-def plot_metric_field(records, *, fill: float = 0.9, show_x0: bool = False):
-    """Fig. 5 from Stage-6 records ({(metric, area): record}), or from a job whose files are in runs/."""
-    from ..viz.fig5 import make_figure
-    if isinstance(records, MetricFieldJob):
-        records = load_records(records)
-    if not records:
-        raise ValueError("no results to draw: run the job first")
-    return make_figure(records, fill=fill, show_x0=show_x0)
 
 
 # ── command line (used by the detached process) ─────────────────────────────

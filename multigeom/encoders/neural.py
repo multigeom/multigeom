@@ -20,6 +20,7 @@ import torch
 import torch.nn as nn
 
 from .fitting import FitReport, fit_readout_on_features
+from . import backbones, readout  # noqa: F401  (registers the built-in backbones and readouts, whatever the import order)
 from .registry import BACKBONES, READOUTS, describe
 
 CHECKPOINT_FORMAT = 1
