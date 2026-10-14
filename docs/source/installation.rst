@@ -1,7 +1,7 @@
 Installation
 ============
 
-``multigeom`` needs Python 3.10 to 3.12.
+``multigeom`` needs Python 3.10 to 3.13.
 
 From PyPI
 ---------
