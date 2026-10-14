@@ -115,6 +115,9 @@ The version is set once, in ``multigeom/__init__.py`` (``__version__``), and ``p
 3. Tag and push: ``git tag v0.1.0.dev1 && git push origin v0.1.0.dev1``. The *release* workflow checks that the tag equals the version, builds
    the sdist and the wheel, and publishes them to PyPI.
 
+Only commits of ``main`` are released: the *release* workflow fails for a tag that is not on ``main``, and for a TestPyPI run
+started from another branch.
+
 A version published to PyPI cannot be replaced or reused: fix a mistake with a new version.
 
 One-time setup, on pypi.org and test.pypi.org: create a *pending publisher* for the project ``multigeom`` (owner ``multigeom``,
