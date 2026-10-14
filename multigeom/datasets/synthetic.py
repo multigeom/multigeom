@@ -9,10 +9,14 @@ information J(x) is a ground truth for the geometry of an encoder fitted to its 
     teacher = GaborTeacher(n_neurons=50, seed=0).calibrate(images)       # responses of order 1
     noisy, clean = make_synthetic_neural_data(teacher, images, noise_sigma=0.5, seed=1)
     ceiling = noise_ceiling(clean, noise_sigma=0.5)                       # best correlation any model can reach
+
+`make_synthetic_experiment` does all of it in one call, on TinyImageNet images, and splits the images for fitting and testing.
 """
 from __future__ import annotations
 
 import math
+from pathlib import Path
+from typing import NamedTuple
 
 import numpy as np
 import torch
@@ -101,3 +105,66 @@ def noise_ceiling(clean: torch.Tensor, noise_sigma: float) -> np.ndarray:
     """
     var = clean.var(dim=0, unbiased=False).numpy()
     return np.sqrt(var / (var + noise_sigma ** 2))
+
+
+class SyntheticExperiment(NamedTuple):
+    """
+    A synthetic experiment. `x_*` are the images [N, 1, 64, 64] in [-1, 1]; `r_*` the recorded (noisy) responses and `c_*`
+    the clean responses, the ground truth, both [N, n_neurons]; `train` is for fitting and `test` for scoring. `teacher` is the
+    `GaborTeacher` that made the responses, and `ceiling` the per-neuron noise ceiling of the test responses.
+    """
+    teacher: GaborTeacher
+    x_train: torch.Tensor
+    x_test: torch.Tensor
+    r_train: torch.Tensor
+    r_test: torch.Tensor
+    c_train: torch.Tensor
+    c_test: torch.Tensor
+    ceiling: np.ndarray
+
+
+def make_synthetic_experiment(
+    n_neurons: int = 50,
+    noise_sigma: float = 0.22,
+    n_train: int = 6000,
+    n_test: int = 2000,
+    seed: int = 0,
+    noise_seed: int = 1,
+    calibration_images: int = 2000,
+    data_directory: str | Path | None = None,
+    download: bool = True,
+) -> SyntheticExperiment:
+    """
+    Simulate an experiment that shows TinyImageNet images to V1-like neurons.
+
+    The first `n_train + n_test` validation images are shown to a `GaborTeacher` of `n_neurons` neurons, calibrated so that
+    its responses have unit scale; the recorded responses are `clean + noise_sigma * N(0, 1)`. The first `n_train` images
+    are for fitting, the others for testing. TinyImageNet is downloaded the first time (240 MB) unless `download` is False.
+
+    Args:
+        n_neurons: neurons to simulate.
+        noise_sigma: standard deviation of the trial-to-trial noise (the paper measures 0.22 in V1).
+        n_train, n_test: images (with their responses) for fitting and for testing.
+        seed: seed of the neurons' filters. noise_seed: seed of the noise.
+        calibration_images: number of the first images used to set the scale of the responses.
+        data_directory: the folder that contains `tiny-imagenet-200` (default: `data_dir()`).
+        download: download TinyImageNet if it is missing.
+    """
+    from ..config import data_dir
+    from .download import download_tinyimagenet
+    from .tinyimagenet import TinyImageNetDataset
+
+    data_directory = Path(data_directory) if data_directory else data_dir()
+    if download:
+        download_tinyimagenet(data_directory)
+    dataset = TinyImageNetDataset("val", data_directory / "tiny-imagenet-200")
+    n = n_train + n_test
+    if n > len(dataset):
+        raise ValueError(f"n_train + n_test = {n} images asked, the validation set has {len(dataset)}")
+    images = torch.stack([dataset[i] for i in range(n)])
+    teacher = GaborTeacher(n_neurons, seed=seed).calibrate(images[:calibration_images])
+    noisy, clean = make_synthetic_neural_data(teacher, images, noise_sigma=noise_sigma, seed=noise_seed)
+    return SyntheticExperiment(
+        teacher=teacher, x_train=images[:n_train], x_test=images[n_train:], r_train=noisy[:n_train], r_test=noisy[n_train:],
+        c_train=clean[:n_train], c_test=clean[n_train:], ceiling=noise_ceiling(clean, noise_sigma),
+    )

@@ -5,6 +5,10 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `multigeom.datasets.make_synthetic_experiment()` simulates a whole experiment in one call (TinyImageNet images, V1-like Gabor neurons, noise, the
+  split for fitting and testing and the noise ceiling), returned as a `SyntheticExperiment`.
+
 ### Changed
 - `multigeom.data` is `multigeom.datasets`; the encoder contract `multigeom.encoder` is `multigeom.encoders.contract` (the names
   `validate_encoder`, `EncoderContractError` and `EncoderReport` are unchanged in `multigeom` and `multigeom.encoders`).

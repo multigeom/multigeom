@@ -156,3 +156,31 @@ def test_train_diffusion_runs_on_a_tiny_model_and_resumes(tmp_path):
     assert not (tmp_path / "last.pt").exists()                      # removed when the run completes
     with pytest.raises(ValueError, match="for_encoder"):
         train_diffusion(load_config("diffusion"), DS(), resp, tmp_path / "bad", device="cpu", num_workers=0, log=None)
+
+
+# ── the whole synthetic experiment in one call ──────────────────────────────
+def test_make_synthetic_experiment_splits_the_images_and_matches_the_step_by_step_recipe(tmp_path):
+    from multigeom.datasets import make_synthetic_experiment
+
+    root = tmp_path / "tiny-imagenet-200"
+    (root / "train").mkdir(parents=True)
+    vd = root / "val" / "images"
+    vd.mkdir(parents=True)
+    rng = np.random.default_rng(0)
+    for i in range(30):
+        Image.fromarray(rng.integers(0, 255, (64, 64, 3), dtype=np.uint8)).save(vd / f"val_{i:02d}.JPEG")
+
+    exp = make_synthetic_experiment(n_neurons=4, noise_sigma=0.3, n_train=20, n_test=10, calibration_images=20,
+                                    data_directory=tmp_path, download=False)
+    assert exp.x_train.shape == (20, 1, 64, 64) and exp.x_test.shape == (10, 1, 64, 64)
+    assert exp.r_train.shape == exp.c_train.shape == (20, 4) and exp.r_test.shape == exp.c_test.shape == (10, 4)
+    assert exp.ceiling.shape == (4,) and (exp.ceiling < 1).all()
+    images_ = torch.cat([exp.x_train, exp.x_test])
+    teacher = GaborTeacher(4, seed=0).calibrate(images_[:20])
+    noisy, clean = make_synthetic_neural_data(teacher, images_, noise_sigma=0.3, seed=1)
+    torch.testing.assert_close(torch.cat([exp.r_train, exp.r_test]), noisy)
+    torch.testing.assert_close(torch.cat([exp.c_train, exp.c_test]), clean)
+    teacher_, x_train, *_ = exp                                    # a NamedTuple unpacks
+    assert teacher_ is exp.teacher
+    with pytest.raises(ValueError, match="validation set has 30"):
+        make_synthetic_experiment(n_neurons=4, n_train=25, n_test=10, data_directory=tmp_path, download=False)
