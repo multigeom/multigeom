@@ -34,7 +34,7 @@ import torch
 
 
 from ..config import data_dir, load_config
-from ..data import CANONICAL_TRANSFORM
+from ..datasets import CANONICAL_TRANSFORM
 from ..encoders import build_encoder
 from ..encoders.fitting import correlation_per_neuron
 from ..utils import count_parameters, get_device, provenance, set_seed

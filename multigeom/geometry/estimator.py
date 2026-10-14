@@ -50,7 +50,7 @@ from typing import TYPE_CHECKING, Iterable
 
 import torch
 
-from ..encoder import ensure_valid
+from ..encoders.contract import ensure_valid
 
 if TYPE_CHECKING:                                  # the estimator itself needs no diffusers: the UNet is only annotated
     from ..diffusion.model import NeuralConditionedUNet
@@ -107,7 +107,7 @@ def conditional_pair_estimate(
         generator: optional torch.Generator on `device` for all Monte-Carlo
                    draws (z, ξ_1, ξ_2). Stage 4 seeds one per image so each
                    image's estimate is reproducible on its own.
-        validate: check the encoder against the contract of `multigeom.encoder` first (it runs the encoder
+        validate: check the encoder against the contract of `multigeom.encoders.contract` first (it runs the encoder
                   a few times, so mocks that record their calls should leave this off). Raises
                   EncoderContractError. Off by default here; the Fisher baseline validates by default.
 

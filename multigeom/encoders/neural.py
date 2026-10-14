@@ -9,7 +9,7 @@
     encoder = load_encoder("inception", area="V1")                         # an encoder fitted to macaque V1
 
 The input is the canonical image batch [B, 1, 64, 64] in [-1, 1]; the output is [B, n_neurons]. A `NeuralEncoder`
-follows the encoder contract of `multigeom.encoder`, so it plugs into `compute_fisher`, `compute_g` and the pipeline.
+follows the encoder contract of `multigeom.encoders.contract`, so it plugs into `compute_fisher`, `compute_g` and the pipeline.
 """
 from __future__ import annotations
 

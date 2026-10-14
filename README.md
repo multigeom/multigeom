@@ -174,7 +174,7 @@ Measured on NVIDIA A100-SXM4-40GB GPUs, per (encoder, area) configuration:
 
 ## Bring your own encoder
 
-Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `multigeom.encoder`
+Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `multigeom.encoders.contract`
 checks them (`multigeom.validate_encoder(encoder)`; `multigeom.compute_fisher` does it automatically for models that
 do not use the reference-encoder internals, and `multigeom.compute_g(..., validate=True)` on request) and
 raises `EncoderContractError` naming the rule.

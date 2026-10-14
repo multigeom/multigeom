@@ -18,7 +18,7 @@ channels internally to its backbone's expected input format.
 Trainable parameters live only in the readout. Backbone parameters are frozen
 (requires_grad = False), so `forward` builds no graph for them unless the input
 requires grad, in which case gradients with respect to the input image flow
-(the encoder contract of `multigeom.encoder`, rule R5).
+(the encoder contract of `multigeom.encoders.contract`, rule R5).
 
 Readout parameter counts (n_neurons = 50):
   - Inception (C=192): 50 * (2 + 1 + 192 + 1) =  9,800

@@ -10,7 +10,7 @@ version numbers follow [Semantic Versioning](https://semver.org/).
   notebook cell that defines a registered class can be run twice. A different class with a taken name is still refused.
 
 ### Added
-- `multigeom.data.download_tinyimagenet()` downloads and unpacks TinyImageNet (240 MB), once; the demo notebooks 1 and 2 call it, so
+- `multigeom.datasets.download_tinyimagenet()` downloads and unpacks TinyImageNet (240 MB), once; the demo notebooks 1 and 2 call it, so
   they run on Google Colab without a shell script.
 - `download_tvsd()` (237 MB, GIN) and `download_things_images(accept_license=True)` (5 GB, OSF; the licence is shown and must be accepted),
   both skipped when the data is already there; an interrupted download resumes.

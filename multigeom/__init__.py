@@ -5,7 +5,7 @@ models (Azeglio, Laquitaine, Ferrari, Chalk; NeurIPS 2026).
 Each group of functions is a subpackage (and the main functions are also available directly as `multigeom.<name>`).
 
 `multigeom.encoders`: use one that is already fitted, build your own, or bring any PyTorch model that follows the contract of
-`multigeom.encoder`:
+`multigeom.encoders.contract`:
 
     load_encoder(name, area)                      an encoder of the paper, fitted to macaque V1 or V4 (downloaded)
     NeuralEncoder(backbone, n_neurons)            build your own encoder: fit_readout, predict, save, load
@@ -26,7 +26,7 @@ Install the core with `pip install multigeom`; the extra `[paper]` adds what rep
 encoder and the TVSD loaders), and `[all]` also Jupyter and the Modal launcher. Subpackages: `encoders`, `geometry`,
 `analysis`, `diffusion`, `pipeline`, `data`, `fit`, `viz`.
 """
-from .encoder import Encoder, EncoderContractError, EncoderReport, validate_encoder
+from .encoders.contract import Encoder, EncoderContractError, EncoderReport, validate_encoder
 from .analysis import bures_wasserstein, subspace_alignment
 from .geometry import EstimatorOutput, FisherOutput, compute_fisher, compute_g
 

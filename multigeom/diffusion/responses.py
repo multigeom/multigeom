@@ -29,7 +29,7 @@ from torch.utils.data import DataLoader
 
 
 from ..config import load_config
-from ..data import CANONICAL_TRANSFORM, TinyImageNetDataset
+from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..encoders import build_encoder
 from ..utils import get_device, provenance
 
@@ -55,7 +55,7 @@ def precompute_responses(encoder, dataset, batch_size: int = 256, device=None, n
     """
     The responses [len(dataset), n_neurons] of `encoder` to every image of `dataset` (images [1, 64, 64] in [-1, 1]; the
     items may also be (image, label) pairs): the conditioning input of the diffusion model. Works with any encoder that
-    follows the contract of `multigeom.encoder`.
+    follows the contract of `multigeom.encoders.contract`.
     """
     if device is not None:
         encoder.to(device)

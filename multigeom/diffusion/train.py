@@ -35,7 +35,7 @@ from tqdm import tqdm
 
 
 from ..config import load_config
-from ..data import CANONICAL_TRANSFORM, TinyImageNetDataset
+from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..utils import count_parameters, get_device, provenance, set_seed
 from .model import build_diffusion_model, build_scheduler
 

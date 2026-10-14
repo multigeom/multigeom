@@ -105,7 +105,7 @@ def _tiny_tvsd_setup(stage01, tmp_path, monkeypatch, n_train, epochs=3):
 def _images_of(data, paths):
     from PIL import Image
 
-    from multigeom.data import CANONICAL_TRANSFORM
+    from multigeom.datasets import CANONICAL_TRANSFORM
     return torch.stack([CANONICAL_TRANSFORM(Image.open(
         data / "things_images" / "object_images" / p).convert("RGB")) for p in paths])
 

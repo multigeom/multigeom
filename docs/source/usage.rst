@@ -112,7 +112,7 @@ start to finish:
    import math
    import torch, torch.nn as nn, torch.nn.functional as F
    from multigeom import NeuralEncoder, validate_encoder
-   from multigeom.data import GaborTeacher, make_synthetic_neural_data
+   from multigeom.datasets import GaborTeacher, make_synthetic_neural_data
    from multigeom.encoders import register_backbone, register_readout
 
 

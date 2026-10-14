@@ -7,7 +7,7 @@ import torch
 from PIL import Image
 
 from multigeom import validate_encoder
-from multigeom.data import GaborTeacher, TinyImageNetDataset, make_synthetic_neural_data, noise_ceiling
+from multigeom.datasets import GaborTeacher, TinyImageNetDataset, make_synthetic_neural_data, noise_ceiling
 
 
 def images(n=64, seed=0):

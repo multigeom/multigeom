@@ -297,7 +297,7 @@ def parse_args(argv: list[str] | None = None):
 
 def _load_images(args) -> torch.Tensor:
     from PIL import Image
-    from ..data import CANONICAL_TRANSFORM, TinyImageNetDataset
+    from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 
     if args.image_dir:
         exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}

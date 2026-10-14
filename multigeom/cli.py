@@ -45,7 +45,7 @@ def jacobian(argv: list[str] | None = None) -> list[Path]:
     from PIL import Image
 
     from .config import load_config
-    from .data import CANONICAL_TRANSFORM, TinyImageNetDataset
+    from .datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
     from .encoders import build_encoder
     from .geometry import fisher_eigendecomposition
     from .utils import get_device

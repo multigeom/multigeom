@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from multigeom.encoder import EncoderContractError, ensure_valid, validate_encoder
+from multigeom.encoders.contract import EncoderContractError, ensure_valid, validate_encoder
 from multigeom.encoders import _BaseEncoder
 from multigeom.geometry.fisher import fisher_eigendecomposition
 

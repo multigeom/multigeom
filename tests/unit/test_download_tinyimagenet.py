@@ -3,7 +3,7 @@ import zipfile
 
 import pytest
 
-from multigeom.data import download_tinyimagenet
+from multigeom.datasets import download_tinyimagenet
 
 
 def make_archive(path):

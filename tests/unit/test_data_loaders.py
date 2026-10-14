@@ -12,7 +12,7 @@ import torch
 from PIL import Image
 
 from conftest import write_fake_tvsd
-from multigeom.data import CANONICAL_TRANSFORM
+from multigeom.datasets import CANONICAL_TRANSFORM
 from multigeom.fit.tvsd import AREA_CHANNELS, TVSDDataset, existing_image_mask, load_tvsd
 
 # Old h5py releases call np.product, deprecated in NumPy 1.25.

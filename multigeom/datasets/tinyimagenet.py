@@ -1,7 +1,7 @@
 """
 TinyImageNet, the diffusion-training and test images.
 
-The images are transformed by `multigeom.data.transforms` (64 x 64, single-channel, in [-1, 1]).
+The images are transformed by `multigeom.datasets.transforms` (64 x 64, single-channel, in [-1, 1]).
 Expected layout, under `data_dir()` (see `multigeom.config`):
 
     tiny-imagenet-200/train/<wnid>/images/<image>.JPEG    (100,000 images: training of the diffusion model)
@@ -45,7 +45,7 @@ class TinyImageNetDataset(Dataset):
         split_dir = root / split
         if not split_dir.exists():
             raise FileNotFoundError(
-                f"TinyImageNet split not found at {split_dir}: run `multigeom.data.download_tinyimagenet()` (240 MB), or see data/README.md."
+                f"TinyImageNet split not found at {split_dir}: run `multigeom.datasets.download_tinyimagenet()` (240 MB), or see data/README.md."
             )
 
         self.image_paths: list[Path] = []

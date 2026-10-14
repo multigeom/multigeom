@@ -40,7 +40,7 @@ from tqdm import tqdm
 
 
 from ..config import load_config
-from ..data import CANONICAL_TRANSFORM, TinyImageNetDataset
+from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..diffusion.model import build_diffusion_model, build_scheduler
 from ..encoders import build_encoder
 from ..geometry.estimator import conditional_pair_estimate

@@ -5,8 +5,8 @@ import zipfile
 
 import pytest
 
-from multigeom.data import download_things_images, download_tvsd
-from multigeom.data.download import download_file
+from multigeom.datasets import download_things_images, download_tvsd
+from multigeom.datasets.download import download_file
 
 LICENCE = "I agree to the licence.\n\nPassword for images_THINGS.zip: secret1\n"
 
@@ -64,7 +64,7 @@ def test_things_images_without_the_unzip_program(tmp_path, monkeypatch):
     if not shutil.which("zip"):
         pytest.skip("zip is not installed")
     archive, password = make_things_archive(tmp_path)
-    monkeypatch.setattr("multigeom.data.download.shutil.which", lambda name: None)       # the Python decryption is used
+    monkeypatch.setattr("multigeom.datasets.download.shutil.which", lambda name: None)       # the Python decryption is used
     root = download_things_images(tmp_path / "data", accept_license=True, url=archive.as_uri(), expected_bytes=None,
                                   password_url=password.as_uri())
     assert (root / "object_images" / "aardvark" / "aardvark_01b.jpg").read_bytes() == b"jpg"

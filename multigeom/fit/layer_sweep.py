@@ -273,7 +273,7 @@ def parse_args(argv: list[str] | None = None):
 
 def _load_split(paths, responses, images_root, max_n=None):
     from PIL import Image
-    from ..data import CANONICAL_TRANSFORM
+    from ..datasets import CANONICAL_TRANSFORM
     from .tvsd import existing_image_mask
     keep = np.flatnonzero(existing_image_mask(paths, images_root))
     if max_n is not None:

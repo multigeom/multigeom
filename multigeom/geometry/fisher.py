@@ -28,7 +28,7 @@ from dataclasses import dataclass
 
 import torch
 
-from ..encoder import ensure_valid
+from ..encoders.contract import ensure_valid
 
 
 @dataclass
@@ -51,7 +51,7 @@ def fisher_eigendecomposition(
 
     Args:
         image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline coords).
-        encoder: f_φ — an `nn.Module` satisfying the contract of `multigeom.encoder` (any user model), or one
+        encoder: f_φ — an `nn.Module` satisfying the contract of `multigeom.encoders.contract` (any user model), or one
                  built by `multigeom.encoders.build_encoder`. The Jacobian is taken through the public `forward`;
                  encoders that expose `_to_backbone_input`, `backbone` and `readout` (the reference encoders and the
                  test mocks) use those directly.
