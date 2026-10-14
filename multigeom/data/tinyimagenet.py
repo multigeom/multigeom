@@ -8,8 +8,6 @@ Images are 64 x 64, single-channel, in [-1, 1]. Expected layout, under `data_dir
 """
 from __future__ import annotations
 
-import shutil
-import zipfile
 from pathlib import Path
 
 import torch
@@ -18,57 +16,6 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from ..config import data_dir
-from .download import download_file
-
-# Primary source first, then a mirror serving the identical archive.
-TINYIMAGENET_URLS = (
-    "https://cs231n.stanford.edu/tiny-imagenet-200.zip",
-    "https://image-net.org/data/tiny-imagenet-200.zip",
-)
-TINYIMAGENET_BYTES = 248100043      # size of the archive (240 MB; 480 MB once unpacked)
-
-
-def download_tinyimagenet(
-    data_directory: str | Path | None = None,
-    urls: tuple[str, ...] = TINYIMAGENET_URLS,
-    expected_bytes: int | None = TINYIMAGENET_BYTES,
-) -> Path:
-    """
-    Download and unpack TinyImageNet into `<data_directory>/tiny-imagenet-200` (default: `data_dir()`), and return that folder.
-    Nothing is done if the folder is already there. The sources are tried in order; an archive of the wrong size, or that
-    is not a valid zip, is discarded. About 1 minute.
-
-    Args:
-        data_directory: the folder that will contain `tiny-imagenet-200`.
-        urls: where to download the archive from, in order.
-        expected_bytes: the size of the archive, to detect a truncated download (`None` skips the check).
-    """
-    data_directory = Path(data_directory) if data_directory else data_dir()
-    root = data_directory / "tiny-imagenet-200"
-    if (root / "train").is_dir() and (root / "val" / "images").is_dir():
-        return root
-
-    archive = data_directory / "tiny-imagenet-200.zip"
-    errors = []
-    for url in urls:
-        try:
-            print(f"downloading {url}")
-            archive.unlink(missing_ok=True)
-            download_file(url, archive, expected_bytes)
-            with zipfile.ZipFile(archive) as z:
-                if z.testzip() is not None:
-                    raise OSError("corrupt archive")
-                z.extractall(data_directory)
-            break
-        except (OSError, zipfile.BadZipFile) as e:      # URLError is an OSError
-            errors.append(f"{url}: {e}")
-            shutil.rmtree(root, ignore_errors=True)     # a partial unpacking
-        finally:
-            archive.unlink(missing_ok=True)
-    else:
-        raise RuntimeError("could not download TinyImageNet:\n  " + "\n  ".join(errors))
-    return root
-
 
 # Inception/ResNet input convention used in the paper:
 #   [-1, 1] grayscale, replicated to 3 channels at the encoder boundary.

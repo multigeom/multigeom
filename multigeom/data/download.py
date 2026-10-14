@@ -1,5 +1,5 @@
 """
-Download the datasets of the paper, from a notebook or a script: `download_tinyimagenet` (in `tinyimagenet.py`), `download_tvsd` and
+Download the datasets of the paper, from a notebook or a script: `download_tinyimagenet`, `download_tvsd` and
 `download_things_images`. Each one does nothing if its folder is already under `data_dir()` (see `multigeom.config`).
 """
 from __future__ import annotations
@@ -21,6 +21,12 @@ TVSD_FILES = {
 THINGS_IMAGES_URL = "https://osf.io/download/rdxy2/"          # images_THINGS.zip (5.0 GB), https://osf.io/jum2f/
 THINGS_IMAGES_BYTES = 5022473688
 THINGS_PASSWORD_URL = "https://osf.io/download/j6a3m/"        # a licence text and the password of the archive
+# Primary source first, then a mirror serving the identical archive.
+TINYIMAGENET_URLS = (
+    "https://cs231n.stanford.edu/tiny-imagenet-200.zip",
+    "https://image-net.org/data/tiny-imagenet-200.zip",
+)
+TINYIMAGENET_BYTES = 248100043      # size of the archive (240 MB; 480 MB once unpacked)
 
 
 def download_file(url: str, dest: Path, expected_bytes: int | None = None, chunk: int = 1 << 20) -> Path:
@@ -43,6 +49,48 @@ def download_file(url: str, dest: Path, expected_bytes: int | None = None, chunk
         raise OSError(f"{url}: {size} bytes, expected {expected_bytes}")
     part.replace(dest)
     return dest
+
+
+def download_tinyimagenet(
+    data_directory: str | Path | None = None,
+    urls: tuple[str, ...] = TINYIMAGENET_URLS,
+    expected_bytes: int | None = TINYIMAGENET_BYTES,
+) -> Path:
+    """
+    Download and unpack TinyImageNet into `<data_directory>/tiny-imagenet-200` (default: `data_dir()`), and return that folder.
+    Nothing is done if the folder is already there. The sources are tried in order; an archive of the wrong size, or that
+    is not a valid zip, is discarded. About 1 minute.
+
+    Args:
+        data_directory: the folder that will contain `tiny-imagenet-200`.
+        urls: where to download the archive from, in order.
+        expected_bytes: the size of the archive, to detect a truncated download (`None` skips the check).
+    """
+    data_directory = Path(data_directory) if data_directory else data_dir()
+    root = data_directory / "tiny-imagenet-200"
+    if (root / "train").is_dir() and (root / "val" / "images").is_dir():
+        return root
+
+    archive = data_directory / "tiny-imagenet-200.zip"
+    errors = []
+    for url in urls:
+        try:
+            print(f"downloading {url}")
+            archive.unlink(missing_ok=True)
+            download_file(url, archive, expected_bytes)
+            with zipfile.ZipFile(archive) as z:
+                if z.testzip() is not None:
+                    raise OSError("corrupt archive")
+                z.extractall(data_directory)
+            break
+        except (OSError, zipfile.BadZipFile) as e:      # URLError is an OSError
+            errors.append(f"{url}: {e}")
+            shutil.rmtree(root, ignore_errors=True)     # a partial unpacking
+        finally:
+            archive.unlink(missing_ok=True)
+    else:
+        raise RuntimeError("could not download TinyImageNet:\n  " + "\n  ".join(errors))
+    return root
 
 
 def download_tvsd(data_directory: str | Path | None = None, files: dict | None = None) -> Path:
