@@ -3,6 +3,11 @@
 All notable changes to `multigeom` are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/), and the
 version numbers follow [Semantic Versioning](https://semver.org/).
 
+## [0.1.0.dev1] - 2026-10-14
+
+First pre-release on PyPI, to test the installation (for example on Google Colab) before the first stable release. It has everything
+listed under 1.0.0 below. Install it with `pip install --pre multigeom`.
+
 ## [1.0.0] - unreleased
 
 First release of the package, refactored from the code of the paper
