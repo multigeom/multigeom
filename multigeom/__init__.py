@@ -30,7 +30,7 @@ from .encoder import Encoder, EncoderContractError, EncoderReport, validate_enco
 from .analysis import bures_wasserstein, subspace_alignment
 from .geometry import EstimatorOutput, FisherOutput, compute_fisher, compute_g
 
-__version__ = "0.1.0.dev1"
+__version__ = "0.1.0.dev2"
 
 __all__ = [
     "Encoder", "EncoderContractError", "EncoderReport", "validate_encoder",
