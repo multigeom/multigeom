@@ -1,12 +1,15 @@
 """
 TinyImageNet, the diffusion-training and test images.
 
-The images are transformed by `multigeom.datasets.transforms` (64 x 64, single-channel, in [-1, 1]).
-Expected layout, under `data_dir()` (see `multigeom.config`):
+The images are transformed by `multigeom.datasets.transforms` (64 x 64, single-channel,
+in [-1, 1]). Expected layout, under `data_dir()` (see `multigeom.config`):
 
-    tiny-imagenet-200/train/<wnid>/images/<image>.JPEG    (100,000 images: training of the diffusion model)
-    tiny-imagenet-200/val/images/<image>.JPEG             (10,000 images; the first 200, in sorted order, are the test images)
+    tiny-imagenet-200/train/<wnid>/images/<image>.JPEG
+        100,000 images: training of the diffusion model
+    tiny-imagenet-200/val/images/<image>.JPEG
+        10,000 images; the first 200, in sorted order, are the test images
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,12 +28,12 @@ class TinyImageNetDataset(Dataset):
     image distribution. Paired with synthetic responses (Stage 2 output) at
     training time.
 
-    Args:
-        split: "train" or "val".
-        tinyimagenet_dir: the dataset folder (default: `tiny-imagenet-200` under `data_dir()`).
-        transform: applied to each PIL image (default: the canonical transform).
-        images_per_class: keep only the first this many images of each class (sorted order), to get a small subset.
-        return_labels: return `(image, label)` with the class index 0..199 (the order of `wnids.txt`) instead of the image.
+    Args: split: "train" or "val". tinyimagenet_dir: the dataset folder (default:
+    `tiny-imagenet-200` under `data_dir()`). transform: applied to each PIL image
+    (default: the canonical transform). images_per_class: keep only the first this many
+    images of each class (sorted order), to get a small subset. return_labels: return
+    `(image, label)` with the class index 0..199 (the order of `wnids.txt`) instead of
+    the image.
     """
 
     def __init__(
@@ -41,11 +44,19 @@ class TinyImageNetDataset(Dataset):
         images_per_class: int | None = None,
         return_labels: bool = False,
     ):
-        root = Path(tinyimagenet_dir) if tinyimagenet_dir else data_dir() / "tiny-imagenet-200"
+        root = (
+            Path(tinyimagenet_dir)
+            if tinyimagenet_dir
+            else data_dir() / "tiny-imagenet-200"
+        )
         split_dir = root / split
         if not split_dir.exists():
             raise FileNotFoundError(
-                f"TinyImageNet split not found at {split_dir}: run `multigeom.datasets.download_tinyimagenet()` (240 MB), or see data/README.md."
+                (
+                    f"TinyImageNet split not found at {split_dir}: run "
+                    "`multigeom.datasets.download_tinyimagenet()` (240 MB), or see "
+                    "data/README.md."
+                )
             )
 
         self.image_paths: list[Path] = []
@@ -54,12 +65,16 @@ class TinyImageNetDataset(Dataset):
         for cls_dir in sorted(split_dir.iterdir()):
             if cls_dir.is_dir():
                 found = sorted(cls_dir.rglob("*.JPEG"))
-                self.image_paths.extend(found if images_per_class is None else found[:images_per_class])
+                self.image_paths.extend(
+                    found if images_per_class is None else found[:images_per_class]
+                )
         if not self.image_paths:
             raise RuntimeError(f"No images found under {split_dir}")
         self.transform = transform if transform is not None else CANONICAL_TRANSFORM
         self.return_labels = return_labels
-        self.labels: list[int] | None = self._read_labels(root, split) if return_labels else None
+        self.labels: list[int] | None = (
+            self._read_labels(root, split) if return_labels else None
+        )
 
     def _read_labels(self, root: Path, split: str) -> list[int]:
         wnids_file = root / "wnids.txt"
@@ -72,8 +87,14 @@ class TinyImageNetDataset(Dataset):
             return [index[p.parent.parent.name] for p in self.image_paths]
         annotations = root / "val" / "val_annotations.txt"
         if not annotations.exists():
-            raise FileNotFoundError(f"{annotations} is needed for the labels of the validation images")
-        wnid_of = dict(line.split("\t")[:2] for line in annotations.read_text().splitlines() if line.strip())
+            raise FileNotFoundError(
+                f"{annotations} is needed for the labels of the validation images"
+            )
+        wnid_of = dict(
+            line.split("\t")[:2]
+            for line in annotations.read_text().splitlines()
+            if line.strip()
+        )
         return [index[wnid_of[p.name]] for p in self.image_paths]
 
     def __len__(self) -> int:

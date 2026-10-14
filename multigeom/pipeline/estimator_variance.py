@@ -8,13 +8,11 @@ unconditional-conditional (UC) form (paper App. "Conditional-pair estimator"):
      compute; the UC top eigenvalue further differs from the CC value by a
      per-image-dependent factor of roughly 5-50x."
 
-The two estimators
-------------------
-Both follow Algorithm 1 (multigeom.geometry.estimator.conditional_pair_estimate): the same
-log-τ grid and trapezoid weights w_j, the same forward diffusion
-x_t = √ᾱ_t x + √(1−ᾱ_t) z, the same null-token Tweedie denoising
-x̂ = clip((x_t − √(1−ᾱ_t) ε_θ(x_t,t,0)) / √ᾱ_t, −1, 1), and the same response
-sampler r = f_φ(x̂) + σ ξ. They differ only in the row appended to D:
+The two estimators ------------------ Both follow Algorithm 1
+(multigeom.geometry.estimator.conditional_pair_estimate): the same log-τ grid and
+trapezoid weights w_j, the same forward diffusion x_t = √ᾱ_t x + √(1−ᾱ_t) z, the same
+null-token Tweedie denoising x̂ = clip((x_t − √(1−ᾱ_t) ε_θ(x_t,t,0)) / √ᾱ_t, −1, 1), and
+the same response sampler r = f_φ(x̂) + σ ξ. They differ only in the row appended to D:
 
     CC:  √(w_j / (2 N_MC)) · (ε_θ(x_t,t,r_1) − ε_θ(x_t,t,r_2)),   r_1, r_2 i.i.d.
     UC:  √(w_j /    N_MC ) · (ε_θ(x_t,t,r)   − ε_θ(x_t,t,0)),     one r
@@ -62,6 +60,7 @@ Usage:
         --n-images 6 --n-runs 6 --n-mc 100 \\
         --out runs/analysis/estimator_variance_inception_V1.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,7 +76,10 @@ import torch
 
 
 from ..geometry.estimator import (  # noqa: E402
-    EstimatorOutput, _build_log_tau_grid, _trapezoid_weights, conditional_pair_estimate,
+    EstimatorOutput,
+    _build_log_tau_grid,
+    _trapezoid_weights,
+    conditional_pair_estimate,
 )
 from ..config import load_config  # noqa: E402
 from ..utils import get_device, make_generator, provenance  # noqa: E402
@@ -102,22 +104,27 @@ def unconditional_conditional_estimate(
     Top-k eigenpairs of G(x) from the UC form: Algorithm 1 with the row
     √(w_j/N_MC)·(ε_θ(x_t,t,r) − ε_θ(x_t,t,0)) in place of the conditional pair.
 
-    Same inputs and conventions as `multigeom.geometry.estimator.conditional_pair_estimate`
+    Same inputs and conventions as
+    `multigeom.geometry.estimator.conditional_pair_estimate`
     (`cfg.monte_carlo.n_samples` is this estimator's N_MC).
     """
     encoder.eval()
     unet.eval()
     if image.dim() != 4 or image.shape[0] != 1:
-        raise ValueError(f"Expected single-image batch [1, C, H, W], got {tuple(image.shape)}")
+        raise ValueError(
+            f"Expected single-image batch [1, C, H, W], got {tuple(image.shape)}"
+        )
     image = image.to(device)
     H, W = image.shape[-2:]
     P = H * W
 
-    grid_t = list(range(
-        cfg.monte_carlo.timestep_grid.start,
-        cfg.monte_carlo.timestep_grid.stop + 1,
-        cfg.monte_carlo.timestep_grid.step,
-    ))
+    grid_t = list(
+        range(
+            cfg.monte_carlo.timestep_grid.start,
+            cfg.monte_carlo.timestep_grid.stop + 1,
+            cfg.monte_carlo.timestep_grid.step,
+        )
+    )
     w = _trapezoid_weights(_build_log_tau_grid(grid_t, alphas_cumprod))
     N_MC = int(cfg.monte_carlo.n_samples)
     B = int(cfg.monte_carlo.batch_size)
@@ -129,24 +136,26 @@ def unconditional_conditional_estimate(
     row = 0
     null_token = torch.zeros(B, encoder.n_neurons, device=device)
     for j, t_j in enumerate(grid_t):
-        s_j = float((w[j] / N_MC).sqrt())                     # no 1/2: single centred draw
+        s_j = float((w[j] / N_MC).sqrt())  # no 1/2: single centred draw
         sqrt_ab = float(alphas_cumprod[t_j].sqrt())
         sqrt_1m = float((1.0 - alphas_cumprod[t_j]).sqrt())
         t_tensor = torch.full((B,), t_j, device=device, dtype=torch.long)
         for _ in range(N_MC // B):
             z = torch.randn(B, 1, H, W, device=device, generator=generator)
             x_t = sqrt_ab * image + sqrt_1m * z
-            eps_u = unet(x_t, t_tensor, null_token)             # reused below
+            eps_u = unet(x_t, t_tensor, null_token)  # reused below
             x_hat = ((x_t - sqrt_1m * eps_u) / sqrt_ab).clamp(-1.0, 1.0)
             mu = encoder(x_hat)
-            xi = torch.randn(mu.shape, device=device, dtype=mu.dtype, generator=generator)
+            xi = torch.randn(
+                mu.shape, device=device, dtype=mu.dtype, generator=generator
+            )
             eps_c = unet(x_t, t_tensor, mu + sigma * xi)
-            D[row:row + B] = (s_j * (eps_c - eps_u).reshape(B, P)).cpu()
+            D[row : row + B] = (s_j * (eps_c - eps_u).reshape(B, P)).cpu()
             row += B
 
     _, S, Vh = torch.linalg.svd(D, full_matrices=False)
     k = int(cfg.top_k)
-    return EstimatorOutput(eigenvalues=(S ** 2)[:k].clone(), eigenvectors=Vh[:k].clone())
+    return EstimatorOutput(eigenvalues=(S**2)[:k].clone(), eigenvectors=Vh[:k].clone())
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -168,7 +177,7 @@ def _summary(runs: np.ndarray) -> dict:
     """runs: [n_runs, k] → across-run mean, variance (ddof=1) and CV²."""
     mean = runs.mean(axis=0)
     var = runs.var(axis=0, ddof=1)
-    return {"mean": mean, "var": var, "cv2": var / np.maximum(mean ** 2, 1e-30)}
+    return {"mean": mean, "var": var, "cv2": var / np.maximum(mean**2, 1e-30)}
 
 
 def run_variance_study(
@@ -205,35 +214,63 @@ def run_variance_study(
 
     per_image = []
     for i in range(images.shape[0]):
-        x = images[i:i + 1]
+        x = images[i : i + 1]
         ev = {"CC": [], "UC": []}
         align = []
         for r in range(n_runs):
             s = seed + 1000 * i + r
-            cc = conditional_pair_estimate(x, encoder, unet, alphas_cumprod, cfg_cc, device,
-                                           generator=make_generator(s, device))
-            uc = unconditional_conditional_estimate(x, encoder, unet, alphas_cumprod, cfg_uc,
-                                                    device, generator=make_generator(s, device))
+            cc = conditional_pair_estimate(
+                x,
+                encoder,
+                unet,
+                alphas_cumprod,
+                cfg_cc,
+                device,
+                generator=make_generator(s, device),
+            )
+            uc = unconditional_conditional_estimate(
+                x,
+                encoder,
+                unet,
+                alphas_cumprod,
+                cfg_uc,
+                device,
+                generator=make_generator(s, device),
+            )
             ev["CC"].append(cc.eigenvalues.double().numpy())
             ev["UC"].append(uc.eigenvalues.double().numpy())
             C = cc.eigenvectors.double() @ uc.eigenvectors.double().T
-            align.append(float((C ** 2).sum()) / C.shape[0])
-            log(f"  image {i} run {r}: CC λ={np.array2string(ev['CC'][-1], precision=3)}  "
-                f"UC λ={np.array2string(ev['UC'][-1], precision=3)}")
+            align.append(float((C**2).sum()) / C.shape[0])
+            log(
+                f"  image {i} run {r}: CC "
+                f"λ={np.array2string(ev['CC'][-1], precision=3)}  "
+                f"UC λ={np.array2string(ev['UC'][-1], precision=3)}"
+            )
         st = {m: _summary(np.stack(ev[m])) for m in ("CC", "UC")}
-        var_red = (st["UC"]["var"] - st["CC"]["var"]) / np.maximum(st["UC"]["var"], 1e-30)
-        cv2_red = (st["UC"]["cv2"] - st["CC"]["cv2"]) / np.maximum(st["UC"]["cv2"], 1e-30)
-        per_image.append({
-            "eigenvalues_CC": np.stack(ev["CC"]).tolist(),
-            "eigenvalues_UC": np.stack(ev["UC"]).tolist(),
-            "mean_CC": st["CC"]["mean"].tolist(), "mean_UC": st["UC"]["mean"].tolist(),
-            "var_CC": st["CC"]["var"].tolist(), "var_UC": st["UC"]["var"].tolist(),
-            "cv2_CC": st["CC"]["cv2"].tolist(), "cv2_UC": st["UC"]["cv2"].tolist(),
-            "variance_reduction": var_red.tolist(),
-            "cv2_reduction": cv2_red.tolist(),
-            "ratio_top_eigenvalue_UC_over_CC": float(st["UC"]["mean"][0] / st["CC"]["mean"][0]),
-            "alignment_CC_UC_topk": float(np.mean(align)),
-        })
+        var_red = (st["UC"]["var"] - st["CC"]["var"]) / np.maximum(
+            st["UC"]["var"], 1e-30
+        )
+        cv2_red = (st["UC"]["cv2"] - st["CC"]["cv2"]) / np.maximum(
+            st["UC"]["cv2"], 1e-30
+        )
+        per_image.append(
+            {
+                "eigenvalues_CC": np.stack(ev["CC"]).tolist(),
+                "eigenvalues_UC": np.stack(ev["UC"]).tolist(),
+                "mean_CC": st["CC"]["mean"].tolist(),
+                "mean_UC": st["UC"]["mean"].tolist(),
+                "var_CC": st["CC"]["var"].tolist(),
+                "var_UC": st["UC"]["var"].tolist(),
+                "cv2_CC": st["CC"]["cv2"].tolist(),
+                "cv2_UC": st["UC"]["cv2"].tolist(),
+                "variance_reduction": var_red.tolist(),
+                "cv2_reduction": cv2_red.tolist(),
+                "ratio_top_eigenvalue_UC_over_CC": float(
+                    st["UC"]["mean"][0] / st["CC"]["mean"][0]
+                ),
+                "alignment_CC_UC_topk": float(np.mean(align)),
+            }
+        )
 
     def agg(key):
         """The per-image values of `key`, as an array."""
@@ -251,11 +288,16 @@ def run_variance_study(
         "per_image": per_image,
         "aggregate": {
             "median_variance_reduction_percent": float(100 * np.median(var_red)),
-            "median_variance_reduction_percent_per_k": (100 * np.median(var_red, axis=0)).tolist(),
+            "median_variance_reduction_percent_per_k": (
+                100 * np.median(var_red, axis=0)
+            ).tolist(),
             "median_cv2_reduction_percent": float(100 * np.median(cv2_red)),
-            "median_cv2_reduction_percent_per_k": (100 * np.median(cv2_red, axis=0)).tolist(),
+            "median_cv2_reduction_percent_per_k": (
+                100 * np.median(cv2_red, axis=0)
+            ).tolist(),
             "ratio_top_eigenvalue_UC_over_CC": {
-                "median": float(np.median(ratios)), "min": float(ratios.min()),
+                "median": float(np.median(ratios)),
+                "min": float(ratios.min()),
                 "max": float(ratios.max()),
             },
         },
@@ -270,22 +312,44 @@ def parse_args(argv: list[str] | None = None):
     p = argparse.ArgumentParser(description="CC vs UC Monte-Carlo variance of G(x)")
     p.add_argument("--config", default=str(REPO / "configs" / "estimator.yaml"))
     p.add_argument("--encoder-cfg", required=True)
-    p.add_argument("--encoder-ckpt", default=None,
-                   help="Stage-1 checkpoint (omit only with --random-init)")
+    p.add_argument(
+        "--encoder-ckpt",
+        default=None,
+        help="Stage-1 checkpoint (omit only with --random-init)",
+    )
     p.add_argument("--diffusion-cfg", default=str(REPO / "configs" / "diffusion.yaml"))
-    p.add_argument("--diffusion-ckpt", default=None,
-                   help="Stage-3 checkpoint (omit only with --random-init)")
-    p.add_argument("--random-init", action="store_true",
-                   help="smoke test: skip loading checkpoints (random readout and UNet)")
-    p.add_argument("--image-dir", default=None,
-                   help="folder of images (sorted, first --n-images used); "
-                        "default: TinyImageNet val split as in Stage 4")
+    p.add_argument(
+        "--diffusion-ckpt",
+        default=None,
+        help="Stage-3 checkpoint (omit only with --random-init)",
+    )
+    p.add_argument(
+        "--random-init",
+        action="store_true",
+        help="smoke test: skip loading checkpoints (random readout and UNet)",
+    )
+    p.add_argument(
+        "--image-dir",
+        default=None,
+        help="folder of images (sorted, first --n-images used); "
+        "default: TinyImageNet val split as in Stage 4",
+    )
     p.add_argument("--n-images", type=int, default=6)
     p.add_argument("--n-runs", type=int, default=6)
-    p.add_argument("--n-mc", type=int, default=100, help="CC Monte-Carlo samples per timestep")
-    p.add_argument("--batch-size", type=int, default=None, help="override cfg batch size")
-    p.add_argument("--timestep-grid", type=int, nargs=3, default=None,
-                   metavar=("START", "STOP", "STEP"), help="override cfg timestep grid")
+    p.add_argument(
+        "--n-mc", type=int, default=100, help="CC Monte-Carlo samples per timestep"
+    )
+    p.add_argument(
+        "--batch-size", type=int, default=None, help="override cfg batch size"
+    )
+    p.add_argument(
+        "--timestep-grid",
+        type=int,
+        nargs=3,
+        default=None,
+        metavar=("START", "STOP", "STEP"),
+        help="override cfg timestep grid",
+    )
     p.add_argument("--compute-match", choices=["passes", "samples"], default="passes")
     p.add_argument("--top-k", type=int, default=5)
     p.add_argument("--seed", type=int, default=12345)
@@ -301,27 +365,41 @@ def _load_images(args) -> torch.Tensor:
 
     if args.image_dir:
         exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
-        files = sorted(p for p in Path(args.image_dir).rglob("*") if p.suffix.lower() in exts)
+        files = sorted(
+            p for p in Path(args.image_dir).rglob("*") if p.suffix.lower() in exts
+        )
         if len(files) < args.n_images:
-            raise ValueError(f"{args.image_dir} has {len(files)} images, need {args.n_images}")
-        return torch.stack([CANONICAL_TRANSFORM(Image.open(f).convert("RGB"))
-                            for f in files[:args.n_images]])
+            raise ValueError(
+                f"{args.image_dir} has {len(files)} images, need {args.n_images}"
+            )
+        return torch.stack(
+            [
+                CANONICAL_TRANSFORM(Image.open(f).convert("RGB"))
+                for f in files[: args.n_images]
+            ]
+        )
     ds = TinyImageNetDataset(split="val", transform=CANONICAL_TRANSFORM)
     return torch.stack([ds[i] for i in range(args.n_images)])
 
 
 def main(argv: list[str] | None = None) -> dict:
-    """Compare the Monte-Carlo variance of the two estimators (command-line entry point)."""
+    """
+    Compare the Monte-Carlo variance of the two estimators (command-line entry point).
+    """
     from ..diffusion.model import build_diffusion_model, build_scheduler
     from ..encoders import build_encoder
 
     args = parse_args(argv)
     if args.data_dir:
         os.environ["NEURIPS_DATA_DIR"] = args.data_dir
-    if not args.random_init and (args.encoder_ckpt is None or args.diffusion_ckpt is None):
-        raise SystemExit("--encoder-ckpt and --diffusion-ckpt are required without --random-init")
+    if not args.random_init and (
+        args.encoder_ckpt is None or args.diffusion_ckpt is None
+    ):
+        raise SystemExit(
+            "--encoder-ckpt and --diffusion-ckpt are required without --random-init"
+        )
     device = get_device(args.device)
-    torch.manual_seed(args.seed)                     # random-init weights only
+    torch.manual_seed(args.seed)  # random-init weights only
 
     cfg = load_config(args.config)
     cfg.monte_carlo.n_samples = args.n_mc
@@ -333,43 +411,74 @@ def main(argv: list[str] | None = None) -> dict:
     diff_cfg = load_config(args.diffusion_cfg)
     enc_cfg = load_config(args.encoder_cfg)
     if float(cfg.monte_carlo.observation_noise_sigma) != float(
-            diff_cfg.conditioning.observation_noise_sigma):
-        raise ValueError("estimator and diffusion σ differ; the observation model must match")
+        diff_cfg.conditioning.observation_noise_sigma
+    ):
+        raise ValueError(
+            "estimator and diffusion σ differ; the observation model must match"
+        )
 
     encoder = build_encoder(enc_cfg).to(device)
     unet = build_diffusion_model(diff_cfg).to(device)
     if not args.random_init:
-        encoder.load_state_dict(torch.load(args.encoder_ckpt, map_location=device,
-                                           weights_only=False)["model_state_dict"])
-        unet.load_state_dict(torch.load(args.diffusion_ckpt, map_location=device,
-                                        weights_only=False)["model_state_dict"])
+        encoder.load_state_dict(
+            torch.load(args.encoder_ckpt, map_location=device, weights_only=False)[
+                "model_state_dict"
+            ]
+        )
+        unet.load_state_dict(
+            torch.load(args.diffusion_ckpt, map_location=device, weights_only=False)[
+                "model_state_dict"
+            ]
+        )
     alphas_cumprod = build_scheduler(diff_cfg).alphas_cumprod.to(device)
 
     images = _load_images(args)
     B = int(cfg.monte_carlo.batch_size)
-    n_mc_uc = (uc_samples_for_matched_passes(args.n_mc, B)
-               if args.compute_match == "passes" else args.n_mc)
-    print(f"[estimator_variance] {args.n_images} images x {args.n_runs} runs; "
-          f"N_MC: CC={args.n_mc}, UC={n_mc_uc} ({args.compute_match}-matched)")
+    n_mc_uc = (
+        uc_samples_for_matched_passes(args.n_mc, B)
+        if args.compute_match == "passes"
+        else args.n_mc
+    )
+    print(
+        f"[estimator_variance] {args.n_images} images x {args.n_runs} runs; "
+        f"N_MC: CC={args.n_mc}, UC={n_mc_uc} ({args.compute_match}-matched)"
+    )
 
     t0 = time.time()
-    result = run_variance_study(images, encoder, unet, alphas_cumprod, cfg, device,
-                                n_runs=args.n_runs, top_k=args.top_k, n_mc_uc=n_mc_uc,
-                                seed=args.seed)
+    result = run_variance_study(
+        images,
+        encoder,
+        unet,
+        alphas_cumprod,
+        cfg,
+        device,
+        n_runs=args.n_runs,
+        top_k=args.top_k,
+        n_mc_uc=n_mc_uc,
+        seed=args.seed,
+    )
     result["compute_match"] = args.compute_match
     result["random_init"] = bool(args.random_init)
     result["elapsed_seconds"] = time.time() - t0
     result["provenance"] = provenance(
-        {"estimator": args.config, "encoder": args.encoder_cfg, "diffusion": args.diffusion_cfg},
-        seed=args.seed, argv=argv)
+        {
+            "estimator": args.config,
+            "encoder": args.encoder_cfg,
+            "diffusion": args.diffusion_cfg,
+        },
+        seed=args.seed,
+        argv=argv,
+    )
 
     a = result["aggregate"]
-    print(f"[estimator_variance] median variance reduction (CC vs UC, top-{args.top_k}): "
-          f"{a['median_variance_reduction_percent']:.1f}%   "
-          f"CV² reduction: {a['median_cv2_reduction_percent']:.1f}%   "
-          f"λ1 UC/CC: median {a['ratio_top_eigenvalue_UC_over_CC']['median']:.2f} "
-          f"[{a['ratio_top_eigenvalue_UC_over_CC']['min']:.2f}, "
-          f"{a['ratio_top_eigenvalue_UC_over_CC']['max']:.2f}]")
+    print(
+        f"[estimator_variance] median variance reduction (CC vs UC, top-{args.top_k}): "
+        f"{a['median_variance_reduction_percent']:.1f}%   "
+        f"CV² reduction: {a['median_cv2_reduction_percent']:.1f}%   "
+        f"λ1 UC/CC: median {a['ratio_top_eigenvalue_UC_over_CC']['median']:.2f} "
+        f"[{a['ratio_top_eigenvalue_UC_over_CC']['min']:.2f}, "
+        f"{a['ratio_top_eigenvalue_UC_over_CC']['max']:.2f}]"
+    )
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w") as f:

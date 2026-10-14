@@ -1,7 +1,9 @@
 """
-Shared utilities: RNG seeding, provenance records, device selection, a progress line and showing a figure in a notebook. Configuration loading and
-project paths are in `multigeom.config`.
+Shared utilities: RNG seeding, provenance records, device selection, a progress line and
+showing a figure in a notebook. Configuration loading and project paths are in
+`multigeom.config`.
 """
+
 from __future__ import annotations
 
 import os
@@ -43,7 +45,11 @@ def make_generator(seed: int, device: torch.device | str) -> torch.Generator:
 def _git(*args: str) -> str | None:
     try:
         out = subprocess.run(
-            ["git", *args], cwd=project_root(), capture_output=True, text=True, check=True
+            ["git", *args],
+            cwd=project_root(),
+            capture_output=True,
+            text=True,
+            check=True,
         )
         return out.stdout.strip()
     except (OSError, subprocess.CalledProcessError):
@@ -57,9 +63,11 @@ def _version(pkg: str) -> str | None:
         return None
 
 
-def provenance(config_paths: dict[str, str | Path] | None = None,
-               seed: int | None = None,
-               argv: list[str] | None = None) -> dict:
+def provenance(
+    config_paths: dict[str, str | Path] | None = None,
+    seed: int | None = None,
+    argv: list[str] | None = None,
+) -> dict:
     """
     Record what produced an output: git commit (and whether the tree was
     dirty), command line, seed, config file contents, and package versions.
@@ -79,8 +87,18 @@ def provenance(config_paths: dict[str, str | Path] | None = None,
         "configs": configs,
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "python": platform.python_version(),
-        "packages": {p: _version(p) for p in
-                     ("multigeom", "torch", "torchvision", "diffusers", "plenoptic", "numpy", "h5py")},
+        "packages": {
+            p: _version(p)
+            for p in (
+                "multigeom",
+                "torch",
+                "torchvision",
+                "diffusers",
+                "plenoptic",
+                "numpy",
+                "h5py",
+            )
+        },
         "cuda": torch.version.cuda,
     }
 
@@ -101,30 +119,41 @@ def count_parameters(module: torch.nn.Module) -> tuple[int, int]:
 
 def subprocess_env(extra: dict | None = None) -> dict:
     """
-    The environment for a child process that runs `python -m multigeom...`: this package is importable in it even if it
-    is not installed (a source checkout), and `extra` is added.
+    The environment for a child process that runs `python -m multigeom...`: this package
+    is importable in it even if it is not installed (a source checkout), and `extra` is
+    added.
     """
     env = dict(os.environ)
     parent = str(package_root().parent)
-    env["PYTHONPATH"] = os.pathsep.join([parent] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+    env["PYTHONPATH"] = os.pathsep.join(
+        [parent] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else [])
+    )
     env.update(extra or {})
     return env
 
 
 class ProgressLine:
     """
-    A one-line progress bar that is updated in place: in a notebook through `display(..., display_id=True)`
-    (no ipywidgets needed, no extra lines), in a terminal with a carriage return. The text is tqdm's own
-    format, e.g. `estimate G(x): 50%|█████     | 1/2 [00:15<00:15, 15.00s/img, 1 worker(s)]`.
+    A one-line progress bar that is updated in place: in a notebook through
+    `display(..., display_id=True)` (no ipywidgets needed, no extra lines), in a
+    terminal with a carriage return. The text is tqdm's own format, e.g.
+    `estimate G(x): 50%|█████     | 1/2 [00:15<00:15, 15.00s/img, 1 worker(s)]`.
     """
 
-    def __init__(self, total: int, initial: int = 0, desc: str = "estimate G(x)", unit: str = "img",
-                 notebook: bool | None = None):
+    def __init__(
+        self,
+        total: int,
+        initial: int = 0,
+        desc: str = "estimate G(x)",
+        unit: str = "img",
+        notebook: bool | None = None,
+    ):
         self.total, self.initial, self.desc, self.unit = total, initial, desc, unit
         self.t0, self._last, self._handle = time.time(), None, None
-        if notebook is None:                                   # detect a Jupyter kernel
+        if notebook is None:  # detect a Jupyter kernel
             try:
                 from IPython import get_ipython
+
                 ip = get_ipython()
                 notebook = ip is not None and getattr(ip, "kernel", None) is not None
             except ImportError:
@@ -135,21 +164,35 @@ class ProgressLine:
     def text(self, n: int, postfix: str = "") -> str:
         """The progress line for `n` finished items, in tqdm's format."""
         from tqdm import tqdm
-        return tqdm.format_meter(n, self.total, time.time() - self.t0, initial=self.initial, prefix=self.desc,
-                                 unit=self.unit, postfix=postfix, ncols=100)
+
+        return tqdm.format_meter(
+            n,
+            self.total,
+            time.time() - self.t0,
+            initial=self.initial,
+            prefix=self.desc,
+            unit=self.unit,
+            postfix=postfix,
+            ncols=100,
+        )
 
     def update(self, n: int, postfix: str = "") -> None:
-        """Show `n` finished items; does nothing if neither `n` nor `postfix` changed."""
+        """
+        Show `n` finished items; does nothing if neither `n` nor `postfix` changed.
+        """
         if (n, postfix) == self._last:
-            return                                  # nothing but the clock changed: leave the line alone
+            return  # nothing but the clock changed: leave the line alone
         self._last = (n, postfix)
         self._write(self.text(n, postfix))
 
     def _write(self, text: str) -> None:
         if self._notebook:
             from IPython.display import Pretty, display
+
             if self._handle is None:
-                self._handle = display(Pretty(text), display_id=True)     # Pretty: plain text, without quotes
+                self._handle = display(
+                    Pretty(text), display_id=True
+                )  # Pretty: plain text, without quotes
             else:
                 self._handle.update(Pretty(text))
         else:
@@ -164,8 +207,11 @@ class ProgressLine:
 
 
 def figure_to_png(fig, dpi: int = 110) -> bytes:
-    """PNG bytes of a matplotlib figure, independent of the matplotlib backend in use."""
+    """
+    PNG bytes of a matplotlib figure, independent of the matplotlib backend in use.
+    """
     import io
+
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")
     return buf.getvalue()
@@ -173,10 +219,12 @@ def figure_to_png(fig, dpi: int = 110) -> bytes:
 
 def show_figure(fig, dpi: int = 110) -> None:
     """
-    Display a figure in a notebook as an image. Displaying the PNG works whatever the matplotlib backend
-    (in the non-interactive Agg backend a figure is shown as the text "<Figure size ...>" instead of a picture).
+    Display a figure in a notebook as an image. Displaying the PNG works whatever the
+    matplotlib backend (in the non-interactive Agg backend a figure is shown as the text
+    "<Figure size ...>" instead of a picture).
     """
     import matplotlib.pyplot as plt
     from IPython.display import Image, display
+
     display(Image(data=figure_to_png(fig, dpi)))
     plt.close(fig)

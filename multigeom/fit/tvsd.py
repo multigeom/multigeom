@@ -1,5 +1,6 @@
 """
-Data loaders for the THINGS Ventral-Stream Spiking Dataset (TVSD) of Papale et al. (extra `[paper]`: needs h5py).
+Data loaders for the THINGS Ventral-Stream Spiking Dataset (TVSD) of Papale et al.
+(extra `[paper]`: needs h5py).
 
 Two TVSD files (MATLAB v7.3 / HDF5) are read:
 
@@ -11,6 +12,7 @@ Two TVSD files (MATLAB v7.3 / HDF5) are read:
     - `train_imgs/things_path`, `test_imgs/things_path`: object references to
       the THINGS image paths, in the same order as the response rows.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,9 +31,10 @@ from ..datasets.transforms import CANONICAL_TRANSFORM
 # Channel ranges within the Papale Utah-array recording (monkey N),
 # inclusive on both ends (paper App. C.1: V1 0-511, V4 512-767).
 AREA_CHANNELS = {
-    "V1": (0, 511),       # 512 V1 channels
-    "V4": (512, 767),     # 256 V4 channels
+    "V1": (0, 511),  # 512 V1 channels
+    "V4": (512, 767),  # 256 V4 channels
 }
+
 
 def load_tvsd(
     area: str,
@@ -69,9 +72,9 @@ def load_tvsd(
     with h5py.File(mat_path, "r") as f:
         # MATLAB v7.3 files are column-major, so h5py returns the transpose of
         # the MATLAB array: rows are images, columns are channels.
-        train_mua = np.asarray(f["train_MUA"])           # [n_train, n_channels]
-        test_mua = np.asarray(f["test_MUA"])             # [n_test,  n_channels]
-        oracle = np.asarray(f["oracle"]).flatten()       # [n_channels]
+        train_mua = np.asarray(f["train_MUA"])  # [n_train, n_channels]
+        test_mua = np.asarray(f["test_MUA"])  # [n_test,  n_channels]
+        oracle = np.asarray(f["oracle"]).flatten()  # [n_channels]
     with h5py.File(imgs_path, "r") as f:
         train_paths = _read_path_list(f, f["train_imgs"]["things_path"])
         test_paths = _read_path_list(f, f["test_imgs"]["things_path"])
@@ -85,11 +88,12 @@ def load_tvsd(
     if len(train_paths) != train_mua.shape[0] or len(test_paths) != test_mua.shape[0]:
         raise ValueError(
             f"Image-path count ({len(train_paths)} train / {len(test_paths)} test) "
-            f"does not match response rows ({train_mua.shape[0]} / {test_mua.shape[0]})."
+            f"does not match response rows ({train_mua.shape[0]} / "
+            f"{test_mua.shape[0]})."
         )
 
     area_oracle = oracle[ch_lo : ch_hi + 1]
-    top_local = np.argsort(area_oracle)[::-1][:n_neurons].copy()   # most reliable first
+    top_local = np.argsort(area_oracle)[::-1][:n_neurons].copy()  # most reliable first
     selected = top_local + ch_lo
 
     return {
@@ -117,11 +121,23 @@ def existing_image_mask(paths: Sequence[str], images_root: str | Path) -> np.nda
     return np.array([(root / p).exists() for p in paths], dtype=bool)
 
 
-def load_images(paths: Sequence[str], images_root: str | Path, transform=None, batch_size: int = 64,
-                num_workers: int = 4) -> torch.Tensor:
-    """The images at `paths` (under `images_root`) as one tensor [N, 1, 64, 64] in [-1, 1], in the order of `paths`."""
-    dataset = TVSDDataset(torch.zeros(len(paths), 1), paths, images_root, transform=transform)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+def load_images(
+    paths: Sequence[str],
+    images_root: str | Path,
+    transform=None,
+    batch_size: int = 64,
+    num_workers: int = 4,
+) -> torch.Tensor:
+    """
+    The images at `paths` (under `images_root`) as one tensor [N, 1, 64, 64] in [-1, 1],
+    in the order of `paths`.
+    """
+    dataset = TVSDDataset(
+        torch.zeros(len(paths), 1), paths, images_root, transform=transform
+    )
+    loader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers
+    )
     return torch.cat([img for img, _ in loader], dim=0)
 
 
@@ -143,8 +159,9 @@ class TVSDDataset(Dataset):
         images_root: str | Path,
         transform=None,
     ):
-        assert len(responses) == len(paths), \
+        assert len(responses) == len(paths), (
             f"Got {len(responses)} responses but {len(paths)} paths"
+        )
         self.responses = responses
         self.paths = list(paths)
         self.images_root = Path(images_root)

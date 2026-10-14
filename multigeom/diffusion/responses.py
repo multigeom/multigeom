@@ -17,6 +17,7 @@ Usage:
         --encoder-ckpt runs/encoders/inception/V1/best_model.pt \\
         --out-dir runs/responses/inception/V1
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,8 +40,11 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True, help="encoder config YAML")
     p.add_argument("--area", required=True, choices=["V1", "V4"])
-    p.add_argument("--encoder-ckpt", required=True,
-                   help="Stage-1 checkpoint produced by 01_train_encoder.py")
+    p.add_argument(
+        "--encoder-ckpt",
+        required=True,
+        help="Stage-1 checkpoint produced by 01_train_encoder.py",
+    )
     p.add_argument("--out-dir", required=True)
     p.add_argument("--device", default=None)
     p.add_argument("--data-dir", default=None)
@@ -50,26 +54,34 @@ def parse_args(argv=None):
 
 
 @torch.no_grad()
-def precompute_responses(encoder, dataset, batch_size: int = 256, device=None, num_workers: int = 0,
-                         log=None) -> torch.Tensor:
+def precompute_responses(
+    encoder, dataset, batch_size: int = 256, device=None, num_workers: int = 0, log=None
+) -> torch.Tensor:
     """
-    The responses [len(dataset), n_neurons] of `encoder` to every image of `dataset` (images [1, 64, 64] in [-1, 1]; the
-    items may also be (image, label) pairs): the conditioning input of the diffusion model. Works with any encoder that
-    follows the contract of `multigeom.encoders.contract`.
+    The responses [len(dataset), n_neurons] of `encoder` to every image of `dataset`
+    (images [1, 64, 64] in [-1, 1]; the items may also be (image, label) pairs): the
+    conditioning input of the diffusion model. Works with any encoder that follows the
+    contract of `multigeom.encoders.contract`.
     """
     if device is not None:
         encoder.to(device)
     device = next(encoder.parameters()).device
     was_training = encoder.training
     encoder.eval()
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers,
-                        pin_memory=device.type == "cuda")
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=device.type == "cuda",
+    )
     responses = []
     for batch_idx, batch in enumerate(loader):
         x = batch[0] if isinstance(batch, (tuple, list)) else batch
         responses.append(encoder(x.to(device, non_blocking=True)).cpu())
         if log and (batch_idx + 1) % 50 == 0:
-            log(f"    {min((batch_idx + 1) * batch_size, len(dataset)):6d}/{len(dataset)}")
+            done = min((batch_idx + 1) * batch_size, len(dataset))
+            log(f"    {done:6d}/{len(dataset)}")
     encoder.train(was_training)
     return torch.cat(responses, dim=0)
 
@@ -78,11 +90,16 @@ def precompute_split(encoder, split: str, transform, device, batch_size: int):
     """Responses of `encoder` to every image of a TinyImageNet split."""
     dataset = TinyImageNetDataset(split=split, transform=transform)
     print(f"  {split}: {len(dataset)} images")
-    return precompute_responses(encoder, dataset, batch_size=batch_size, device=device, num_workers=4, log=print)
+    return precompute_responses(
+        encoder, dataset, batch_size=batch_size, device=device, num_workers=4, log=print
+    )
 
 
 def main(argv=None):
-    """Precompute and save the responses of an encoder on TinyImageNet (command-line entry point)."""
+    """
+    Precompute and save the responses of an encoder on TinyImageNet (command-line entry
+    point).
+    """
     args = parse_args(argv)
     cfg = load_config(args.config)
     if args.data_dir:
@@ -98,24 +115,33 @@ def main(argv=None):
     ckpt = torch.load(args.encoder_ckpt, map_location=device, weights_only=False)
     encoder.load_state_dict(ckpt["model_state_dict"])
     encoder.eval()
-    print(f"  Loaded checkpoint (test_corr = {ckpt.get('test_corr', float('nan')):.3f})")
+    print(
+        f"  Loaded checkpoint (test_corr = {ckpt.get('test_corr', float('nan')):.3f})"
+    )
 
     # ── Generate responses for each requested split ──
     # Responses are computed on exactly the [-1, 1] images the diffusion model
     # is trained on (Stage 3); every encoder converts to its backbone's range
     # internally.
     for split in args.splits:
-        print(f"[Stage 2] Generating synthetic responses for TinyImageNet '{split}' ...")
-        responses = precompute_split(encoder, split, CANONICAL_TRANSFORM, device, args.batch_size)
+        print(
+            f"[Stage 2] Generating synthetic responses for TinyImageNet '{split}' ..."
+        )
+        responses = precompute_split(
+            encoder, split, CANONICAL_TRANSFORM, device, args.batch_size
+        )
         out_path = out_dir / f"{split}_responses.pt"
-        torch.save({
-            "responses": responses,
-            "n_neurons": responses.shape[1],
-            "area": args.area,
-            "encoder_name": cfg.encoder.name,
-            "encoder_ckpt": str(args.encoder_ckpt),
-            "provenance": provenance({"encoder": args.config}),
-        }, out_path)
+        torch.save(
+            {
+                "responses": responses,
+                "n_neurons": responses.shape[1],
+                "area": args.area,
+                "encoder_name": cfg.encoder.name,
+                "encoder_ckpt": str(args.encoder_ckpt),
+                "provenance": provenance({"encoder": args.config}),
+            },
+            out_path,
+        )
         print(f"  saved {tuple(responses.shape)} → {out_path}")
 
     print("[Stage 2] Done.")

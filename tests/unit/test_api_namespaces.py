@@ -1,4 +1,8 @@
-"""The public API is grouped in three subpackages, and the main functions are also available from `multigeom`."""
+"""
+The public API is grouped in three subpackages, and the main functions are also
+available from `multigeom`.
+"""
+
 from __future__ import annotations
 
 import multigeom
@@ -6,7 +10,9 @@ from multigeom import analysis, encoders, geometry
 
 
 def test_each_group_has_its_functions():
-    assert {"load_encoder", "NeuralEncoder", "validate_encoder"} <= set(encoders.__all__)
+    assert {"load_encoder", "NeuralEncoder", "validate_encoder"} <= set(
+        encoders.__all__
+    )
     assert {"compute_fisher", "compute_g"} <= set(geometry.__all__)
     assert {"subspace_alignment", "bures_wasserstein"} <= set(analysis.__all__)
 
@@ -23,20 +29,34 @@ def test_the_top_level_names_are_the_same_objects():
 
 def test_the_old_vague_name_is_gone_and_the_analyses_left_geometry():
     assert not hasattr(multigeom, "align") and not hasattr(multigeom, "estimate_g")
-    assert not hasattr(geometry, "subspace_alignment") and not hasattr(geometry, "bures_wasserstein")
+    assert not hasattr(geometry, "subspace_alignment") and not hasattr(
+        geometry, "bures_wasserstein"
+    )
 
 
 def test_importing_the_package_stays_light():
     import subprocess
     import sys
-    code = "import sys, multigeom; assert 'torchvision' not in sys.modules and 'matplotlib' not in sys.modules"
-    assert subprocess.run([sys.executable, "-c", code], capture_output=True).returncode == 0
+
+    code = (
+        "import sys, multigeom; assert 'torchvision' not in sys.modules and "
+        "'matplotlib' not in sys.modules"
+    )
+    assert (
+        subprocess.run([sys.executable, "-c", code], capture_output=True).returncode
+        == 0
+    )
 
 
 def test_the_builtin_readouts_are_registered_whatever_the_import_order():
     import subprocess
     import sys
-    code = ("from multigeom.encoders.neural import NeuralEncoder; from multigeom.encoders.registry import READOUTS, BACKBONES; "
-            "assert {'gaussian', 'linear', 'factorized'} <= set(READOUTS) and 'small_cnn' in BACKBONES, (list(READOUTS), list(BACKBONES))")
+
+    code = (
+        "from multigeom.encoders.neural import NeuralEncoder; from "
+        "multigeom.encoders.registry import READOUTS, BACKBONES; "
+        "assert {'gaussian', 'linear', 'factorized'} <= set(READOUTS) and 'small_cnn' "
+        "in BACKBONES, (list(READOUTS), list(BACKBONES))"
+    )
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert done.returncode == 0, done.stderr

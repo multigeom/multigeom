@@ -4,6 +4,7 @@ DDPM scheduler. Expected values: shapes from the documented interfaces, the
 linear-β closed form ᾱ_t = Π_{s≤t}(1 − β_s), and the parameter count quoted in
 the paper (≈ 68.4 M with the conditioning MLP; App. "Architecture").
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -16,7 +17,10 @@ pytest.importorskip("diffusers")
 
 from conftest import REPO, linear_beta_alphas_cumprod  # noqa: E402
 from multigeom.diffusion.model import (  # noqa: E402
-    ConditioningMLP, NeuralConditionedUNet, build_diffusion_model, build_scheduler,
+    ConditioningMLP,
+    NeuralConditionedUNet,
+    build_diffusion_model,
+    build_scheduler,
 )
 from multigeom.config import load_config  # noqa: E402
 from multigeom.utils import count_parameters  # noqa: E402
@@ -24,11 +28,20 @@ from multigeom.utils import count_parameters  # noqa: E402
 
 def _tiny_cfg():
     return SimpleNamespace(
-        unet=SimpleNamespace(image_size=16, in_channels=1, out_channels=1,
-                             block_channels=[32, 32, 32, 32], layers_per_block=1,
-                             cross_attention_dim=32),
-        conditioning=SimpleNamespace(mlp_layers=[5, 32, 32, 32], mlp_activation="silu",
-                                     cfg_dropout_rate=0.1, observation_noise_sigma=0.22),
+        unet=SimpleNamespace(
+            image_size=16,
+            in_channels=1,
+            out_channels=1,
+            block_channels=[32, 32, 32, 32],
+            layers_per_block=1,
+            cross_attention_dim=32,
+        ),
+        conditioning=SimpleNamespace(
+            mlp_layers=[5, 32, 32, 32],
+            mlp_activation="silu",
+            cfg_dropout_rate=0.1,
+            observation_noise_sigma=0.22,
+        ),
     )
 
 
@@ -61,8 +74,12 @@ def test_unet_forward_shape_and_conditioning_is_used():
 
 def test_scheduler_matches_linear_beta_closed_form():
     sched = build_scheduler(load_config("diffusion"))
-    torch.testing.assert_close(sched.alphas_cumprod.double(), linear_beta_alphas_cumprod(),
-                               rtol=1e-5, atol=1e-7)
+    torch.testing.assert_close(
+        sched.alphas_cumprod.double(),
+        linear_beta_alphas_cumprod(),
+        rtol=1e-5,
+        atol=1e-7,
+    )
 
 
 @pytest.mark.slow
