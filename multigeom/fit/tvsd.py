@@ -23,7 +23,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 from ..config import data_dir
-from ..data.tinyimagenet import CANONICAL_TRANSFORM
+from ..data.transforms import CANONICAL_TRANSFORM
 
 
 # Channel ranges within the Papale Utah-array recording (monkey N),

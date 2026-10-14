@@ -5,7 +5,8 @@ synthetic neural data with a known ground truth.
 """
 from .download import download_things_images, download_tinyimagenet, download_tvsd
 from .synthetic import GaborTeacher, make_synthetic_neural_data, noise_ceiling
-from .tinyimagenet import CANONICAL_TRANSFORM, DEEP_TRANSFORM, TinyImageNetDataset
+from .tinyimagenet import TinyImageNetDataset
+from .transforms import CANONICAL_TRANSFORM, DEEP_TRANSFORM
 
 __all__ = ["CANONICAL_TRANSFORM", "DEEP_TRANSFORM", "TinyImageNetDataset", "download_tinyimagenet", "download_tvsd", "download_things_images",
            "GaborTeacher", "make_synthetic_neural_data", "noise_ceiling"]

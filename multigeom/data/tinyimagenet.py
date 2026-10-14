@@ -1,7 +1,8 @@
 """
-TinyImageNet (the diffusion-training and test images) and the canonical image transform of the pipeline.
+TinyImageNet, the diffusion-training and test images.
 
-Images are 64 x 64, single-channel, in [-1, 1]. Expected layout, under `data_dir()` (see `multigeom.config`):
+The images are transformed by `multigeom.data.transforms` (64 x 64, single-channel, in [-1, 1]).
+Expected layout, under `data_dir()` (see `multigeom.config`):
 
     tiny-imagenet-200/train/<wnid>/images/<image>.JPEG    (100,000 images: training of the diffusion model)
     tiny-imagenet-200/val/images/<image>.JPEG             (10,000 images; the first 200, in sorted order, are the test images)
@@ -13,24 +14,9 @@ from pathlib import Path
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
-from torchvision import transforms
 
 from ..config import data_dir
-
-# Inception/ResNet input convention used in the paper:
-#   [-1, 1] grayscale, replicated to 3 channels at the encoder boundary.
-DEEP_TRANSFORM = transforms.Compose([
-    transforms.Resize((64, 64)),
-    transforms.Grayscale(num_output_channels=1),
-    transforms.ToTensor(),                           # → [1, 64, 64] in [0, 1]
-    transforms.Normalize(mean=[0.5], std=[0.5]),     # → [1, 64, 64] in [-1, 1]
-])
-
-# Canonical pipeline input, shared by every encoder and by the diffusion
-# model: [1, 64, 64] grayscale in [-1, 1]. Encoders whose backbone needs
-# another range (ResNet-50 with ImageNet statistics, OnOff in [0, 1]) convert
-# internally; see multigeom/encoders. Never feed [0, 1] images to an encoder.
-CANONICAL_TRANSFORM = DEEP_TRANSFORM
+from .transforms import CANONICAL_TRANSFORM
 
 
 class TinyImageNetDataset(Dataset):
