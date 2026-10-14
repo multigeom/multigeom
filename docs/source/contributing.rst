@@ -112,7 +112,7 @@ The version is set once, in ``multigeom/__init__.py`` (``__version__``), and ``p
 1. Update the version and ``CHANGELOG.md``, and merge to ``main`` once the tests and the docs build pass.
 2. Try the release on TestPyPI: in the Actions tab, run the *release* workflow by hand. Install from there in a fresh environment
    (``pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ multigeom``) and import it.
-3. Tag and push: ``git tag v1.0.0 && git push origin v1.0.0``. The *release* workflow checks that the tag equals the version, builds
+3. Tag and push: ``git tag v0.1.0.dev1 && git push origin v0.1.0.dev1``. The *release* workflow checks that the tag equals the version, builds
    the sdist and the wheel, and publishes them to PyPI.
 
 A version published to PyPI cannot be replaced or reused: fix a mistake with a new version.
