@@ -18,6 +18,7 @@ Usage:
         --responses runs/responses/inception/V1/train_responses.pt \\
         --out-dir runs/diffusion/inception/V1
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,7 +36,7 @@ from tqdm import tqdm
 
 
 from ..config import load_config
-from ..data import CANONICAL_TRANSFORM, TinyImageNetDataset
+from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..utils import count_parameters, get_device, provenance, set_seed
 from .model import build_diffusion_model, build_scheduler
 
@@ -44,16 +45,23 @@ def parse_args(argv=None):
     """Command-line arguments of `python -m multigeom.diffusion.train`."""
     p = argparse.ArgumentParser()
     p.add_argument("--config", required=True)
-    p.add_argument("--responses", required=True,
-                   help="Stage-2 train_responses.pt produced by `multigeom.diffusion.responses`")
+    p.add_argument(
+        "--responses",
+        required=True,
+        help="Stage-2 train_responses.pt produced by `multigeom.diffusion.responses`",
+    )
     p.add_argument("--out-dir", required=True)
     p.add_argument("--device", default=None)
     p.add_argument("--data-dir", default=None)
     p.add_argument("--num-workers", type=int, default=4)
-    p.add_argument("--save-every", type=int, default=20,
-                   help="checkpoint period in epochs")
-    p.add_argument("--resume", action="store_true",
-                   help="continue from <out-dir>/last.pt if it exists")
+    p.add_argument(
+        "--save-every", type=int, default=20, help="checkpoint period in epochs"
+    )
+    p.add_argument(
+        "--resume",
+        action="store_true",
+        help="continue from <out-dir>/last.pt if it exists",
+    )
     return p.parse_args(argv)
 
 
@@ -63,8 +71,10 @@ class TinyImageNetWithResponses(torch.utils.data.Dataset):
     def __init__(self, image_dataset: TinyImageNetDataset, responses: torch.Tensor):
         if len(image_dataset) != responses.shape[0]:
             raise ValueError(
-                f"Dataset size ({len(image_dataset)}) != responses size ({responses.shape[0]}); "
-                "ensure the response file was produced by `multigeom.diffusion.responses` "
+                f"Dataset size ({len(image_dataset)}) != responses size "
+                f"({responses.shape[0]}); "
+                "ensure the response file was produced by "
+                "`multigeom.diffusion.responses` "
                 "for the same TinyImageNet split, in sorted-class / sorted-file order."
             )
         self.image_dataset = image_dataset
@@ -101,19 +111,19 @@ def train_diffusion(
     progress: bool = True,
 ):
     """
-    Train the conditional diffusion model of an encoder, and write `final_model.pt` (rewritten after every epoch),
-    `train_log.json`, and `last.pt` (to resume an interrupted run with `resume=True`) to `out_dir`.
+    Train the conditional diffusion model of an encoder, and write `final_model.pt`
+    (rewritten after every epoch), `train_log.json`, and `last.pt` (to resume an
+    interrupted run with `resume=True`) to `out_dir`.
 
-    Args:
-        cfg: the diffusion configuration (`DiffusionConfig.for_encoder(encoder)` sets the conditioning width). The
-            recipe (epochs, batch size, learning rate, ...) is `cfg.train`; copy and edit `cfg` for a shorter run.
-        image_dataset: a dataset of images [1, 64, 64] in [-1, 1] (for example `TinyImageNetDataset`).
-        responses: [len(image_dataset), n_neurons] responses of the encoder to those images
-            (see `multigeom.diffusion.responses.precompute_responses`).
-        out_dir: output folder.
-        metadata: extra entries saved in the checkpoint (for example the encoder name and area).
-        log: where progress messages go (`print`, a function taking a string, or None for silence).
-        progress: show a progress bar over the batches of each epoch.
+    Args: cfg: the diffusion configuration (`DiffusionConfig.for_encoder(encoder)` sets
+    the conditioning width). The recipe (epochs, batch size, learning rate, ...) is
+    `cfg.train`; copy and edit `cfg` for a shorter run. image_dataset: a dataset of
+    images [1, 64, 64] in [-1, 1] (for example `TinyImageNetDataset`). responses:
+    [len(image_dataset), n_neurons] responses of the encoder to those images (see
+    `multigeom.diffusion.responses.precompute_responses`). out_dir: output folder.
+    metadata: extra entries saved in the checkpoint (for example the encoder name and
+    area). log: where progress messages go (`print`, a function taking a string, or None
+    for silence). progress: show a progress bar over the batches of each epoch.
 
     Returns:
         The loss history, `{"epoch": [...], "loss": [...]}`.
@@ -123,14 +133,19 @@ def train_diffusion(
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     metadata = metadata or {}
-    prov = prov if prov is not None else provenance({"diffusion": "diffusion"}, seed=cfg.train.seed)
+    prov = (
+        prov
+        if prov is not None
+        else provenance({"diffusion": "diffusion"}, seed=cfg.train.seed)
+    )
     say = log or (lambda *_: None)
 
     n_neurons = int(responses.shape[1])
     if n_neurons != cfg.conditioning.mlp_layers[0]:
         raise ValueError(
             f"Response dimension {n_neurons} doesn't match "
-            f"diffusion config conditioning.mlp_layers[0]={cfg.conditioning.mlp_layers[0]} "
+            "diffusion config "
+            f"conditioning.mlp_layers[0]={cfg.conditioning.mlp_layers[0]} "
             f"(use DiffusionConfig.for_encoder(encoder))"
         )
     dataset = TinyImageNetWithResponses(image_dataset, responses)
@@ -151,7 +166,8 @@ def train_diffusion(
 
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=cfg.train.lr, weight_decay=cfg.train.weight_decay,
+        lr=cfg.train.lr,
+        weight_decay=cfg.train.weight_decay,
     )
 
     steps_per_epoch = len(loader)
@@ -159,8 +175,13 @@ def train_diffusion(
     warmup_steps = cfg.train.warmup_steps
 
     use_bf16 = cfg.train.precision == "bfloat16" and device.type == "cuda"
-    # bfloat16 only on a GPU; otherwise no autocast at all (older torch versions refuse a float32 autocast on the CPU)
-    autocast = (lambda: torch.autocast(device_type=device.type, dtype=torch.bfloat16)) if use_bf16 else contextlib.nullcontext
+    # bfloat16 only on a GPU; otherwise no autocast at all (older torch versions refuse
+    # a float32 autocast on the CPU)
+    autocast = (
+        (lambda: torch.autocast(device_type=device.type, dtype=torch.bfloat16))
+        if use_bf16
+        else contextlib.nullcontext
+    )
     grad_clip = float(cfg.train.gradient_clip)
     sigma = float(cfg.conditioning.observation_noise_sigma)
     p_drop = float(cfg.conditioning.cfg_dropout_rate)
@@ -184,16 +205,23 @@ def train_diffusion(
         if device.type == "cuda" and state.get("rng_cuda") is not None:
             torch.cuda.set_rng_state(state["rng_cuda"], device)
         say(f"[Stage 3] Resuming from {last_path} after epoch {state['epoch']}")
-    say(f"[Stage 3] Training for {cfg.train.epochs} epochs "
-        f"({total_steps} steps, batch={cfg.train.batch_size}) ...")
+    say(
+        f"[Stage 3] Training for {cfg.train.epochs} epochs "
+        f"({total_steps} steps, batch={cfg.train.batch_size}) ..."
+    )
 
     for epoch in range(start_epoch, cfg.train.epochs + 1):
         model.train()
         epoch_loss, n_batches = 0.0, 0
-        pbar = tqdm(loader, desc=f"epoch {epoch:3d}/{cfg.train.epochs}", leave=False, disable=not progress)
+        pbar = tqdm(
+            loader,
+            desc=f"epoch {epoch:3d}/{cfg.train.epochs}",
+            leave=False,
+            disable=not progress,
+        )
         for x, r in pbar:
-            x = x.to(device, non_blocking=True)                 # [B, 1, 64, 64] in [-1, 1]
-            r = r.to(device, non_blocking=True)                 # [B, n_neurons]
+            x = x.to(device, non_blocking=True)  # [B, 1, 64, 64] in [-1, 1]
+            r = r.to(device, non_blocking=True)  # [B, n_neurons]
 
             B = x.shape[0]
 
@@ -230,7 +258,9 @@ def train_diffusion(
             epoch_loss += loss.item()
             n_batches += 1
             global_step += 1
-            pbar.set_postfix(loss=f"{loss.item():.4f}", lr=f"{cfg.train.lr * lr_factor:.2e}")
+            pbar.set_postfix(
+                loss=f"{loss.item():.4f}", lr=f"{cfg.train.lr * lr_factor:.2e}"
+            )
 
         epoch_loss /= max(1, n_batches)
         history["epoch"].append(epoch)
@@ -253,19 +283,29 @@ def train_diffusion(
         with open(out_dir / "train_log.json", "w") as f:
             json.dump(history, f, indent=2)
         tmp = out_dir / "last.pt.tmp"
-        torch.save({
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "epoch": epoch,
-            "global_step": global_step,
-            "history": history,
-            "rng_cpu": torch.get_rng_state(),
-            "rng_cuda": torch.cuda.get_rng_state(device) if device.type == "cuda" else None,
-        }, tmp)
-        tmp.replace(last_path)                     # atomic: never a half-written last.pt
+        torch.save(
+            {
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "epoch": epoch,
+                "global_step": global_step,
+                "history": history,
+                "rng_cpu": torch.get_rng_state(),
+                "rng_cuda": torch.cuda.get_rng_state(device)
+                if device.type == "cuda"
+                else None,
+            },
+            tmp,
+        )
+        tmp.replace(last_path)  # atomic: never a half-written last.pt
 
     last_path.unlink(missing_ok=True)
-    say(f"[Stage 3] Saved checkpoint to {out_dir / 'final_model.pt'} (epoch {cfg.train.epochs})")
+    say(
+        (
+            f"[Stage 3] Saved checkpoint to {out_dir / 'final_model.pt'} (epoch "
+            f"{cfg.train.epochs})"
+        )
+    )
     return history
 
 
@@ -281,23 +321,39 @@ def main(argv=None):
     # ── Load responses produced by Stage 2 ───────────────────────────────
     print(f"[Stage 3] Loading responses from {args.responses} ...")
     resp_pkg = torch.load(args.responses, map_location="cpu", weights_only=False)
-    responses = resp_pkg["responses"]                    # [N, n_neurons]
-    print(f"  responses: {tuple(responses.shape)}, encoder='{resp_pkg.get('encoder_name', '?')}', "
-          f"area='{resp_pkg.get('area', '?')}'")
+    responses = resp_pkg["responses"]  # [N, n_neurons]
+    print(
+        f"  responses: {tuple(responses.shape)}, "
+        f"encoder='{resp_pkg.get('encoder_name', '?')}', "
+        f"area='{resp_pkg.get('area', '?')}'"
+    )
 
     # ── Pair the images with the responses ───────────────────────────────
-    image_dataset = TinyImageNetDataset(split=cfg.train.data_split, transform=CANONICAL_TRANSFORM)
+    image_dataset = TinyImageNetDataset(
+        split=cfg.train.data_split, transform=CANONICAL_TRANSFORM
+    )
     if len(image_dataset) > cfg.train.n_train_images:
         # Truncate deterministically (sorted order from the data loader).
-        image_dataset.image_paths = image_dataset.image_paths[: cfg.train.n_train_images]
+        image_dataset.image_paths = image_dataset.image_paths[
+            : cfg.train.n_train_images
+        ]
         responses = responses[: cfg.train.n_train_images]
     print(f"  paired dataset size: {len(image_dataset)}")
 
     train_diffusion(
-        cfg, image_dataset, responses, args.out_dir,
-        device=device, num_workers=args.num_workers, save_every=args.save_every, resume=args.resume,
+        cfg,
+        image_dataset,
+        responses,
+        args.out_dir,
+        device=device,
+        num_workers=args.num_workers,
+        save_every=args.save_every,
+        resume=args.resume,
         metadata={
-            "config": {"diffusion": str(args.config), "responses_path": str(args.responses)},
+            "config": {
+                "diffusion": str(args.config),
+                "responses_path": str(args.responses),
+            },
             "encoder_name": resp_pkg.get("encoder_name"),
             "area": resp_pkg.get("area"),
         },

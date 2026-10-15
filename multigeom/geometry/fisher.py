@@ -22,19 +22,24 @@ The backbone parameters are frozen (`requires_grad = False`), so gradients
 of the response w.r.t. the input flow through but no gradient is computed
 for the backbone weights.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import torch
 
-from ..encoder import ensure_valid
+from ..encoders.contract import ensure_valid
 
 
 @dataclass
 class FisherOutput:
-    """Top eigenpairs of J(x) returned by `compute_fisher`: eigenvalues [k] and eigenvectors [k, P], largest first."""
-    eigenvalues: torch.Tensor   # [k]   top-k eigenvalues of J(x), descending
+    """
+    Top eigenpairs of J(x) returned by `compute_fisher`: eigenvalues [k] and
+    eigenvectors [k, P], largest first.
+    """
+
+    eigenvalues: torch.Tensor  # [k]   top-k eigenvalues of J(x), descending
     eigenvectors: torch.Tensor  # [k, P] rows are top-k eigenvectors of J(x)
 
 
@@ -49,17 +54,15 @@ def fisher_eigendecomposition(
     """
     Compute the top-k eigenpairs of J(x) = (1/σ²) J_{f_φ}ᵀ J_{f_φ}.
 
-    Args:
-        image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline coords).
-        encoder: f_φ — an `nn.Module` satisfying the contract of `multigeom.encoder` (any user model), or one
-                 built by `multigeom.encoders.build_encoder`. The Jacobian is taken through the public `forward`;
-                 encoders that expose `_to_backbone_input`, `backbone` and `readout` (the reference encoders and the
-                 test mocks) use those directly.
-        sigma: σ from the Gaussian observation model.
-        top_k: number of eigenpairs to return.
-        device: target device. Defaults to encoder's parameter device.
-        validate: check the encoder against the contract first (once per encoder object; any encoder that
-                  does not expose the reference-encoder internals). Raises EncoderContractError.
+    Args: image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline coords). encoder: f_φ —
+    an `nn.Module` satisfying the contract of `multigeom.encoders.contract` (any user
+    model), or one built by `multigeom.encoders.build_encoder`. The Jacobian is taken
+    through the public `forward`; encoders that expose `_to_backbone_input`, `backbone`
+    and `readout` (the reference encoders and the test mocks) use those directly. sigma:
+    σ from the Gaussian observation model. top_k: number of eigenpairs to return.
+    device: target device. Defaults to encoder's parameter device. validate: check the
+    encoder against the contract first (once per encoder object; any encoder that does
+    not expose the reference-encoder internals). Raises EncoderContractError.
 
     Returns:
         FisherOutput with `eigenvalues` [k] and `eigenvectors` [k, P=4096].
@@ -69,25 +72,36 @@ def fisher_eigendecomposition(
         device = next(encoder.parameters()).device
 
     if image.dim() != 4 or image.shape[0] != 1:
-        raise ValueError(f"Expected single-image batch [1, C, H, W], got {tuple(image.shape)}")
+        raise ValueError(
+            f"Expected single-image batch [1, C, H, W], got {tuple(image.shape)}"
+        )
     image = image.to(device)
 
     # Forward pass with gradient tracking on the input only. The backbone's
     # parameters have requires_grad = False (frozen), but gradients of the
     # output w.r.t. the *input* flow through it just fine.
-    legacy = all(hasattr(encoder, a) for a in ("_to_backbone_input", "backbone", "readout"))
+    legacy = all(
+        hasattr(encoder, a) for a in ("_to_backbone_input", "backbone", "readout")
+    )
     if validate and not legacy:
-        ensure_valid(encoder, device=device, image_shape=tuple(image.shape[1:]), sigma=sigma, purpose="inference")
+        ensure_valid(
+            encoder,
+            device=device,
+            image_shape=tuple(image.shape[1:]),
+            sigma=sigma,
+            purpose="inference",
+        )
     x = image.detach().clone().requires_grad_(True)
     with torch.enable_grad():
-        # enable_grad also makes this work when the caller is itself inside a no_grad block.
+        # enable_grad also makes this work when the caller is itself inside a no_grad
+        # block.
         if legacy:
             # Build the graph explicitly (input conversion → backbone → readout).
             x_bb = encoder._to_backbone_input(x)
             features = encoder.backbone(x_bb)
-            responses = encoder.readout(features)        # [1, n_neurons]
+            responses = encoder.readout(features)  # [1, n_neurons]
         else:
-            responses = encoder(x)                       # [1, n_neurons], through the public forward
+            responses = encoder(x)  # [1, n_neurons], through the public forward
 
         n_neurons = responses.shape[1]
         P = x[0].numel()
@@ -101,8 +115,8 @@ def fisher_eigendecomposition(
     # SVD of the n × P Jacobian (n ≪ P → "thin" SVD).
     # If J_f = U S Vᵀ, then J_fᵀ J_f = V S² Vᵀ.
     U, S, Vh = torch.linalg.svd(J_f, full_matrices=False)
-    eigenvalues = (S ** 2) / (sigma ** 2)
-    eigenvectors = Vh                                # [n_neurons, P]
+    eigenvalues = (S**2) / (sigma**2)
+    eigenvectors = Vh  # [n_neurons, P]
 
     k = min(top_k, n_neurons)
     return FisherOutput(

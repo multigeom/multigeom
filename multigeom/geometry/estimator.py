@@ -24,14 +24,14 @@ Algorithm 1 (paper) — implemented here verbatim:
     2. w_j     ← ½ (log τ_{j+1} − log τ_{j−1})        (half-weights at endpoints)
     3. for j = 1,...,J:
     4.   for n = 1,...,N_MC in batches of B:
-    5.     z ~ N(0, I)                                                          [B,1,64,64]
-    6.     x_t ← √ᾱ_{t_j} x + √(1−ᾱ_{t_j}) z                                    [B,1,64,64]
-    7.     ε^u  ← ε_θ(x_t, t_j, 0)                                              null-token pass
+    5.     z ~ N(0, I)                                        [B,1,64,64]
+    6.     x_t ← √ᾱ_{t_j} x + √(1−ᾱ_{t_j}) z                  [B,1,64,64]
+    7.     ε^u  ← ε_θ(x_t, t_j, 0)                            null-token pass
     8.     x̂   ← (x_t − √(1−ᾱ_{t_j}) ε^u) / √ᾱ_{t_j}                            Tweedie
     9.     x̂   ← clip(x̂, −1, 1)
    10.     μ   ← f_φ(x̂)                                                         [B,N]
    11.     ξ_1, ξ_2 ~ N(0, I)                                                   [B,N]
-   12.     r_1, r_2 ← μ + σ ξ_1, μ + σ ξ_2                                      Eq. (eq:obs-model)
+   12.     r_1, r_2 ← μ + σ ξ_1, μ + σ ξ_2                    Eq. (eq:obs-model)
    13.     ε^c_1, ε^c_2 ← ε_θ(x_t, t_j, r_1), ε_θ(x_t, t_j, r_2)
    14.     Δ ← flatten(ε^c_1 − ε^c_2)                                           [B, 64²]
    15.     append √(w_j / (2 N_MC)) · Δ to D
@@ -43,6 +43,7 @@ This is the **conditional-pair** estimator (Eq. (eq:cc)). It is *not* the
 unconditional-conditional estimator (which has a per-image-dependent bias
 documented in Appendix C.2 of the paper).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -50,22 +51,30 @@ from typing import TYPE_CHECKING, Iterable
 
 import torch
 
-from ..encoder import ensure_valid
+from ..encoders.contract import ensure_valid
 
-if TYPE_CHECKING:                                  # the estimator itself needs no diffusers: the UNet is only annotated
+if TYPE_CHECKING:  # the estimator itself needs no diffusers: the UNet is only annotated
     from ..diffusion.model import NeuralConditionedUNet
 
 
 @dataclass
 class EstimatorOutput:
-    """Top eigenpairs of G(x) returned by `compute_g`: eigenvalues [k] and eigenvectors [k, P], largest first."""
-    eigenvalues: torch.Tensor   # [k]   top-k eigenvalues of G(x), descending
+    """
+    Top eigenpairs of G(x) returned by `compute_g`: eigenvalues [k] and eigenvectors [k,
+    P], largest first.
+    """
+
+    eigenvalues: torch.Tensor  # [k]   top-k eigenvalues of G(x), descending
     eigenvectors: torch.Tensor  # [k, P] rows are top-k eigenvectors of G(x)
 
 
-def _build_log_tau_grid(timestep_grid: Iterable[int], alphas_cumprod: torch.Tensor) -> torch.Tensor:
+def _build_log_tau_grid(
+    timestep_grid: Iterable[int], alphas_cumprod: torch.Tensor
+) -> torch.Tensor:
     """log τ_j = log[(1 − ᾱ_{t_j}) / ᾱ_{t_j}], evaluated at integer timesteps."""
-    grid_t = torch.tensor(list(timestep_grid), dtype=torch.long, device=alphas_cumprod.device)
+    grid_t = torch.tensor(
+        list(timestep_grid), dtype=torch.long, device=alphas_cumprod.device
+    )
     a_bar = alphas_cumprod[grid_t]
     return torch.log((1.0 - a_bar) / a_bar)
 
@@ -96,44 +105,49 @@ def conditional_pair_estimate(
     Compute top-k eigenpairs of G(x) for a single image via the
     conditional-pair estimator (Algorithm 1).
 
-    Args:
-        image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline input).
-        encoder: f_φ — built by `multigeom.encoders.build_encoder`. Must accept
-                 `[B, 1, 64, 64]` in [-1, 1] and return `[B, n_neurons]`.
-        unet: trained NeuralConditionedUNet (ε_θ).
-        alphas_cumprod: scheduler.alphas_cumprod, shape [T] on device.
-        cfg: estimator config namespace (see configs/estimator.yaml).
-        device: torch device.
-        generator: optional torch.Generator on `device` for all Monte-Carlo
-                   draws (z, ξ_1, ξ_2). Stage 4 seeds one per image so each
-                   image's estimate is reproducible on its own.
-        validate: check the encoder against the contract of `multigeom.encoder` first (it runs the encoder
-                  a few times, so mocks that record their calls should leave this off). Raises
-                  EncoderContractError. Off by default here; the Fisher baseline validates by default.
+    Args: image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline input). encoder: f_φ —
+    built by `multigeom.encoders.build_encoder`. Must accept `[B, 1, 64, 64]` in [-1, 1]
+    and return `[B, n_neurons]`. unet: trained NeuralConditionedUNet (ε_θ).
+    alphas_cumprod: scheduler.alphas_cumprod, shape [T] on device. cfg: estimator config
+    namespace (see configs/estimator.yaml). device: torch device. generator: optional
+    torch.Generator on `device` for all Monte-Carlo draws (z, ξ_1, ξ_2). Stage 4 seeds
+    one per image so each image's estimate is reproducible on its own. validate: check
+    the encoder against the contract of `multigeom.encoders.contract` first (it runs the
+    encoder a few times, so mocks that record their calls should leave this off). Raises
+    EncoderContractError. Off by default here; the Fisher baseline validates by default.
 
     Returns:
         EstimatorOutput with `eigenvalues` [k] and `eigenvectors` [k, 4096].
     """
     if validate:
-        ensure_valid(encoder, device=device, image_shape=tuple(image.shape[1:]),
-                     sigma=float(cfg.monte_carlo.observation_noise_sigma), purpose="inference")
+        ensure_valid(
+            encoder,
+            device=device,
+            image_shape=tuple(image.shape[1:]),
+            sigma=float(cfg.monte_carlo.observation_noise_sigma),
+            purpose="inference",
+        )
     encoder.eval()
     unet.eval()
 
     if image.dim() != 4 or image.shape[0] != 1:
-        raise ValueError(f"Expected single-image batch [1, C, H, W], got {tuple(image.shape)}")
+        raise ValueError(
+            f"Expected single-image batch [1, C, H, W], got {tuple(image.shape)}"
+        )
     image = image.to(device)
     H, W = image.shape[-2:]
     P = H * W
 
     # ── Line 1-2: log-τ grid + trapezoid weights ─────────────────────────
-    grid_t = list(range(
-        cfg.monte_carlo.timestep_grid.start,
-        cfg.monte_carlo.timestep_grid.stop + 1,
-        cfg.monte_carlo.timestep_grid.step,
-    ))
+    grid_t = list(
+        range(
+            cfg.monte_carlo.timestep_grid.start,
+            cfg.monte_carlo.timestep_grid.stop + 1,
+            cfg.monte_carlo.timestep_grid.step,
+        )
+    )
     log_tau = _build_log_tau_grid(grid_t, alphas_cumprod)
-    w = _trapezoid_weights(log_tau)                               # [J]
+    w = _trapezoid_weights(log_tau)  # [J]
     J = len(grid_t)
 
     N_MC = int(cfg.monte_carlo.n_samples)
@@ -168,16 +182,20 @@ def conditional_pair_estimate(
             x_hat = x_hat.clamp(-1.0, 1.0)
 
             # Line 10-12: sample r_1, r_2 ~ N(f_φ(x̂), σ² I)
-            mu = encoder(x_hat)                                    # [B, n_neurons]
-            xi1 = torch.randn(mu.shape, device=device, dtype=mu.dtype, generator=generator)
-            xi2 = torch.randn(mu.shape, device=device, dtype=mu.dtype, generator=generator)
+            mu = encoder(x_hat)  # [B, n_neurons]
+            xi1 = torch.randn(
+                mu.shape, device=device, dtype=mu.dtype, generator=generator
+            )
+            xi2 = torch.randn(
+                mu.shape, device=device, dtype=mu.dtype, generator=generator
+            )
             r1 = mu + sigma * xi1
             r2 = mu + sigma * xi2
 
             # Line 13-15: two conditional forward passes, take ε-difference
             eps1 = unet(x_t, t_tensor, r1)
             eps2 = unet(x_t, t_tensor, r2)
-            delta = (eps1 - eps2).reshape(B, P)                    # [B, P]
+            delta = (eps1 - eps2).reshape(B, P)  # [B, P]
             D[write_idx : write_idx + B] = (s_j * delta).cpu()
             write_idx += B
 
@@ -187,8 +205,8 @@ def conditional_pair_estimate(
     # Thin SVD of D ∈ ℝ^{(J·N_MC) × P}; with the paper's settings
     # J·N_MC = 24·200 = 4800 rows and P = 64² = 4096 columns.
     U, S, Vh = torch.linalg.svd(D, full_matrices=False)
-    eigenvalues = S ** 2  # G ≈ DᵀD has eigenvalues = singular values of D, squared
-    eigenvectors = Vh     # rows of Vh are right singular vectors of D = eigvecs of DᵀD
+    eigenvalues = S**2  # G ≈ DᵀD has eigenvalues = singular values of D, squared
+    eigenvectors = Vh  # rows of Vh are right singular vectors of D = eigvecs of DᵀD
 
     k = int(cfg.top_k)
     return EstimatorOutput(

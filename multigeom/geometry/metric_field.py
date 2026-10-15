@@ -14,8 +14,8 @@ encoder is projected onto the fixed reference plane V = [v₁, v₂] ∈ ℝ^{P�
     M₂(a, b) = Vᵀ M(x(a, b)) V ∈ ℝ^{2×2},
 
 evaluated from the truncated eigendecomposition M ≈ U diag(λ) Uᵀ returned by
-`multigeom.geometry.estimator` / `multigeom.geometry.fisher`, i.e. M₂ = (VᵀU) diag(λ) (VᵀU)ᵀ. No P × P
-matrix is formed.
+`multigeom.geometry.estimator` / `multigeom.geometry.fisher`, i.e. M₂ = (VᵀU) diag(λ)
+(VᵀU)ᵀ. No P × P matrix is formed.
 
 Step rule. The paper scales the perturbations "by the principal eigenvalues
 at the reference image". The default rule is therefore
@@ -41,6 +41,7 @@ than an unbounded one. It is the inverse of the iso-distance ellipse
 
 Everything here is CPU/GPU agnostic and has no dependency on `diffusers`.
 """
+
 from __future__ import annotations
 
 import math
@@ -59,10 +60,14 @@ def grid_coefficients(grid_size: int) -> np.ndarray:
     return np.arange(-h, h + 1)
 
 
-def step_sizes(lam1: float, lam2: float, rule: str, step_size: float) -> tuple[float, float]:
+def step_sizes(
+    lam1: float, lam2: float, rule: str, step_size: float
+) -> tuple[float, float]:
     """(ε₁, ε₂) for the given step rule (see module docstring)."""
     if rule == "sqrt_lambda":
-        return step_size * math.sqrt(max(lam1, 0.0)), step_size * math.sqrt(max(lam2, 0.0))
+        return step_size * math.sqrt(max(lam1, 0.0)), step_size * math.sqrt(
+            max(lam2, 0.0)
+        )
     if rule == "fixed":
         return float(step_size), float(step_size)
     raise ValueError(f"Unknown step rule {rule!r}; expected one of {STEP_RULES}")
@@ -109,7 +114,9 @@ def perturbation_grid(
     return images, clamp_fraction
 
 
-def project_metric(eigvals: torch.Tensor, eigvecs: torch.Tensor, V: torch.Tensor) -> torch.Tensor:
+def project_metric(
+    eigvals: torch.Tensor, eigvecs: torch.Tensor, V: torch.Tensor
+) -> torch.Tensor:
     """
     M₂ = Vᵀ (U diag(λ) Uᵀ) V for a truncated eigendecomposition.
 
@@ -121,7 +128,7 @@ def project_metric(eigvals: torch.Tensor, eigvecs: torch.Tensor, V: torch.Tensor
     Returns:
         [2, 2] symmetric float64 tensor.
     """
-    proj = V.to(torch.float64) @ eigvecs.to(V.device, torch.float64).T       # [2, k]
+    proj = V.to(torch.float64) @ eigvecs.to(V.device, torch.float64).T  # [2, k]
     lam = eigvals.to(V.device, torch.float64).clamp(min=0)
     M2 = (proj * lam.unsqueeze(0)) @ proj.T
     return 0.5 * (M2 + M2.T)
@@ -131,7 +138,7 @@ def ellipse_params(M2: np.ndarray | torch.Tensor) -> tuple[float, float, float]:
     """(width, height, angle in degrees) of the M₂^{1/2} ellipse (module docstring)."""
     M2 = np.asarray(M2, dtype=np.float64)
     M2 = 0.5 * (M2 + M2.T)
-    mu, U = np.linalg.eigh(M2)                      # ascending
+    mu, U = np.linalg.eigh(M2)  # ascending
     mu = np.clip(mu, 0.0, None)
     width = 2.0 * math.sqrt(mu[1])
     height = 2.0 * math.sqrt(mu[0])

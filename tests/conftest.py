@@ -1,4 +1,8 @@
-"""Shared test helpers: the package and the repository on sys.path, synthetic data, tiny configs."""
+"""
+Shared test helpers: the package and the repository on sys.path, synthetic data, tiny
+configs.
+"""
+
 from __future__ import annotations
 
 import os
@@ -15,24 +19,33 @@ os.environ.setdefault("USE_TF", "0")
 os.environ.setdefault("USE_FLAX", "0")
 
 REPO = Path(__file__).resolve().parent.parent
-if str(REPO) not in sys.path:                  # the package, also without installing
+if str(REPO) not in sys.path:  # the package, also without installing
     sys.path.insert(0, str(REPO))
 
 
-def linear_beta_alphas_cumprod(T: int = 1000, beta_start: float = 1e-4,
-                               beta_end: float = 0.02) -> torch.Tensor:
+def linear_beta_alphas_cumprod(
+    T: int = 1000, beta_start: float = 1e-4, beta_end: float = 0.02
+) -> torch.Tensor:
     """ᾱ_t = Π_{s≤t} (1 − β_s) for the linear β schedule of Ho et al. (float64)."""
     betas = torch.linspace(beta_start, beta_end, T, dtype=torch.float64)
     return torch.cumprod(1.0 - betas, dim=0)
 
 
-def estimator_cfg(n_samples: int, batch_size: int, start: int, stop: int, step: int,
-                  sigma: float, top_k: int) -> SimpleNamespace:
+def estimator_cfg(
+    n_samples: int,
+    batch_size: int,
+    start: int,
+    stop: int,
+    step: int,
+    sigma: float,
+    top_k: int,
+) -> SimpleNamespace:
     """Namespace shaped like the packaged estimator config."""
     return SimpleNamespace(
         top_k=top_k,
         monte_carlo=SimpleNamespace(
-            n_samples=n_samples, batch_size=batch_size,
+            n_samples=n_samples,
+            batch_size=batch_size,
             timestep_grid=SimpleNamespace(start=start, stop=stop, step=step),
             observation_noise_sigma=sigma,
         ),
@@ -44,8 +57,15 @@ def repo_root() -> Path:
     return REPO
 
 
-def write_fake_tvsd(tvsd_dir: Path, n_train: int = 9, n_test: int = 4, n_trials: int = 6,
-                    n_channels: int = 1024, seed: int = 0, transpose: bool = False) -> dict:
+def write_fake_tvsd(
+    tvsd_dir: Path,
+    n_train: int = 9,
+    n_test: int = 4,
+    n_trials: int = 6,
+    n_channels: int = 1024,
+    seed: int = 0,
+    transpose: bool = False,
+) -> dict:
     """
     Write a synthetic MATLAB-v7.3-like TVSD pair with h5py, laid out like the
     real files as h5py reads them:
@@ -68,7 +88,7 @@ def write_fake_tvsd(tvsd_dir: Path, n_train: int = 9, n_test: int = 4, n_trials:
     tvsd_dir = Path(tvsd_dir)
     tvsd_dir.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(seed)
-    train = (1000.0 * np.arange(n_train)[:, None] + np.arange(n_channels)[None, :])
+    train = 1000.0 * np.arange(n_train)[:, None] + np.arange(n_channels)[None, :]
     test_mean = rng.standard_normal((n_test, n_channels))
     noise = rng.standard_normal((n_trials, n_test, n_channels))
     noise -= noise.mean(axis=0, keepdims=True)
@@ -91,6 +111,13 @@ def write_fake_tvsd(tvsd_dir: Path, n_train: int = 9, n_test: int = 4, n_trials:
                 chars = np.array([ord(ch) for ch in p], dtype=np.uint16)[:, None]
                 refs.append(refs_grp.create_dataset(f"{split}_{i}", data=chars).ref)
             g = f.create_group(f"{split}_imgs")
-            g.create_dataset("things_path", data=np.array(refs, dtype=h5py.ref_dtype)[:, None])
-    return {"train": train, "test_mean": test_mean, "reps": reps, "oracle": oracle,
-            "paths": paths}
+            g.create_dataset(
+                "things_path", data=np.array(refs, dtype=h5py.ref_dtype)[:, None]
+            )
+    return {
+        "train": train,
+        "test_mean": test_mean,
+        "reps": reps,
+        "oracle": oracle,
+        "paths": paths,
+    }

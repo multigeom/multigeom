@@ -19,6 +19,7 @@ The null branch is built so that Tweedie's formula returns a known image c:
 ε_null = (x_t − √ᾱ_t c) / √(1−ᾱ_t) ⇒ x̂ = c, which the mock encoder records
 (after the clip to [−1, 1]).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -29,7 +30,9 @@ import torch.nn as nn
 pytest.importorskip("diffusers")
 
 from multigeom.geometry.estimator import (  # noqa: E402
-    _build_log_tau_grid, _trapezoid_weights, conditional_pair_estimate,
+    _build_log_tau_grid,
+    _trapezoid_weights,
+    conditional_pair_estimate,
 )
 from conftest import estimator_cfg, linear_beta_alphas_cumprod  # noqa: E402
 
@@ -40,12 +43,15 @@ SIGMA = 0.3
 
 
 class AffineUNet(nn.Module):
-    """ε(x_t,t,r) = A r + h(x_t) for r ≠ 0; Tweedie-consistent null branch returning x̂ = c."""
+    """
+    ε(x_t,t,r) = A r + h(x_t) for r ≠ 0; Tweedie-consistent null branch returning x̂ =
+    c.
+    """
 
     def __init__(self, A: torch.Tensor, c: torch.Tensor, alphas_cumprod: torch.Tensor):
         super().__init__()
-        self.register_buffer("A", A.float())                   # [P, n]
-        self.register_buffer("c", c.float())                   # [1, 1, H, W]
+        self.register_buffer("A", A.float())  # [P, n]
+        self.register_buffer("c", c.float())  # [1, 1, H, W]
         self.register_buffer("ab", alphas_cumprod.float())
         self.dummy = nn.Parameter(torch.zeros(1))
 
@@ -89,14 +95,15 @@ def _alphas32():
 def test_log_tau_grid_matches_linear_beta_closed_form():
     from diffusers import DDPMScheduler
 
-    sched = DDPMScheduler(num_train_timesteps=1000, beta_schedule="linear",
-                          beta_start=1e-4, beta_end=0.02)
+    sched = DDPMScheduler(
+        num_train_timesteps=1000, beta_schedule="linear", beta_start=1e-4, beta_end=0.02
+    )
     grid = list(range(40, 961, 40))
     got = _build_log_tau_grid(grid, sched.alphas_cumprod).double()
     ab = linear_beta_alphas_cumprod()[grid]
     expected = torch.log((1 - ab) / ab)
     torch.testing.assert_close(got, expected, rtol=1e-4, atol=1e-4)
-    assert torch.all(got[1:] > got[:-1])                     # τ increases with t
+    assert torch.all(got[1:] > got[:-1])  # τ increases with t
 
 
 def test_trapezoid_weights_half_weights_and_sum():
@@ -110,10 +117,12 @@ def test_trapezoid_weights_half_weights_and_sum():
 
 def test_trapezoid_weights_reproduce_numpy_trapezoid_rule():
     lt = torch.sort(torch.rand(11, dtype=torch.float64) * 10 - 5).values
-    f = torch.cos(lt) + lt ** 2
+    f = torch.cos(lt) + lt**2
     w = _trapezoid_weights(lt)
     trap = getattr(np, "trapezoid", None) or np.trapz
-    assert float((w * f).sum()) == pytest.approx(float(trap(f.numpy(), lt.numpy())), rel=1e-12)
+    assert float((w * f).sum()) == pytest.approx(
+        float(trap(f.numpy(), lt.numpy())), rel=1e-12
+    )
 
 
 # ── Algorithm 1 against the analytic expectation ───────────────────────────
@@ -124,21 +133,39 @@ def affine_estimate():
     c = torch.from_numpy(rng.uniform(-1.5, 1.5, (1, 1, H, W))).float()
     ab = _alphas32()
     unet, enc = AffineUNet(A, c, ab), RecordingEncoder()
-    cfg = estimator_cfg(n_samples=400, batch_size=100, start=100, stop=900, step=100,
-                        sigma=SIGMA, top_k=5)
+    cfg = estimator_cfg(
+        n_samples=400,
+        batch_size=100,
+        start=100,
+        stop=900,
+        step=100,
+        sigma=SIGMA,
+        top_k=5,
+    )
     image = torch.from_numpy(rng.uniform(-1, 1, (1, 1, H, W))).float()
-    out = conditional_pair_estimate(image, enc, unet, ab, cfg, torch.device("cpu"),
-                                    generator=torch.Generator().manual_seed(123))
+    out = conditional_pair_estimate(
+        image,
+        enc,
+        unet,
+        ab,
+        cfg,
+        torch.device("cpu"),
+        generator=torch.Generator().manual_seed(123),
+    )
     grid = list(range(100, 901, 100))
-    lt = torch.log((1 - linear_beta_alphas_cumprod()[grid]) / linear_beta_alphas_cumprod()[grid])
+    lt = torch.log(
+        (1 - linear_beta_alphas_cumprod()[grid]) / linear_beta_alphas_cumprod()[grid]
+    )
     W_sum = float(lt[-1] - lt[0])
     return out, U, s, W_sum, c, enc
 
 
 def test_cc_eigenvalues_match_sigma2_W_s2(affine_estimate):
     out, _, s, W_sum, _, _ = affine_estimate
-    expected = SIGMA ** 2 * W_sum * s ** 2
-    np.testing.assert_allclose(out.eigenvalues[:3].double().numpy(), expected, rtol=0.10)
+    expected = SIGMA**2 * W_sum * s**2
+    np.testing.assert_allclose(
+        out.eigenvalues[:3].double().numpy(), expected, rtol=0.10
+    )
 
 
 def test_cc_eigenvalues_beyond_rank_vanish(affine_estimate):
@@ -148,8 +175,8 @@ def test_cc_eigenvalues_beyond_rank_vanish(affine_estimate):
 
 def test_cc_eigenvectors_match_left_singular_vectors(affine_estimate):
     out, U, *_ = affine_estimate
-    V = out.eigenvectors[:3].double()                        # rows
-    cos = (V @ U).abs().diagonal()                           # matched by eigenvalue order
+    V = out.eigenvectors[:3].double()  # rows
+    cos = (V @ U).abs().diagonal()  # matched by eigenvalue order
     assert torch.all(cos > 0.98), cos
     # The span is exact (no Monte-Carlo error): D's rows lie in span(U).
     proj = (V @ U).pow(2).sum() / 3
@@ -159,8 +186,9 @@ def test_cc_eigenvectors_match_left_singular_vectors(affine_estimate):
 def test_cc_eigenvectors_orthonormal(affine_estimate):
     out, *_ = affine_estimate
     V = out.eigenvectors.double()
-    torch.testing.assert_close(V @ V.T, torch.eye(V.shape[0], dtype=torch.float64),
-                               atol=1e-5, rtol=0)
+    torch.testing.assert_close(
+        V @ V.T, torch.eye(V.shape[0], dtype=torch.float64), atol=1e-5, rtol=0
+    )
 
 
 def test_encoder_receives_clipped_tweedie_denoised_image(affine_estimate):
@@ -176,11 +204,19 @@ def _small_run(image, seed, global_seed):
     A, _, _ = _affine_problem(seed=2)
     ab = _alphas32()
     unet, enc = AffineUNet(A, torch.zeros(1, 1, H, W), ab), RecordingEncoder()
-    cfg = estimator_cfg(n_samples=20, batch_size=10, start=200, stop=600, step=200,
-                        sigma=SIGMA, top_k=4)
-    torch.manual_seed(global_seed)                           # must not matter
-    return conditional_pair_estimate(image, enc, unet, ab, cfg, torch.device("cpu"),
-                                     generator=torch.Generator().manual_seed(seed))
+    cfg = estimator_cfg(
+        n_samples=20, batch_size=10, start=200, stop=600, step=200, sigma=SIGMA, top_k=4
+    )
+    torch.manual_seed(global_seed)  # must not matter
+    return conditional_pair_estimate(
+        image,
+        enc,
+        unet,
+        ab,
+        cfg,
+        torch.device("cpu"),
+        generator=torch.Generator().manual_seed(seed),
+    )
 
 
 def test_same_seed_gives_identical_output_regardless_of_global_rng():
@@ -192,7 +228,9 @@ def test_same_seed_gives_identical_output_regardless_of_global_rng():
 
 def test_different_seed_gives_different_output():
     img = torch.rand(1, 1, H, W) * 2 - 1
-    assert not torch.equal(_small_run(img, 7, 0).eigenvalues, _small_run(img, 8, 0).eigenvalues)
+    assert not torch.equal(
+        _small_run(img, 7, 0).eigenvalues, _small_run(img, 8, 0).eigenvalues
+    )
 
 
 def test_per_image_estimate_independent_of_processing_order():
@@ -206,20 +244,32 @@ def test_per_image_estimate_independent_of_processing_order():
 def test_raises_when_n_mc_not_divisible_by_batch():
     A, _, _ = _affine_problem()
     ab = _alphas32()
-    cfg = estimator_cfg(n_samples=25, batch_size=10, start=100, stop=300, step=100,
-                        sigma=SIGMA, top_k=2)
+    cfg = estimator_cfg(
+        n_samples=25, batch_size=10, start=100, stop=300, step=100, sigma=SIGMA, top_k=2
+    )
     with pytest.raises(ValueError):
-        conditional_pair_estimate(torch.zeros(1, 1, H, W), RecordingEncoder(),
-                                  AffineUNet(A, torch.zeros(1, 1, H, W), ab), ab, cfg,
-                                  torch.device("cpu"))
+        conditional_pair_estimate(
+            torch.zeros(1, 1, H, W),
+            RecordingEncoder(),
+            AffineUNet(A, torch.zeros(1, 1, H, W), ab),
+            ab,
+            cfg,
+            torch.device("cpu"),
+        )
 
 
 def test_raises_on_multi_image_batch():
     A, _, _ = _affine_problem()
     ab = _alphas32()
-    cfg = estimator_cfg(n_samples=10, batch_size=10, start=100, stop=300, step=100,
-                        sigma=SIGMA, top_k=2)
+    cfg = estimator_cfg(
+        n_samples=10, batch_size=10, start=100, stop=300, step=100, sigma=SIGMA, top_k=2
+    )
     with pytest.raises(ValueError):
-        conditional_pair_estimate(torch.zeros(2, 1, H, W), RecordingEncoder(),
-                                  AffineUNet(A, torch.zeros(1, 1, H, W), ab), ab, cfg,
-                                  torch.device("cpu"))
+        conditional_pair_estimate(
+            torch.zeros(2, 1, H, W),
+            RecordingEncoder(),
+            AffineUNet(A, torch.zeros(1, 1, H, W), ab),
+            ab,
+            cfg,
+            torch.device("cpu"),
+        )

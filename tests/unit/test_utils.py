@@ -1,4 +1,5 @@
 """Tests for multigeom.utils: provenance, config loading, seeding helpers."""
+
 from __future__ import annotations
 
 import subprocess
@@ -13,8 +14,13 @@ from multigeom.utils import make_generator, provenance
 
 def _git_head():
     try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True,
-                              text=True, check=True).stdout.strip()
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return None
 
@@ -32,10 +38,12 @@ def test_provenance_records_commit_config_and_seed():
 
 
 def test_package_and_project_roots(tmp_path, monkeypatch):
-    assert (package_root() / "utils.py").exists() and (package_root() / "configs" / "estimator.yaml").exists()
+    assert (package_root() / "utils.py").exists() and (
+        package_root() / "configs" / "estimator.yaml"
+    ).exists()
     monkeypatch.delenv("MULTIGEOM_REPO", raising=False)
     monkeypatch.chdir(tmp_path)
-    assert project_root() == tmp_path.resolve()                                # the working folder
+    assert project_root() == tmp_path.resolve()  # the working folder
     monkeypatch.setenv("MULTIGEOM_REPO", str(tmp_path / "x"))
     assert project_root() == tmp_path / "x"
 

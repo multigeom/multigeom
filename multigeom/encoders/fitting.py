@@ -1,11 +1,14 @@
 """
 Fitting the readout of an encoder to neural responses.
 
-The backbone of an encoder is kept fixed, so its features are computed once and the readout is fitted on the cached
-features (fast, and the same for a pretrained backbone as for one that you trained yourself). `fit_readout_on_features`
-is the loop and the only place where a readout is fitted: `NeuralEncoder.fit_readout` caches the features and calls it,
-and so do the paper's scripts (`multigeom.fit.train_encoder`, `multigeom.fit.layer_sweep`).
+The backbone of an encoder is kept fixed, so its features are computed once and the
+readout is fitted on the cached features (fast, and the same for a pretrained backbone
+as for one that you trained yourself). `fit_readout_on_features` is the loop and the
+only place where a readout is fitted: `NeuralEncoder.fit_readout` caches the features
+and calls it, and so do the paper's scripts (`multigeom.fit.train_encoder`,
+`multigeom.fit.layer_sweep`).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,7 +20,10 @@ import torch.nn.functional as F
 
 
 def correlation_per_neuron(pred: torch.Tensor, target: torch.Tensor) -> np.ndarray:
-    """Pearson correlation per neuron over all images. Inputs: [N, n_neurons]. A constant column gives 0."""
+    """
+    Pearson correlation per neuron over all images. Inputs: [N, n_neurons]. A constant
+    column gives 0.
+    """
     corrs = []
     for n in range(pred.shape[1]):
         p = pred[:, n].detach().cpu().numpy()
@@ -31,17 +37,30 @@ def correlation_per_neuron(pred: torch.Tensor, target: torch.Tensor) -> np.ndarr
 
 @dataclass
 class FitReport:
-    """What `fit_readout` did: the loss and correlation per epoch, and the epoch whose readout was kept."""
+    """
+    What `fit_readout` did: the loss and correlation per epoch, and the epoch whose
+    readout was kept.
+    """
 
-    history: dict = field(default_factory=lambda: {"epoch": [], "train_loss": [], "val_loss": [], "val_corr": []})
+    history: dict = field(
+        default_factory=lambda: {
+            "epoch": [],
+            "train_loss": [],
+            "val_loss": [],
+            "val_corr": [],
+        }
+    )
     best_epoch: int = 0
     best_val_corr: float = float("nan")
     n_train: int = 0
     n_val: int = 0
 
     def __str__(self) -> str:
-        return (f"fitted on {self.n_train} images, validated on {self.n_val}: best epoch {self.best_epoch}, "
-                f"validation correlation {self.best_val_corr:.3f}")
+        return (
+            f"fitted on {self.n_train} images, validated on {self.n_val}: best epoch "
+            f"{self.best_epoch}, "
+            f"validation correlation {self.best_val_corr:.3f}"
+        )
 
 
 def fit_readout_on_features(
@@ -60,11 +79,13 @@ def fit_readout_on_features(
     log: Callable[[str], None] | None = print,
 ) -> FitReport:
     """
-    Fit `readout` (features [N, C, S, S] -> responses [N, n_neurons]) with AdamW, a cosine schedule and mean squared
-    error. A fixed-seed image-level split keeps `val_fraction` of the images for validation; the readout of the epoch
-    with the highest mean validation correlation is restored at the end. `features` and `responses` are used on
-    their own device (put them on the GPU for speed), unless `device` is given: each batch is then moved there, so the
-    cached features can stay on the CPU while the readout is on the GPU.
+    Fit `readout` (features [N, C, S, S] -> responses [N, n_neurons]) with AdamW, a
+    cosine schedule and mean squared error. A fixed-seed image-level split keeps
+    `val_fraction` of the images for validation; the readout of the epoch with the
+    highest mean validation correlation is restored at the end. `features` and
+    `responses` are used on their own device (put them on the GPU for speed), unless
+    `device` is given: each batch is then moved there, so the cached features can stay
+    on the CPU while the readout is on the GPU.
     """
     n = len(features)
     if len(responses) != n:
@@ -78,7 +99,9 @@ def fit_readout_on_features(
     if log:
         log(f"  train/val split: {n_tr}/{n_val}")
 
-    optimizer = torch.optim.AdamW(readout.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.AdamW(
+        readout.parameters(), lr=lr, weight_decay=weight_decay
+    )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     report = FitReport(n_train=n_tr, n_val=n_val)
     best_val_corr, best_state = -float("inf"), None
@@ -88,7 +111,7 @@ def fit_readout_on_features(
         perm_tr = tr_idx[torch.randperm(len(tr_idx))]
         train_loss_sum, n_batches = 0.0, 0
         for i in range(0, len(perm_tr), batch_size):
-            idx = perm_tr[i: i + batch_size]
+            idx = perm_tr[i : i + batch_size]
             x, y = features[idx], responses[idx]
             if device is not None:
                 x, y = x.to(device), y.to(device)
@@ -113,18 +136,29 @@ def fit_readout_on_features(
                 val_loss = F.mse_loss(val_pred, y).item()
                 val_corr = correlation_per_neuron(val_pred, y).mean()
         scheduler.step()
-        for key, value in (("epoch", epoch), ("train_loss", train_loss), ("val_loss", val_loss),
-                           ("val_corr", float(val_corr))):
+        for key, value in (
+            ("epoch", epoch),
+            ("train_loss", train_loss),
+            ("val_loss", val_loss),
+            ("val_corr", float(val_corr)),
+        ):
             report.history[key].append(value)
 
-        score = val_corr if n_val else -train_loss           # without validation images, keep the lowest training loss
+        score = (
+            val_corr if n_val else -train_loss
+        )  # without validation images, keep the lowest training loss
         if score > best_val_corr:
             best_val_corr = score
             report.best_epoch = epoch
-            best_state = {k: v.detach().cpu().clone() for k, v in readout.state_dict().items()}
+            best_state = {
+                k: v.detach().cpu().clone() for k, v in readout.state_dict().items()
+            }
         if log and (epoch == 1 or epoch % 10 == 0 or epoch == epochs):
-            log(f"  epoch {epoch:4d}/{epochs}: train={train_loss:.4f}  val={val_loss:.4f}  "
-                f"corr={val_corr:.3f}  (best={best_val_corr:.3f})")
+            log(
+                f"  epoch {epoch:4d}/{epochs}: train={train_loss:.4f}  "
+                f"val={val_loss:.4f}  "
+                f"corr={val_corr:.3f}  (best={best_val_corr:.3f})"
+            )
 
     readout.load_state_dict(best_state)
     readout.eval()

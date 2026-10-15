@@ -50,7 +50,7 @@ dependencies = [
 paper = ["plenoptic>=1.1,<2.0", "h5py>=3.8"]           # the ON-OFF encoder (plenoptic) and fitting encoders to the TVSD recordings (h5py)
 all = ["plenoptic>=1.1,<2.0", "h5py>=3.8", "modal", "ipykernel", "ipython", "ipywidgets"]
 # For contributors (see the Contributing page of the documentation):
-dev = ["pytest>=8.0", "tomli>=2.0; python_version < '3.11'"]
+dev = ["pytest>=8.0", "ruff>=0.6", "tomli>=2.0; python_version < '3.11'"]
 docs = ["sphinx>=7.2", "pydata-sphinx-theme>=0.15", "nbsphinx>=0.9", "sphinx-design>=0.5", "sphinx-copybutton>=0.5", "ipython", "sphinx-autobuild"]
 
 [project.urls]
@@ -82,3 +82,10 @@ markers = [
   "pretrained: downloads pretrained backbone weights (torchvision / plenoptic)",
   "gpu: needs a CUDA device",
 ]
+
+[tool.ruff]
+line-length = 88                                       # one limit for the package, the tests, the docs and the notebooks
+extend-exclude = ["docs/source/api", "env", "*.md"]       # generated pages, the local environment, the prose
+
+[tool.ruff.lint]
+select = ["E501"]                                      # line length (the formatter does the rest)

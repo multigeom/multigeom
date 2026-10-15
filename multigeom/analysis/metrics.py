@@ -23,6 +23,7 @@ returned by `multigeom.geometry.estimator.conditional_pair_estimate` and
 `multigeom.geometry.fisher.fisher_eigendecomposition`: eigenvectors as **rows** of a
 [k, P] matrix, eigenvalues as a [k] vector, both descending.
 """
+
 from __future__ import annotations
 
 import torch
@@ -62,7 +63,7 @@ def subspace_alignment(
             f"slice both to the same top_k first."
         )
     k = eigvecs_A.shape[0]
-    overlap = eigvecs_A @ eigvecs_B.T              # [k, k]
+    overlap = eigvecs_A @ eigvecs_B.T  # [k, k]
     return float((overlap.norm(p="fro") ** 2) / k)
 
 
@@ -92,7 +93,7 @@ def bures_wasserstein(
             f"Mismatched k: {tuple(eigvals_A.shape)} vs {tuple(eigvals_B.shape)}"
         )
 
-    C = eigvecs_A.to(torch.float64) @ eigvecs_B.to(torch.float64).T   # [k, k]
+    C = eigvecs_A.to(torch.float64) @ eigvecs_B.to(torch.float64).T  # [k, k]
     return bures_wasserstein_from_overlap(eigvals_A, eigvals_B, C)
 
 
@@ -116,8 +117,10 @@ def bures_wasserstein_from_overlap(
     lb = eigvals_B.to(torch.float64).clamp(min=0)
     C = overlap.to(torch.float64)
     if C.shape != (la.shape[0], lb.shape[0]):
-        raise ValueError(f"overlap shape {tuple(C.shape)} does not match "
-                         f"eigenvalue counts {la.shape[0]}, {lb.shape[0]}")
+        raise ValueError(
+            f"overlap shape {tuple(C.shape)} does not match "
+            f"eigenvalue counts {la.shape[0]}, {lb.shape[0]}"
+        )
     sqrt_la = la.sqrt()
     M = (sqrt_la.unsqueeze(1) * C * lb.unsqueeze(0)) @ C.T * sqrt_la.unsqueeze(0)
     M = 0.5 * (M + M.T)

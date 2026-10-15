@@ -1,16 +1,23 @@
 """
-Feature extractors (backbones). The reference encoders use frozen, pretrained ones: InceptionV3 and ResNet-50 (ImageNet
-weights, torchvision) and the ON-OFF front-end of Berardino et al. (2017) (plenoptic), truncated at a chosen layer.
-`SmallCNNBackbone` is a small trainable one, to build an encoder from scratch.
+Feature extractors (backbones). The reference encoders use frozen, pretrained ones:
+InceptionV3 and ResNet-50 (ImageNet weights, torchvision) and the ON-OFF front-end of
+Berardino et al. (2017) (plenoptic), truncated at a chosen layer. `SmallCNNBackbone` is
+a small trainable one, to build an encoder from scratch.
 
-A backbone is an `nn.Module` that maps an image batch to a feature map [B, C, S, S] and has the attributes
-`out_channels` (C) and `out_spatial` (S).
+A backbone is an `nn.Module` that maps an image batch to a feature map [B, C, S, S] and
+has the attributes `out_channels` (C) and `out_spatial` (S).
 """
+
 from __future__ import annotations
 
 import torch
 import torch.nn as nn
-from torchvision.models import inception_v3, resnet50, Inception_V3_Weights, ResNet50_Weights
+from torchvision.models import (
+    inception_v3,
+    resnet50,
+    Inception_V3_Weights,
+    ResNet50_Weights,
+)
 
 from .registry import register_backbone
 
@@ -20,7 +27,10 @@ class _FrozenBackbone(nn.Module):
     a parent module is switched to training mode."""
 
     def train(self, mode: bool = True):  # noqa: A003 (shadows nn.Module.train)
-        """Stay in evaluation mode (BatchNorm statistics fixed), whatever the mode of the parent module."""
+        """
+        Stay in evaluation mode (BatchNorm statistics fixed), whatever the mode of the
+        parent module.
+        """
         return super().train(False)
 
 
@@ -93,8 +103,12 @@ class ResNet50Backbone(_FrozenBackbone):
             self.features.add_module(name, mod)
         for p in self.parameters():
             p.requires_grad = False
-        self.register_buffer("norm_mean", torch.tensor(self.IMAGENET_MEAN).view(1, 3, 1, 1))
-        self.register_buffer("norm_std", torch.tensor(self.IMAGENET_STD).view(1, 3, 1, 1))
+        self.register_buffer(
+            "norm_mean", torch.tensor(self.IMAGENET_MEAN).view(1, 3, 1, 1)
+        )
+        self.register_buffer(
+            "norm_std", torch.tensor(self.IMAGENET_STD).view(1, 3, 1, 1)
+        )
         self.eval()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -118,9 +132,9 @@ class OnOffBackbone(_FrozenBackbone):
     def __init__(self, kernel_size: int = 31):
         super().__init__()
         try:
-            from plenoptic.simulate.models.frontend import OnOff   # plenoptic 1.x
+            from plenoptic.simulate.models.frontend import OnOff  # plenoptic 1.x
         except ImportError:
-            from plenoptic.models import OnOff                     # plenoptic 2.x
+            from plenoptic.models import OnOff  # plenoptic 2.x
         self.frontend = OnOff(kernel_size=kernel_size, pretrained=True, cache_filt=True)
         for p in self.parameters():
             p.requires_grad = False
@@ -139,12 +153,13 @@ class OnOffBackbone(_FrozenBackbone):
 @register_backbone("small_cnn")
 class SmallCNNBackbone(nn.Module):
     """
-    A small convolutional backbone, trainable from scratch in minutes: three convolution blocks (convolution,
-    BatchNorm, ReLU) with two 2 x 2 max-poolings. Takes the canonical image [B, 1, 64, 64] in [-1, 1] and gives
-    [B, `channels[-1]`, 16, 16].
+    A small convolutional backbone, trainable from scratch in minutes: three convolution
+    blocks (convolution, BatchNorm, ReLU) with two 2 x 2 max-poolings. Takes the
+    canonical image [B, 1, 64, 64] in [-1, 1] and gives [B, `channels[-1]`, 16, 16].
 
-    Train it on any task you like (for example classifying TinyImageNet), then build an encoder around it with
-    `NeuralEncoder(backbone, n_neurons)`: fitting the readout freezes it.
+    Train it on any task you like (for example classifying TinyImageNet), then build an
+    encoder around it with `NeuralEncoder(backbone, n_neurons)`: fitting the readout
+    freezes it.
     """
 
     out_spatial = 16
@@ -154,9 +169,17 @@ class SmallCNNBackbone(nn.Module):
         c1, c2, c3 = channels
         self.out_channels = c3
         self.features = nn.Sequential(
-            nn.Conv2d(1, c1, kernel_size=5, padding=2), nn.BatchNorm2d(c1), nn.ReLU(inplace=False), nn.MaxPool2d(2),
-            nn.Conv2d(c1, c2, kernel_size=3, padding=1), nn.BatchNorm2d(c2), nn.ReLU(inplace=False), nn.MaxPool2d(2),
-            nn.Conv2d(c2, c3, kernel_size=3, padding=1), nn.BatchNorm2d(c3), nn.ReLU(inplace=False),
+            nn.Conv2d(1, c1, kernel_size=5, padding=2),
+            nn.BatchNorm2d(c1),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(2),
+            nn.Conv2d(c1, c2, kernel_size=3, padding=1),
+            nn.BatchNorm2d(c2),
+            nn.ReLU(inplace=False),
+            nn.MaxPool2d(2),
+            nn.Conv2d(c2, c3, kernel_size=3, padding=1),
+            nn.BatchNorm2d(c3),
+            nn.ReLU(inplace=False),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

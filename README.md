@@ -53,8 +53,8 @@ conditional diffusion model. The package also reproduces the macaque V1/V4 analy
    G and J onto the leading two eigenvectors at a reference image, on a grid
    of images perturbed along those eigenvectors (Fig. 5).
 
-Figures and the encoder table are drawn from these outputs by the modules in
-`multigeom.viz`. Supporting analyses quoted in the paper's appendices (calibration
+The figures and the encoder table of the paper are drawn from these outputs by the scripts in the `figures/` folder of
+[multigeom-tutorials](https://github.com/multigeom/multigeom-tutorials). Supporting analyses quoted in the paper's appendices (calibration
 of σ, Monte-Carlo variance of the conditional-pair versus the
 unconditional-conditional estimator, backbone layer sweep) are in `multigeom.fit` and `multigeom.pipeline.estimator_variance`.
 
@@ -123,16 +123,11 @@ python -m multigeom.pipeline.per_image --config estimator --encoder-cfg $ENCODER
 ```
 
 Run these for all six configurations of the paper (about 30 A100-hours each, almost all of it diffusion training),
-then the comparisons and figures:
+then the comparisons (the figures are drawn by `figures/` in multigeom-tutorials):
 
 ```bash
 python -m multigeom.pipeline.alignment --runs-dir runs --out-dir runs/metrics
 python -m multigeom.pipeline.metric_field --img-idx 0 --out-dir runs/metric_field/img0000
-python -m multigeom.viz.table1    --runs-dir runs --out-dir figures/out
-python -m multigeom.viz.fig3      --runs-dir runs --out-dir figures/out --img-idx 0
-python -m multigeom.viz.fig4      --runs-dir runs --out-dir figures/out --img-idx 0
-python -m multigeom.viz.fig5      --runs-dir runs --out-dir figures/out --img-idx 0
-python -m multigeom.viz.fig_app_bw --runs-dir runs --out-dir figures/out
 ```
 
 `multigeom.pipeline.per_image` accepts `--start/--end` to split the 200 test images across GPUs.
@@ -142,17 +137,17 @@ record (git commit, command line, seed, config files, package versions).
 
 ## Where each result comes from
 
-| Paper item | Script | Inputs |
+| Paper item | Script (`figures/` of multigeom-tutorials) | Inputs |
 |---|---|---|
-| Table 1 (encoder performance) | `multigeom.viz.table1` | `runs/encoders/*/*/best_model.pt` |
-| Fig. 3B-C (measured vs predicted responses) | `multigeom.viz.fig3` | stage 1 |
-| Fig. 3D (receptive fields) | `multigeom.viz.fig3` | stage 1 readout parameters |
-| Fig. 3E-F (eigenvectors of G and J) | `multigeom.viz.fig3` | stage 4 |
-| Fig. 4A (performance of the three encoders) | `multigeom.viz.fig4` | stage 1 |
-| Fig. 4B-C (eigenvectors per encoder) | `multigeom.viz.fig4` | stage 4 |
-| Fig. 4D-E (subspace alignment vs k) | `multigeom.viz.fig4` | stage 5 |
-| Fig. 5 (local metric field) | `multigeom.viz.fig5` | stage 6 |
-| Bures-Wasserstein figure (appendix) | `multigeom.viz.fig_app_bw` | stage 5 |
+| Table 1 (encoder performance) | `figures.table1` | `runs/encoders/*/*/best_model.pt` |
+| Fig. 3B-C (measured vs predicted responses) | `figures.fig3` | stage 1 |
+| Fig. 3D (receptive fields) | `figures.fig3` | stage 1 readout parameters |
+| Fig. 3E-F (eigenvectors of G and J) | `figures.fig3` | stage 4 |
+| Fig. 4A (performance of the three encoders) | `figures.fig4` | stage 1 |
+| Fig. 4B-C (eigenvectors per encoder) | `figures.fig4` | stage 4 |
+| Fig. 4D-E (subspace alignment vs k) | `figures.fig4` | stage 5 |
+| Fig. 5 (local metric field) | `figures.fig5` | stage 6 |
+| Bures-Wasserstein figure (appendix) | `figures.fig_app_bw` | stage 5 |
 | σ = 0.22 calibration (appendix) | `multigeom.fit.calibrate_sigma` | TVSD |
 | CC vs UC estimator variance (appendix) | `multigeom.pipeline.estimator_variance` | stages 1, 3 |
 | Backbone layer choice (appendix) | `multigeom.fit.layer_sweep` | TVSD, THINGS |
@@ -174,7 +169,7 @@ Measured on NVIDIA A100-SXM4-40GB GPUs, per (encoder, area) configuration:
 
 ## Bring your own encoder
 
-Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `multigeom.encoder`
+Any fitted PyTorch model can be used as the encoder f(x), if it follows these rules. `multigeom.encoders.contract`
 checks them (`multigeom.validate_encoder(encoder)`; `multigeom.compute_fisher` does it automatically for models that
 do not use the reference-encoder internals, and `multigeom.compute_g(..., validate=True)` on request) and
 raises `EncoderContractError` naming the rule.
@@ -264,17 +259,15 @@ identifier; this section will link to them.
 ```
 multigeom/
     __init__.py     public API: load_encoder, NeuralEncoder, compute_fisher, compute_g, subspace_alignment, ...
-    encoder.py      the encoder contract (Protocol and validate_encoder)
-    encoders/       core: NeuralEncoder, load_encoder, validate_encoder, readouts, the reference encoders (ON-OFF needs the [paper] extra)
+    encoders/       core: NeuralEncoder, load_encoder, the encoder contract (validate_encoder), readouts, receptive fields, the reference encoders (ON-OFF needs the [paper] extra)
     geometry/       core: fisher (compute_fisher), estimator (compute_g), metric_field
-    analysis/       core: subspace_alignment, bures_wasserstein
+    analysis/       core: subspace_alignment, bures_wasserstein, match_eigenvectors
     diffusion/      core: model, config, responses, train
     pipeline/       core: per_image, alignment, metric_field, distribute (local and Modal workers)
-    data/           TinyImageNet loader and the canonical image transform
+    datasets/       TinyImageNet, synthetic neural data, the image transform, and the downloads of TinyImageNet, TVSD and the THINGS images
     fit/            extra [paper]: fitting encoders to the TVSD recordings, layer sweep, noise calibration
-    viz/            the figures of the paper
     configs/        packaged YAML settings (encoders, diffusion, estimator)
-    cli.py  config.py  utils.py
+    cli.py  config.py  utils.py (seeding, provenance, device, showing a figure in a notebook)
 tests/unit/   unit tests (synthetic data)
 ```
 

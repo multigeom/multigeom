@@ -42,6 +42,7 @@ Usage:
     python -m multigeom.fit.calibrate_sigma --out runs/analysis/sigma_calibration.json
     python -m multigeom.fit.calibrate_sigma --tvsd-dir /path/to/tvsd --n-neurons 50
 """
+
 from __future__ import annotations
 
 import argparse
@@ -63,11 +64,18 @@ MAT_NAME = "monkeyN_THINGS_normMUA.mat"
 def parse_args(argv: list[str] | None = None):
     """Command-line arguments of `python -m multigeom.fit.calibrate_sigma`."""
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--tvsd-dir", default=None,
-                   help="directory with monkeyN_THINGS_normMUA.mat and things_imgs.mat "
-                        "(default: <data_dir>/tvsd)")
-    p.add_argument("--n-neurons", type=int, default=50,
-                   help="number of top-oracle channels per area (the encoder targets)")
+    p.add_argument(
+        "--tvsd-dir",
+        default=None,
+        help="directory with monkeyN_THINGS_normMUA.mat and things_imgs.mat "
+        "(default: <data_dir>/tvsd)",
+    )
+    p.add_argument(
+        "--n-neurons",
+        type=int,
+        default=50,
+        help="number of top-oracle channels per area (the encoder targets)",
+    )
     p.add_argument("--areas", nargs="+", default=list(AREA_CHANNELS))
     p.add_argument("--out", default="runs/analysis/sigma_calibration.json")
     return p.parse_args(argv)
@@ -85,9 +93,14 @@ def load_trial_responses(mat_path: str | Path) -> tuple[np.ndarray, np.ndarray]:
         reps = np.asarray(f["test_MUA_reps"], dtype=np.float64)
         test_mean = np.asarray(f["test_MUA"], dtype=np.float64)
         n_channels = np.asarray(f["oracle"]).size
-    if reps.ndim != 3 or reps.shape[2] != n_channels or reps.shape[1] != test_mean.shape[0]:
+    if (
+        reps.ndim != 3
+        or reps.shape[2] != n_channels
+        or reps.shape[1] != test_mean.shape[0]
+    ):
         raise ValueError(
-            f"Unexpected layout: test_MUA_reps {reps.shape}, test_MUA {test_mean.shape}, "
+            f"Unexpected layout: test_MUA_reps {reps.shape}, test_MUA "
+            f"{test_mean.shape}, "
             f"{n_channels} channels; expected [n_trials, n_images, n_channels]."
         )
     return reps, test_mean
@@ -103,7 +116,7 @@ def per_channel_trial_std(reps: np.ndarray) -> np.ndarray:
         [n_channels] standard deviations (population normalisation, 1/(T·I)).
     """
     resid = reps - reps.mean(axis=0, keepdims=True)
-    return np.sqrt((resid ** 2).mean(axis=(0, 1)))
+    return np.sqrt((resid**2).mean(axis=(0, 1)))
 
 
 def calibrate(tvsd_dir: str | Path, areas: list[str], n_neurons: int) -> dict:
@@ -115,7 +128,7 @@ def calibrate(tvsd_dir: str | Path, areas: list[str], n_neurons: int) -> dict:
     out = {}
     for area in areas:
         lo, hi = AREA_CHANNELS[area]
-        s_area = per_channel_trial_std(reps[:, :, lo:hi + 1])         # [n_area]
+        s_area = per_channel_trial_std(reps[:, :, lo : hi + 1])  # [n_area]
         # Same channel selection as the encoders (top-n oracle, descending).
         sel = load_tvsd(area, n_neurons=n_neurons, tvsd_dir=tvsd_dir)
         local = np.asarray(sel["neuron_indices"])
@@ -128,7 +141,10 @@ def calibrate(tvsd_dir: str | Path, areas: list[str], n_neurons: int) -> dict:
             "top_channel_indices_global": (local + lo).tolist(),
             "per_channel_std_top": s_top.tolist(),
             "per_channel_std_all": s_area.tolist(),
-            "iqr_top": [float(np.percentile(s_top, 25)), float(np.percentile(s_top, 75))],
+            "iqr_top": [
+                float(np.percentile(s_top, 25)),
+                float(np.percentile(s_top, 75)),
+            ],
         }
     return {
         "n_trials": int(reps.shape[0]),
@@ -139,7 +155,10 @@ def calibrate(tvsd_dir: str | Path, areas: list[str], n_neurons: int) -> dict:
 
 
 def main(argv: list[str] | None = None) -> dict:
-    """Measure the observation noise from the TVSD repetitions and write the JSON (command-line entry point)."""
+    """
+    Measure the observation noise from the TVSD repetitions and write the JSON
+    (command-line entry point).
+    """
     args = parse_args(argv)
     tvsd_dir = Path(args.tvsd_dir) if args.tvsd_dir else data_dir() / "tvsd"
     result = calibrate(tvsd_dir, args.areas, args.n_neurons)
@@ -150,13 +169,18 @@ def main(argv: list[str] | None = None) -> dict:
     )
     result["provenance"] = provenance(argv=argv)
 
-    print(f"[calibrate_sigma] {result['n_trials']} trials x {result['n_test_images']} "
-          f"test images; max|mean(reps) - test_MUA| = "
-          f"{result['max_abs_trial_mean_minus_test_MUA']:.2e}")
+    print(
+        f"[calibrate_sigma] {result['n_trials']} trials x {result['n_test_images']} "
+        f"test images; max|mean(reps) - test_MUA| = "
+        f"{result['max_abs_trial_mean_minus_test_MUA']:.2e}"
+    )
     for area, r in result["areas"].items():
-        print(f"  {area}: sigma (median, top-{r['n_top_channels']}) = "
-              f"{r['sigma_median_top_channels']:.4f}   "
-              f"(all {r['n_area_channels']} channels: {r['sigma_median_all_area_channels']:.4f})")
+        print(
+            f"  {area}: sigma (median, top-{r['n_top_channels']}) = "
+            f"{r['sigma_median_top_channels']:.4f}   "
+            f"(all {r['n_area_channels']} channels: "
+            f"{r['sigma_median_all_area_channels']:.4f})"
+        )
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
