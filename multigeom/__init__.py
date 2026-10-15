@@ -48,7 +48,7 @@ from .encoders.contract import (
 from .analysis import bures_wasserstein, subspace_alignment
 from .geometry import EstimatorOutput, FisherOutput, compute_fisher, compute_g
 
-__version__ = "0.1.0.dev2"
+__version__ = "0.1.0.dev3"
 
 __all__ = [
     "Encoder",
