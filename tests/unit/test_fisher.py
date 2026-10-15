@@ -8,6 +8,7 @@ closed form: with the identity conversion they are those of WᵀW/σ²; with the
 those of WᵀW/(4σ²). The reference uses numpy.linalg.eigh on the dense P×P
 matrix.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,7 +23,10 @@ P = H * W
 
 
 class LinearEncoder(nn.Module):
-    """Mock exposing the interface multigeom.fisher uses: _to_backbone_input, backbone, readout."""
+    """
+    Mock exposing the interface multigeom.fisher uses: _to_backbone_input, backbone,
+    readout.
+    """
 
     def __init__(self, Wmat: torch.Tensor, to_unit_range: bool = False):
         super().__init__()
@@ -56,7 +60,7 @@ def test_fisher_eigenpairs_of_linear_encoder(to_unit_range, jac):
     x[0, 0, 0, :3] = torch.tensor([-1.0, 1.0, -1.0])
     out = fisher_eigendecomposition(x, enc, sigma=sigma, top_k=n)
 
-    ref_vals, ref_vecs = _reference(Wmat.double().numpy(), jac ** 2 / sigma ** 2, n)
+    ref_vals, ref_vecs = _reference(Wmat.double().numpy(), jac**2 / sigma**2, n)
     np.testing.assert_allclose(out.eigenvalues.double().numpy(), ref_vals, rtol=1e-4)
     cos = np.abs(np.einsum("kp,pk->k", out.eigenvectors.double().numpy(), ref_vecs))
     np.testing.assert_allclose(cos, 1.0, atol=1e-4)
@@ -66,7 +70,9 @@ def test_fisher_top_k_truncates_and_caps_at_n_neurons():
     torch.manual_seed(1)
     enc = LinearEncoder(torch.randn(4, P))
     x = torch.zeros(1, 1, H, W)
-    assert fisher_eigendecomposition(x, enc, sigma=1.0, top_k=2).eigenvalues.shape == (2,)
+    assert fisher_eigendecomposition(x, enc, sigma=1.0, top_k=2).eigenvalues.shape == (
+        2,
+    )
     out = fisher_eigendecomposition(x, enc, sigma=1.0, top_k=50)
     assert out.eigenvalues.shape == (4,) and out.eigenvectors.shape == (4, P)
 
@@ -81,7 +87,8 @@ def test_fisher_works_inside_no_grad_context():
     torch.manual_seed(2)
     Wmat = torch.randn(3, P)
     with torch.no_grad():
-        out = fisher_eigendecomposition(torch.zeros(1, 1, H, W), LinearEncoder(Wmat),
-                                        sigma=1.0, top_k=3)
+        out = fisher_eigendecomposition(
+            torch.zeros(1, 1, H, W), LinearEncoder(Wmat), sigma=1.0, top_k=3
+        )
     ref_vals, _ = _reference(Wmat.double().numpy(), 1.0, 3)
     np.testing.assert_allclose(out.eigenvalues.double().numpy(), ref_vals, rtol=1e-4)

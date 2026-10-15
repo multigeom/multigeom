@@ -7,6 +7,7 @@ subspaces; commuting PSD matrices, for which d_BW² = Σ(√a_i − √b_i)²),
 P×P evaluation of d_BW² = tr A + tr B − 2 tr (A^{1/2} B A^{1/2})^{1/2} with
 matrix square roots computed independently of the k×k reduction in src.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,7 +15,11 @@ import pytest
 import scipy.linalg
 import torch
 
-from multigeom.analysis.metrics import bures_wasserstein, bures_wasserstein_from_overlap, subspace_alignment
+from multigeom.analysis.metrics import (
+    bures_wasserstein,
+    bures_wasserstein_from_overlap,
+    subspace_alignment,
+)
 
 
 def _orthonormal_rows(k: int, P: int, seed: int) -> torch.Tensor:
@@ -51,7 +56,7 @@ def test_alignment_identical_subspaces_is_one():
 def test_alignment_invariant_to_rotation_within_subspace():
     V = _orthonormal_rows(5, 40, seed=1)
     R, _ = np.linalg.qr(np.random.default_rng(2).standard_normal((5, 5)))
-    W = torch.from_numpy(R) @ V                       # same span, different basis
+    W = torch.from_numpy(R) @ V  # same span, different basis
     assert subspace_alignment(V, W) == pytest.approx(1.0, abs=1e-6)
 
 
@@ -65,15 +70,18 @@ def test_alignment_equals_mean_cos2_principal_angles(seed):
     A = _orthonormal_rows(6, 30, seed=seed)
     B = _orthonormal_rows(6, 30, seed=seed + 100)
     theta = scipy.linalg.subspace_angles(A.numpy().T, B.numpy().T)
-    assert subspace_alignment(A, B) == pytest.approx(np.mean(np.cos(theta) ** 2), abs=1e-6)
+    assert subspace_alignment(A, B) == pytest.approx(
+        np.mean(np.cos(theta) ** 2), abs=1e-6
+    )
 
 
 def test_alignment_top_k_uses_leading_rows():
     A = _orthonormal_rows(6, 30, seed=7)
     B = _orthonormal_rows(6, 30, seed=8)
     theta = scipy.linalg.subspace_angles(A[:3].numpy().T, B[:3].numpy().T)
-    assert subspace_alignment(A, B, top_k=3) == pytest.approx(np.mean(np.cos(theta) ** 2),
-                                                              abs=1e-6)
+    assert subspace_alignment(A, B, top_k=3) == pytest.approx(
+        np.mean(np.cos(theta) ** 2), abs=1e-6
+    )
 
 
 def test_alignment_rejects_mismatched_k():
@@ -106,11 +114,16 @@ def test_bw_low_rank_matches_dense_reference(seed):
     la = torch.from_numpy(np.sort(rng.uniform(0.1, 10, k))[::-1].copy())
     lb = torch.from_numpy(np.sort(rng.uniform(0.1, 10, k))[::-1].copy())
     expected = _bw_dense(_dense(la, VA), _dense(lb, VB))
-    assert bures_wasserstein(la, VA, lb, VB) == pytest.approx(expected, rel=1e-7, abs=1e-9)
+    assert bures_wasserstein(la, VA, lb, VB) == pytest.approx(
+        expected, rel=1e-7, abs=1e-9
+    )
 
 
 def test_bw_full_rank_matches_scipy_sqrtm():
-    """k = P: both matrices are positive definite and scipy.linalg.sqrtm is well conditioned."""
+    """
+    k = P: both matrices are positive definite and scipy.linalg.sqrtm is well
+    conditioned.
+    """
     P = 8
     rng = np.random.default_rng(15)
     VA, VB = _orthonormal_rows(P, P, 15), _orthonormal_rows(P, P, 16)
@@ -123,8 +136,13 @@ def test_bw_full_rank_matches_scipy_sqrtm():
 def test_bw_is_symmetric_and_satisfies_triangle_inequality():
     k, P = 4, 15
     rng = np.random.default_rng(17)
-    mats = [(torch.from_numpy(np.sort(rng.uniform(0.1, 5, k))[::-1].copy()),
-             _orthonormal_rows(k, P, 17 + i)) for i in range(3)]
+    mats = [
+        (
+            torch.from_numpy(np.sort(rng.uniform(0.1, 5, k))[::-1].copy()),
+            _orthonormal_rows(k, P, 17 + i),
+        )
+        for i in range(3)
+    ]
     d = lambda i, j: bures_wasserstein(*mats[i], *mats[j])  # noqa: E731
     assert d(0, 1) == pytest.approx(d(1, 0), rel=1e-9)
     assert d(0, 2) <= d(0, 1) + d(1, 2) + 1e-9
@@ -138,10 +156,14 @@ def test_bw_from_overlap_consistent_with_bw_at_every_k():
     lb = torch.from_numpy(np.sort(rng.uniform(0.1, 5, K))[::-1].copy())
     C = VA @ VB.T
     for k in range(1, K + 1):
-        assert bures_wasserstein_from_overlap(la[:k], lb[:k], C[:k, :k]) == pytest.approx(
-            bures_wasserstein(la, VA, lb, VB, top_k=k), rel=1e-12)
+        assert bures_wasserstein_from_overlap(
+            la[:k], lb[:k], C[:k, :k]
+        ) == pytest.approx(bures_wasserstein(la, VA, lb, VB, top_k=k), rel=1e-12)
         assert bures_wasserstein(la, VA, lb, VB, top_k=k) == pytest.approx(
-            _bw_dense(_dense(la[:k], VA[:k]), _dense(lb[:k], VB[:k])), rel=1e-7, abs=1e-9)
+            _bw_dense(_dense(la[:k], VA[:k]), _dense(lb[:k], VB[:k])),
+            rel=1e-7,
+            abs=1e-9,
+        )
 
 
 def test_bw_rejects_mismatched_k():

@@ -1,14 +1,15 @@
 """
-Estimate G(x) and J(x) for each of the held-out test images (the former stage 4): for each image, compute
+Estimate G(x) and J(x) for each of the held-out test images (the former stage 4): for
+each image, compute
 
   - the top-k eigenpairs of the multi-scale Fisher metric G(x) via the
     **conditional-pair estimator** (Algorithm 1 of the paper, Eq. (eq:cc));
   - the top-k eigenpairs of the closed-form Fisher baseline J(x) =
     (1/σ²) J_{f_φ}ᵀ J_{f_φ} via PyTorch reverse-mode autograd (App. C.2).
 
-Outputs one file per image: `<out_dir>/img{N:04d}.pt` with both
-eigendecompositions and metadata. `multigeom.pipeline.alignment` reads these to produce the
-cross-encoder figures.
+Outputs one file per image: `<out_dir>/img{N:04d}.pt` with both eigendecompositions and
+metadata. `multigeom.pipeline.alignment` reads these to produce the cross-encoder
+figures.
 
 Test images: the first `n_test_images` images of the TinyImageNet validation
 split (held out from diffusion training), in sorted file order. The set is
@@ -27,6 +28,7 @@ Usage:
         --area V1 \\
         --out-dir runs/per_image/inception/V1
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,7 +42,7 @@ from tqdm import tqdm
 
 
 from ..config import load_config
-from ..data import CANONICAL_TRANSFORM, TinyImageNetDataset
+from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..diffusion.model import build_diffusion_model, build_scheduler
 from ..encoders import build_encoder
 from ..geometry.estimator import conditional_pair_estimate
@@ -50,30 +52,57 @@ from ..utils import get_device, make_generator, provenance, set_seed
 
 def estimate_image(x, encoder, unet, alphas_cumprod, cfg, *, seed: int, device):
     """
-    G(x) and J(x) of one image `x` ([1, 1, 64, 64] in [-1, 1]): the conditional-pair estimator (Algorithm 1) for G(x),
-    with its own generator seeded with `seed` (so the result does not depend on how images are split over runs), and the
-    closed-form Fisher information J(x). Returns (G output, J output or None if `cfg.fisher_baseline.enabled` is off).
+    G(x) and J(x) of one image `x` ([1, 1, 64, 64] in [-1, 1]): the conditional-pair
+    estimator (Algorithm 1) for G(x), with its own generator seeded with `seed` (so the
+    result does not depend on how images are split over runs), and the closed-form
+    Fisher information J(x). Returns (G output, J output or None if
+    `cfg.fisher_baseline.enabled` is off).
     """
     x = x.to(device)
     sigma = float(cfg.monte_carlo.observation_noise_sigma)
     g_out = conditional_pair_estimate(
-        image=x, encoder=encoder, unet=unet, alphas_cumprod=alphas_cumprod, cfg=cfg, device=device,
+        image=x,
+        encoder=encoder,
+        unet=unet,
+        alphas_cumprod=alphas_cumprod,
+        cfg=cfg,
+        device=device,
         generator=make_generator(int(seed), device),
     )
     j_out = None
     if cfg.fisher_baseline.enabled:
-        j_out = fisher_eigendecomposition(image=x, encoder=encoder, sigma=sigma,
-                                          top_k=int(cfg.fisher_baseline.top_k), device=device)
+        j_out = fisher_eigendecomposition(
+            image=x,
+            encoder=encoder,
+            sigma=sigma,
+            top_k=int(cfg.fisher_baseline.top_k),
+            device=device,
+        )
     return g_out, j_out
 
 
-def estimate_images(encoder, unet, alphas_cumprod, images, indices, cfg, out_dir, *, encoder_name: str, area: str,
-                    device, diffusion_epoch=None, provenance_record=None, desc: str | None = None,
-                    skip_existing: bool = True) -> list[Path]:
+def estimate_images(
+    encoder,
+    unet,
+    alphas_cumprod,
+    images,
+    indices,
+    cfg,
+    out_dir,
+    *,
+    encoder_name: str,
+    area: str,
+    device,
+    diffusion_epoch=None,
+    provenance_record=None,
+    desc: str | None = None,
+    skip_existing: bool = True,
+) -> list[Path]:
     """
-    Estimate G(x) and J(x) for `images[i]` (tensors [1, 64, 64] in [-1, 1]) for each i in `indices` and write one file
-    `<out_dir>/img{i:04d}.pt` per image: the image, the top eigenvalues and eigenvectors of G(x) and J(x), the
-    settings and the provenance. Image i is seeded with `cfg.seed + i`. Resumable: files that exist are skipped
+    Estimate G(x) and J(x) for `images[i]` (tensors [1, 64, 64] in [-1, 1]) for each i
+    in `indices` and write one file `<out_dir>/img{i:04d}.pt` per image: the image, the
+    top eigenvalues and eigenvectors of G(x) and J(x), the settings and the provenance.
+    Image i is seeded with `cfg.seed + i`. Resumable: files that exist are skipped
     (`skip_existing`). Returns the files written.
     """
     out_dir = Path(out_dir)
@@ -84,25 +113,38 @@ def estimate_images(encoder, unet, alphas_cumprod, images, indices, cfg, out_dir
         out_path = out_dir / f"img{img_idx:04d}.pt"
         if skip_existing and out_path.exists():
             continue
-        x = images[img_idx].unsqueeze(0)                  # [1, 1, 64, 64] in [-1, 1]
+        x = images[img_idx].unsqueeze(0)  # [1, 1, 64, 64] in [-1, 1]
         t0 = time.time()
-        g_out, j_out = estimate_image(x, encoder, unet, alphas_cumprod, cfg, seed=int(cfg.seed) + img_idx, device=device)
+        g_out, j_out = estimate_image(
+            x,
+            encoder,
+            unet,
+            alphas_cumprod,
+            cfg,
+            seed=int(cfg.seed) + img_idx,
+            device=device,
+        )
         elapsed = time.time() - t0
-        torch.save({
-            "img_idx": img_idx,
-            "image": x.cpu(),                              # [1, 1, 64, 64] in [-1, 1]
-            "encoder_name": encoder_name,
-            "area": area,
-            "G_eigenvalues": g_out.eigenvalues.cpu(),
-            "G_eigenvectors": g_out.eigenvectors.cpu(),
-            "J_eigenvalues": j_out.eigenvalues.cpu() if j_out is not None else None,
-            "J_eigenvectors": j_out.eigenvectors.cpu() if j_out is not None else None,
-            "estimator": "conditional_pair",
-            "sigma": sigma,
-            "elapsed_seconds": elapsed,
-            "diffusion_epoch": diffusion_epoch,
-            "provenance": provenance_record,
-        }, out_path)
+        torch.save(
+            {
+                "img_idx": img_idx,
+                "image": x.cpu(),  # [1, 1, 64, 64] in [-1, 1]
+                "encoder_name": encoder_name,
+                "area": area,
+                "G_eigenvalues": g_out.eigenvalues.cpu(),
+                "G_eigenvectors": g_out.eigenvectors.cpu(),
+                "J_eigenvalues": j_out.eigenvalues.cpu() if j_out is not None else None,
+                "J_eigenvectors": j_out.eigenvectors.cpu()
+                if j_out is not None
+                else None,
+                "estimator": "conditional_pair",
+                "sigma": sigma,
+                "elapsed_seconds": elapsed,
+                "diffusion_epoch": diffusion_epoch,
+                "provenance": provenance_record,
+            },
+            out_path,
+        )
         written.append(out_path)
     return written
 
@@ -110,22 +152,42 @@ def estimate_images(encoder, unet, alphas_cumprod, images, indices, cfg, out_dir
 def parse_args(argv=None):
     """Command-line arguments of `python -m multigeom.pipeline.per_image`."""
     p = argparse.ArgumentParser()
-    p.add_argument("--config", required=True,
-                   help="estimator config: a packaged name ('estimator') or a YAML path")
-    p.add_argument("--encoder-cfg", required=True,
-                   help="encoder config YAML matching the trained checkpoint")
+    p.add_argument(
+        "--config",
+        required=True,
+        help="estimator config: a packaged name ('estimator') or a YAML path",
+    )
+    p.add_argument(
+        "--encoder-cfg",
+        required=True,
+        help="encoder config YAML matching the trained checkpoint",
+    )
     p.add_argument("--encoder-ckpt", required=True)
     p.add_argument("--diffusion-ckpt", required=True)
-    p.add_argument("--diffusion-cfg", default=None,
-                   help="diffusion config: a packaged name or a YAML path (default: the packaged 'diffusion')")
+    p.add_argument(
+        "--diffusion-cfg",
+        default=None,
+        help=(
+            "diffusion config: a packaged name or a YAML path (default: the packaged "
+            "'diffusion')"
+        ),
+    )
     p.add_argument("--area", required=True, choices=["V1", "V4"])
     p.add_argument("--out-dir", required=True)
     p.add_argument("--device", default=None)
     p.add_argument("--data-dir", default=None)
-    p.add_argument("--start", type=int, default=0,
-                   help="start index in the test image list (for parallel runs)")
-    p.add_argument("--end", type=int, default=None,
-                   help="end index (exclusive). Default: cfg.n_test_images.")
+    p.add_argument(
+        "--start",
+        type=int,
+        default=0,
+        help="start index in the test image list (for parallel runs)",
+    )
+    p.add_argument(
+        "--end",
+        type=int,
+        default=None,
+        help="end index (exclusive). Default: cfg.n_test_images.",
+    )
     return p.parse_args(argv)
 
 
@@ -148,7 +210,9 @@ def main(argv=None):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Load encoder f_φ ─────────────────────────────────────────────────
-    print(f"[G(x) estimation] Loading encoder ({enc_cfg.encoder.name}, {args.area}) ...")
+    print(
+        f"[G(x) estimation] Loading encoder ({enc_cfg.encoder.name}, {args.area}) ..."
+    )
     encoder = build_encoder(enc_cfg).to(device)
     enc_ckpt = torch.load(args.encoder_ckpt, map_location=device, weights_only=False)
     encoder.load_state_dict(enc_ckpt["model_state_dict"])
@@ -169,10 +233,18 @@ def main(argv=None):
     test_dataset = TinyImageNetDataset(split="val", transform=CANONICAL_TRANSFORM)
     end = args.end if args.end is not None else n_test
     if not (0 <= args.start < end <= n_test):
-        raise ValueError(f"Invalid index range start={args.start}, end={end}, n_test={n_test}")
+        raise ValueError(
+            f"Invalid index range start={args.start}, end={end}, n_test={n_test}"
+        )
     if len(test_dataset) < end:
         raise ValueError(f"TinyImageNet val has {len(test_dataset)} images, need {end}")
-    print(f"[G(x) estimation] Test images: {args.start}–{end - 1} of first {n_test} val images.")
+    print(
+        (
+            f"[G(x) estimation] Test images: {args.start}–{end - 1} of first {n_test} "
+            "val "
+            "images."
+        )
+    )
 
     sigma = float(cfg.monte_carlo.observation_noise_sigma)
     sigma_train = float(diff_cfg.conditioning.observation_noise_sigma)
@@ -182,14 +254,27 @@ def main(argv=None):
             "was trained with; the observation model must be the same in both."
         )
     prov = provenance(
-        {"estimator": args.config, "encoder": args.encoder_cfg, "diffusion": diff_cfg_path},
+        {
+            "estimator": args.config,
+            "encoder": args.encoder_cfg,
+            "diffusion": diff_cfg_path,
+        },
         seed=int(cfg.seed),
     )
     # ── Per-image loop ───────────────────────────────────────────────────
     estimate_images(
-        encoder, unet, alphas_cumprod, test_dataset, range(args.start, end), cfg, out_dir,
-        encoder_name=enc_cfg.encoder.name, area=args.area, device=device,
-        diffusion_epoch=diff_ckpt.get("epoch"), provenance_record=prov,
+        encoder,
+        unet,
+        alphas_cumprod,
+        test_dataset,
+        range(args.start, end),
+        cfg,
+        out_dir,
+        encoder_name=enc_cfg.encoder.name,
+        area=args.area,
+        device=device,
+        diffusion_epoch=diff_ckpt.get("epoch"),
+        provenance_record=prov,
         desc=f"{enc_cfg.encoder.name}/{args.area}",
     )
 

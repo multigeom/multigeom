@@ -9,6 +9,7 @@ on r is applied at the *training* level (`multigeom.diffusion.train`), not insid
 forward pass — this keeps inference / G(x) estimation independent of any
 training-only randomness.
 """
+
 from __future__ import annotations
 
 import torch
@@ -33,7 +34,9 @@ class ConditioningMLP(nn.Module):
         super().__init__()
         if len(layer_dims) < 2:
             raise ValueError("layer_dims must have at least 2 entries")
-        act_cls = {"silu": nn.SiLU, "relu": nn.ReLU, "gelu": nn.GELU}[activation.lower()]
+        act_cls = {"silu": nn.SiLU, "relu": nn.ReLU, "gelu": nn.GELU}[
+            activation.lower()
+        ]
         modules: list[nn.Module] = []
         for i in range(len(layer_dims) - 1):
             modules.append(nn.Linear(layer_dims[i], layer_dims[i + 1]))
@@ -77,7 +80,12 @@ class NeuralConditionedUNet(nn.Module):
         # Resolutions of the four blocks for 64x64 input: 64, 32, 16, 8.
         # Cross-attention at 16x16 (down/up) plus the default cross-attention
         # mid block at 8x8.
-        down_blocks = ("DownBlock2D", "DownBlock2D", "CrossAttnDownBlock2D", "DownBlock2D")
+        down_blocks = (
+            "DownBlock2D",
+            "DownBlock2D",
+            "CrossAttnDownBlock2D",
+            "DownBlock2D",
+        )
         up_blocks = ("UpBlock2D", "CrossAttnUpBlock2D", "UpBlock2D", "UpBlock2D")
 
         self.unet = UNet2DConditionModel(
@@ -99,7 +107,9 @@ class NeuralConditionedUNet(nn.Module):
         self.observation_noise_sigma = float(c.observation_noise_sigma)
         self.n_neurons = int(c.mlp_layers[0])
 
-    def forward(self, x_t: torch.Tensor, t: torch.Tensor, r: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x_t: torch.Tensor, t: torch.Tensor, r: torch.Tensor
+    ) -> torch.Tensor:
         """
         x_t : [B, 1, 64, 64]   noisy image at DDPM step t
         t   : [B]              integer DDPM timesteps

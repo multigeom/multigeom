@@ -18,13 +18,14 @@ channels internally to its backbone's expected input format.
 Trainable parameters live only in the readout. Backbone parameters are frozen
 (requires_grad = False), so `forward` builds no graph for them unless the input
 requires grad, in which case gradients with respect to the input image flow
-(the encoder contract of `multigeom.encoder`, rule R5).
+(the encoder contract of `multigeom.encoders.contract`, rule R5).
 
 Readout parameter counts (n_neurons = 50):
   - Inception (C=192): 50 * (2 + 1 + 192 + 1) =  9,800
   - ResNet50  (C=256): 50 * (2 + 1 + 256 + 1) = 13,000
   - OnOff     (C=2):   50 * (2 + 1 +   2 + 1) =    300
 """
+
 from __future__ import annotations
 
 import torch
@@ -66,48 +67,88 @@ class _BaseEncoder(NeuralEncoder):
     @property
     def config(self) -> dict:
         """The architecture, by reference-encoder name (see `NeuralEncoder.config`)."""
-        return {"reference": self.reference_name, "n_neurons": self.n_neurons, **self._reference_options}
+        return {
+            "reference": self.reference_name,
+            "n_neurons": self.n_neurons,
+            **self._reference_options,
+        }
 
 
 class InceptionEncoder(_BaseEncoder):
-    """Encoder of the paper: frozen InceptionV3 backbone (truncated at `layer`) and a Gaussian readout."""
+    """
+    Encoder of the paper: frozen InceptionV3 backbone (truncated at `layer`) and a
+    Gaussian readout.
+    """
+
     backbone_input_channels = 3
     backbone_input_range = (-1.0, 1.0)
     reference_name = "inception"
 
-    def __init__(self, n_neurons: int = 50, layer: str = "Conv2d_4a_3x3", dropout: float = 0.25):
-        super().__init__(InceptionBackbone(layer=layer), n_neurons, dropout, layer=layer)
+    def __init__(
+        self, n_neurons: int = 50, layer: str = "Conv2d_4a_3x3", dropout: float = 0.25
+    ):
+        super().__init__(
+            InceptionBackbone(layer=layer), n_neurons, dropout, layer=layer
+        )
 
 
 class ResNet50Encoder(_BaseEncoder):
-    """Encoder of the paper: frozen ResNet-50 backbone (truncated at `layer`) and a Gaussian readout."""
+    """
+    Encoder of the paper: frozen ResNet-50 backbone (truncated at `layer`) and a
+    Gaussian readout.
+    """
+
     backbone_input_channels = 3
     backbone_input_range = (-1.0, 1.0)
     reference_name = "resnet50"
 
-    def __init__(self, n_neurons: int = 50, layer: str = "layer1.0", dropout: float = 0.25):
+    def __init__(
+        self, n_neurons: int = 50, layer: str = "layer1.0", dropout: float = 0.25
+    ):
         super().__init__(ResNet50Backbone(layer=layer), n_neurons, dropout, layer=layer)
 
 
 class OnOffEncoder(_BaseEncoder):
-    """Encoder of the paper: frozen ON-OFF front-end (plenoptic) and a Gaussian readout."""
+    """
+    Encoder of the paper: frozen ON-OFF front-end (plenoptic) and a Gaussian readout.
+    """
+
     backbone_input_channels = 1
     backbone_input_range = (0.0, 1.0)
     reference_name = "onoff"
 
-    def __init__(self, n_neurons: int = 50, kernel_size: int = 31, dropout: float = 0.25):
-        super().__init__(OnOffBackbone(kernel_size=kernel_size), n_neurons, dropout, kernel_size=kernel_size)
+    def __init__(
+        self, n_neurons: int = 50, kernel_size: int = 31, dropout: float = 0.25
+    ):
+        super().__init__(
+            OnOffBackbone(kernel_size=kernel_size),
+            n_neurons,
+            dropout,
+            kernel_size=kernel_size,
+        )
 
 
-REFERENCE_ENCODERS = {"inception": InceptionEncoder, "resnet50": ResNet50Encoder, "onoff": OnOffEncoder}
+REFERENCE_ENCODERS = {
+    "inception": InceptionEncoder,
+    "resnet50": ResNet50Encoder,
+    "onoff": OnOffEncoder,
+}
 
 
 def build_reference(config: dict) -> _BaseEncoder:
-    """A reference encoder (fresh readout) from its description, `{"reference": "inception", "n_neurons": 50, ...}`."""
+    """
+    A reference encoder (fresh readout) from its description, `{"reference":
+    "inception", "n_neurons": 50, ...}`.
+    """
     config = dict(config)
     name = str(config.pop("reference")).lower()
     if name not in REFERENCE_ENCODERS:
-        raise ValueError(f"unknown reference encoder {name!r}; available: {sorted(REFERENCE_ENCODERS)}")
+        raise ValueError(
+            (
+                f"unknown reference encoder {name!r}; available: "
+                f"{sorted(REFERENCE_ENCODERS)}"
+            )
+        )
     return REFERENCE_ENCODERS[name](**config)
 
 
