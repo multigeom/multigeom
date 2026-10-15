@@ -29,9 +29,8 @@ TVSD_FILES = {
 }
 THINGS_IMAGES_URL = "https://osf.io/download/rdxy2/"  # images_THINGS.zip (5.0 GB), https://osf.io/jum2f/
 THINGS_IMAGES_BYTES = 5022473688
-THINGS_PASSWORD_URL = (
-    "https://osf.io/download/j6a3m/"  # a licence text and the password of the archive
-)
+# a licence text and the password of the archive
+THINGS_PASSWORD_URL = "https://osf.io/download/j6a3m/"
 # Primary source first, then a mirror serving the identical archive.
 TINYIMAGENET_URLS = (
     "https://cs231n.stanford.edu/tiny-imagenet-200.zip",

@@ -49,9 +49,8 @@ REPO = project_root()
 ENCODERS = ("inception", "resnet50", "onoff")
 AREAS = ("V1", "V4")
 METRICS = ("G", "J")
-SECONDS_PER_G = (
-    15.0  # one G(x) estimate with 200 Monte-Carlo samples, RTX 5090 (A100: about 30 s)
-)
+# one G(x) estimate with 200 Monte-Carlo samples, RTX 5090 (A100: about 30 s)
+SECONDS_PER_G = 15.0
 SECONDS_PER_J = 0.3  # one closed-form J(x)
 
 
