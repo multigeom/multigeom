@@ -1,9 +1,9 @@
 """
 Image-to-response encoders f_φ : x ↦ r̂ used throughout the paper.
 
-Each encoder is a frozen feature-extracting backbone followed by a per-neuron
-Gaussian spatial-attention readout (the same readout structure across all
-three encoders, as discussed in Appendix C / D of the paper).
+Each encoder is a frozen feature-extracting backbone followed by a readout: a
+per-neuron Gaussian spatial-attention readout for Inception and ResNet-50, and one
+dense linear map for ON-OFF.
 
 The canonical input is a [B, 1, 64, 64] tensor in [-1, 1] (matching the
 diffusion-process input convention).  Each encoder rescales / replicates
@@ -23,7 +23,7 @@ requires grad, in which case gradients with respect to the input image flow
 Readout parameter counts (n_neurons = 50):
   - Inception (C=192): 50 * (2 + 1 + 192 + 1) =  9,800
   - ResNet50  (C=256): 50 * (2 + 1 + 256 + 1) = 13,000
-  - OnOff     (C=2):   50 * (2 + 1 +   2 + 1) =    300
+  - OnOff, dense map of the flattened 2 x 64 x 64 output: 50 * (8192 + 1) = 409,650
 """
 
 from __future__ import annotations
@@ -37,8 +37,8 @@ from .neural import NeuralEncoder
 
 class _BaseEncoder(NeuralEncoder):
     """
-    Generic encoder = (frozen backbone) ∘ (normalise input) followed by
-    a Gaussian spatial-attention readout.
+    Generic encoder = (frozen backbone) ∘ (normalise input) followed by a readout:
+    Gaussian spatial attention unless the subclass says otherwise.
 
     Subclasses set ``backbone_input_channels`` and ``backbone_input_range``;
     the canonical input format is always [B, 1, 64, 64] in [-1, 1].
@@ -48,9 +48,12 @@ class _BaseEncoder(NeuralEncoder):
     backbone_input_channels: int
     backbone_input_range: tuple[float, float]
     reference_name: str
+    reference_readout: str = "gaussian"
 
     def __init__(self, backbone: nn.Module, n_neurons: int, dropout: float, **options):
-        super().__init__(backbone, n_neurons, readout="gaussian", dropout=dropout)
+        super().__init__(
+            backbone, n_neurons, readout=self.reference_readout, dropout=dropout
+        )
         self._reference_options = {"dropout": dropout, **options}
 
     def _to_backbone_input(self, x: torch.Tensor) -> torch.Tensor:
@@ -110,15 +113,17 @@ class ResNet50Encoder(_BaseEncoder):
 
 class OnOffEncoder(_BaseEncoder):
     """
-    Encoder of the paper: frozen ON-OFF front-end (plenoptic) and a Gaussian readout.
+    Encoder of the paper: frozen ON-OFF front-end (plenoptic) and a dense linear
+    readout, without dropout.
     """
 
     backbone_input_channels = 1
     backbone_input_range = (0.0, 1.0)
     reference_name = "onoff"
+    reference_readout = "dense"
 
     def __init__(
-        self, n_neurons: int = 50, kernel_size: int = 31, dropout: float = 0.25
+        self, n_neurons: int = 50, kernel_size: int = 31, dropout: float = 0.0
     ):
         super().__init__(
             OnOffBackbone(kernel_size=kernel_size),
