@@ -5,6 +5,9 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- The checkpoints of the paper are now on the Hugging Face repository `sazio/multigeom`, the default of `load_encoder`.
+
 ## [0.1.0.dev3] - 2026-10-15
 
 ### Added
