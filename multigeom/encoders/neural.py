@@ -46,8 +46,8 @@ class NeuralEncoder(nn.Module):
     S], with attributes `out_channels` and `out_spatial`. Pretrained backbones can be
     frozen already; a backbone that you trained is frozen by `fit_readout`. n_neurons:
     number of neurons to predict. readout: the name of a registered readout ("gaussian",
-    "linear", "factorized", or one you registered) or a readout module (`features [B, C,
-    S, S] -> [B, n_neurons]`). dropout: dropout on the feature map while the readout is
+    "linear", "factorized", "dense", or one you registered) or a readout module
+    (`features [B, C, S, S] -> [B, n_neurons]`). dropout: dropout on the feature map while the readout is
     fitted (used when `readout` is a name).
     """
 
@@ -359,7 +359,9 @@ def _encoder_from_checkpoint(ckpt: dict) -> NeuralEncoder:
     ):  # the checkpoints of the paper: {"encoder": name, "area": ...}
         from .reference import build_reference
 
-        n_neurons = int(ckpt["model_state_dict"]["readout.mu"].shape[0])
+        state = ckpt["model_state_dict"]
+        key = "readout.mu" if "readout.mu" in state else "readout.linear.weight"
+        n_neurons = int(state[key].shape[0])
         return build_reference(
             {"reference": str(config["encoder"]).lower(), "n_neurons": n_neurons}
         )
@@ -381,9 +383,9 @@ def load_encoder(
     """
     Load an encoder that is already fitted.
 
-    * `load_encoder("inception", area="V1")`: the encoder of the paper (`"inception"` or
-      `"resnet50"`, area `"V1"` or `"V4"`), downloaded from the Hugging Face repository
-      `repo_id` the first time and cached after that. The pretrained backbone weights
+    * `load_encoder("inception", area="V1")`: the encoder of the paper (`"inception"`,
+      `"resnet50"` or `"onoff"`, area `"V1"` or `"V4"`), downloaded from the Hugging Face
+      repository `repo_id` the first time and cached after that. The pretrained backbone weights
       come from torchvision.
     * `load_encoder("path/to/encoder.pt")`: a checkpoint on disk, saved by
       `NeuralEncoder.save` or by the pipeline.

@@ -15,6 +15,7 @@ from multigeom import validate_encoder
 from multigeom.encoders import (
     BACKBONES,
     READOUTS,
+    DenseReadout,
     FactorizedReadout,
     GaussianReadout,
     LinearReadout,
@@ -53,6 +54,7 @@ def images(n=24, seed=0):
         ("gaussian", GaussianReadout),
         ("linear", LinearReadout),
         ("factorized", FactorizedReadout),
+        ("dense", DenseReadout),
     ],
 )
 def test_readouts_are_registered_and_map_features_to_neurons(name, cls):
@@ -67,6 +69,13 @@ def test_linear_readout_is_a_linear_map_of_the_spatial_mean():
     torch.testing.assert_close(
         r(f), f.mean((-2, -1)) @ r.linear.weight.T + r.linear.bias
     )
+
+
+def test_dense_readout_is_a_linear_map_of_the_flattened_features():
+    r = DenseReadout(4, 3, 8).eval()
+    f = torch.randn(2, 3, 8, 8)
+    torch.testing.assert_close(r(f), f.flatten(1) @ r.linear.weight.T + r.linear.bias)
+    assert sum(p.numel() for p in r.parameters()) == 4 * (3 * 8 * 8 + 1)
 
 
 def test_factorized_readout_window_sums_to_one_and_counts_parameters():
@@ -202,7 +211,7 @@ def test_fit_returns_the_best_epoch_readout():
 
 
 # ── save, load ──────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("readout", ["gaussian", "linear", "factorized"])
+@pytest.mark.parametrize("readout", ["gaussian", "linear", "factorized", "dense"])
 def test_save_and_load_round_trip(tmp_path, readout):
     enc = tiny_encoder(readout)
     enc.fit_readout(images(40), torch.randn(40, N), epochs=2, verbose=False)
@@ -314,6 +323,43 @@ def test_loading_a_checkpoint_of_the_paper_format(tmp_path, monkeypatch):
     new = tmp_path / "new.pt"
     src.save(new)
     torch.testing.assert_close(NeuralEncoder.load(new).predict(x), src.predict(x))
+
+
+def test_loading_a_dense_checkpoint_of_the_paper_format(tmp_path, monkeypatch):
+    """A dense readout has no `readout.mu`: the neurons are counted from its weights."""
+
+    class TinyBackbone(nn.Module):
+        out_channels, out_spatial = 2, 8
+
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Conv2d(1, 2, 3, stride=8, padding=1)
+
+        def forward(self, x):
+            return self.conv(x)
+
+    class TinyDenseRef(_BaseEncoder):
+        backbone_input_channels, backbone_input_range, reference_name = (
+            1,
+            (0.0, 1.0),
+            "tinydense",
+        )
+        reference_readout = "dense"
+
+        def __init__(self, n_neurons=50, dropout=0.0):
+            super().__init__(TinyBackbone(), n_neurons, dropout)
+
+    monkeypatch.setitem(REFERENCE_ENCODERS, "tinydense", TinyDenseRef)
+    src = TinyDenseRef(n_neurons=5)
+    legacy = {
+        "model_state_dict": src.state_dict(),
+        "config": {"area": "V1", "encoder": "tinydense"},
+    }
+    torch.save(legacy, tmp_path / "best_model.pt")
+    loaded = load_encoder(tmp_path / "best_model.pt")
+    x = images(3)
+    torch.testing.assert_close(loaded.predict(x), src.predict(x))
+    assert loaded.n_neurons == 5
 
 
 def test_a_checkpoint_without_architecture_is_explained(tmp_path):
