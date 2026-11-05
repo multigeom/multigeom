@@ -339,7 +339,7 @@ def test_load_encoder_downloads_the_checkpoint_of_a_name_and_area(
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", fake_download)
     loaded = load_encoder("inception", area="V4", revision="abc")
     assert calls == {
-        "repo_id": "steevelaquitaine/multigeom",
+        "repo_id": "sazio/multigeom",
         "filename": "encoders/inception/V4/best_model.pt",
         "revision": "abc",
     }

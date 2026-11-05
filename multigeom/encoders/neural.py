@@ -29,7 +29,7 @@ from .registry import BACKBONES, READOUTS, describe
 
 CHECKPOINT_FORMAT = 1
 # Hugging Face repository with the checkpoints of the paper
-DEFAULT_REPO = "steevelaquitaine/multigeom"
+DEFAULT_REPO = "sazio/multigeom"
 
 
 def _package_version() -> str:
