@@ -47,8 +47,8 @@ class NeuralEncoder(nn.Module):
     frozen already; a backbone that you trained is frozen by `fit_readout`. n_neurons:
     number of neurons to predict. readout: the name of a registered readout ("gaussian",
     "linear", "factorized", "dense", or one you registered) or a readout module
-    (`features [B, C, S, S] -> [B, n_neurons]`). dropout: dropout on the feature map while the readout is
-    fitted (used when `readout` is a name).
+    (`features [B, C, S, S] -> [B, n_neurons]`). dropout: dropout on the feature map
+    while the readout is fitted (used when `readout` is a name).
     """
 
     def __init__(
@@ -384,9 +384,9 @@ def load_encoder(
     Load an encoder that is already fitted.
 
     * `load_encoder("inception", area="V1")`: the encoder of the paper (`"inception"`,
-      `"resnet50"` or `"onoff"`, area `"V1"` or `"V4"`), downloaded from the Hugging Face
-      repository `repo_id` the first time and cached after that. The pretrained backbone weights
-      come from torchvision.
+      `"resnet50"` or `"onoff"`, area `"V1"` or `"V4"`), downloaded from the Hugging
+      Face repository `repo_id` the first time and cached after that. The pretrained
+      backbone weights come from torchvision or plenoptic.
     * `load_encoder("path/to/encoder.pt")`: a checkpoint on disk, saved by
       `NeuralEncoder.save` or by the pipeline.
     """
