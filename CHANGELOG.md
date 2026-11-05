@@ -7,6 +7,10 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - The checkpoints of the paper are now on the Hugging Face repository `sazio/multigeom`, the default of `load_encoder`.
+- `OnOffEncoder` now has the dense linear readout of the paper, without dropout, so `load_encoder("onoff", area=...)` works. An ON-OFF encoder saved earlier, with a Gaussian readout, no longer loads.
+
+### Added
+- `DenseReadout` (`readout="dense"`): one linear map from the flattened feature map to the neurons.
 
 ## [0.1.0.dev3] - 2026-10-15
 

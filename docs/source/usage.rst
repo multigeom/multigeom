@@ -93,6 +93,8 @@ An encoder predicts neural responses from images. The package represents it as a
      - the same over a Gaussian window of its own (position and width learned): the readout of the paper
    * - ``"factorized"``
      - the same over a window of any shape (one learned weight per location)
+   * - ``"dense"``
+     - a weighted sum of every feature at every location: the readout of the paper's ON-OFF encoders
 
 ``encoder.fit_readout`` is the one way to fit a readout, whatever the data: synthetic neurons, your own recordings, or the
 macaque recordings of the paper. The script of the paper, ``multigeom.fit.train_encoder`` (command ``multigeom train-encoder``,
