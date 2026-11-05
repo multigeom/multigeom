@@ -68,6 +68,7 @@ intersphinx_mapping = {
 
 # Notebooks: they need data and GPUs, so they are shown with the outputs stored in them,
 # never executed here.
+nbsphinx_widgets_path = ""  # the demos have no widgets
 nbsphinx_execute = "never"
 nbsphinx_prolog = (
     r"""
