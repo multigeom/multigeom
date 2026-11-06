@@ -7,10 +7,22 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 - The checkpoints of the paper are now on the Hugging Face repository `sazio/multigeom`, the default of `load_encoder`.
-- `OnOffEncoder` now has the dense linear readout of the paper, without dropout, so `load_encoder("onoff", area=...)` works. An ON-OFF encoder saved earlier, with a Gaussian readout, no longer loads.
+- `OnOffEncoder` now has the dense linear readout of the paper, without dropout, so `load_encoder("onoff", area=...)` works.
+  `OnOffEncoder(readout="gaussian")` is the ON-OFF encoder of 0.1.0.dev3 and earlier, and ON-OFF encoders saved with those
+  versions still load: the readout is read off their weights.
+- The settings `onoff` fit the readout with the recipe of the paper's ON-OFF encoders: Adam without weight decay, the learning
+  rate halved after 10 epochs without a lower validation loss, no gradient clipping, batches of 128, 200 epochs.
+- The settings `inception`, `resnet50` and `onoff`, `fit_readout` and `fit_readout_on_features` hold out 10% of the training
+  images for validation, as in the paper (5% before).
 
 ### Added
 - `DenseReadout` (`readout="dense"`): one linear map from the flattened feature map to the neurons.
+- `fit_readout` and `fit_readout_on_features` take `optimizer` ("adamw" or "adam"), `scheduler` ("cosine" or "plateau") and
+  `grad_clip` (None for no clipping); stage 1 and the layer sweep read them from the `train` section of the settings
+  (`multigeom.encoders.fitting.training_options`).
+- `validate_encoder(..., images=...)` runs the checks on the images given, so the response scale of R8 and R9 can be measured on
+  natural images instead of noise. The R9 warning of the paper's ON-OFF encoders is expected: their responses vary about five
+  times less than the noise sigma (see the encoder contract in the documentation).
 
 ## [0.1.0.dev3] - 2026-10-15
 

@@ -42,7 +42,7 @@ import torch
 from ..config import data_dir, load_config
 from ..datasets import CANONICAL_TRANSFORM
 from ..encoders import build_encoder
-from ..encoders.fitting import correlation_per_neuron
+from ..encoders.fitting import correlation_per_neuron, training_options
 from ..utils import count_parameters, get_device, provenance, set_seed
 from .tvsd import existing_image_mask, load_images, load_tvsd
 
@@ -195,6 +195,7 @@ def main(argv=None):
             batch_size=cfg.train.batch_size,
             val_fraction=cfg.train.validation_fraction,
             seed=cfg.train.seed,
+            **training_options(cfg.train),
             device=device,
         )
         history = report.history

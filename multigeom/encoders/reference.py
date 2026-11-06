@@ -50,9 +50,19 @@ class _BaseEncoder(NeuralEncoder):
     reference_name: str
     reference_readout: str = "gaussian"
 
-    def __init__(self, backbone: nn.Module, n_neurons: int, dropout: float, **options):
+    def __init__(
+        self,
+        backbone: nn.Module,
+        n_neurons: int,
+        dropout: float,
+        readout: str | None = None,
+        **options,
+    ):
         super().__init__(
-            backbone, n_neurons, readout=self.reference_readout, dropout=dropout
+            backbone,
+            n_neurons,
+            readout=readout or self.reference_readout,
+            dropout=dropout,
         )
         self._reference_options = {"dropout": dropout, **options}
 
@@ -114,7 +124,14 @@ class ResNet50Encoder(_BaseEncoder):
 class OnOffEncoder(_BaseEncoder):
     """
     Encoder of the paper: frozen ON-OFF front-end (plenoptic) and a dense linear
-    readout, without dropout.
+    readout, without dropout. `readout="gaussian"` gives the ON-OFF encoder of
+    multigeom 0.1.0.dev3 and earlier (a Gaussian readout, with dropout 0.25), so that
+    encoders saved with those versions still load.
+
+    The paper's ON-OFF encoders respond weakly: across natural images their responses
+    vary about five times less than the observation noise sigma = 0.22, so
+    `validate_encoder` warns (rule R9). This is a property of these fitted encoders
+    (their test correlations are low), not an error of the package.
     """
 
     backbone_input_channels = 1
@@ -123,14 +140,22 @@ class OnOffEncoder(_BaseEncoder):
     reference_readout = "dense"
 
     def __init__(
-        self, n_neurons: int = 50, kernel_size: int = 31, dropout: float = 0.0
+        self,
+        n_neurons: int = 50,
+        kernel_size: int = 31,
+        dropout: float = 0.0,
+        readout: str = "dense",
     ):
+        if readout not in ("dense", "gaussian"):
+            raise ValueError(f"readout must be 'dense' or 'gaussian', not {readout!r}")
         super().__init__(
             OnOffBackbone(kernel_size=kernel_size),
             n_neurons,
             dropout,
+            readout=readout,
             kernel_size=kernel_size,
         )
+        self._reference_options["readout"] = readout
 
 
 REFERENCE_ENCODERS = {
@@ -184,5 +209,6 @@ def build_encoder(cfg) -> _BaseEncoder:
             n_neurons=cfg.encoder.n_neurons,
             kernel_size=cfg.encoder.kernel_size,
             dropout=cfg.encoder.dropout,
+            readout=getattr(cfg.encoder, "readout", "dense"),
         )
     raise ValueError(f"Unknown encoder name: {name!r}")

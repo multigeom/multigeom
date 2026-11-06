@@ -50,7 +50,12 @@ _LAZY = {  # torchvision is imported only when the encoders themselves are asked
         "SmallCNNBackbone",
         "_FrozenBackbone",
     ),
-    "fitting": ("FitReport", "correlation_per_neuron", "fit_readout_on_features"),
+    "fitting": (
+        "FitReport",
+        "correlation_per_neuron",
+        "fit_readout_on_features",
+        "training_options",
+    ),
     "neural": ("NeuralEncoder", "load_encoder"),
     "readout": (
         "DenseReadout",
