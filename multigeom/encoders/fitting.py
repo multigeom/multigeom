@@ -35,6 +35,10 @@ def correlation_per_neuron(pred: torch.Tensor, target: torch.Tensor) -> np.ndarr
     return np.array(corrs)
 
 
+OPTIMIZERS = {"adamw": torch.optim.AdamW, "adam": torch.optim.Adam}
+SCHEDULERS = ("cosine", "plateau")
+
+
 @dataclass
 class FitReport:
     """
@@ -63,6 +67,19 @@ class FitReport:
         )
 
 
+def training_options(train_cfg) -> dict:
+    """
+    The optimizer, schedule and gradient clipping of the `train` section of a config;
+    a missing entry takes the default of `fit_readout_on_features` (AdamW, cosine
+    schedule, clipping at norm 1).
+    """
+    return {
+        "optimizer": getattr(train_cfg, "optimizer", "adamw"),
+        "scheduler": getattr(train_cfg, "scheduler", "cosine"),
+        "grad_clip": getattr(train_cfg, "grad_clip", 1.0),
+    }
+
+
 def fit_readout_on_features(
     readout: torch.nn.Module,
     features: torch.Tensor,
@@ -72,21 +89,36 @@ def fit_readout_on_features(
     lr: float = 3e-4,
     weight_decay: float = 1e-4,
     batch_size: int = 64,
-    val_fraction: float = 0.05,
+    val_fraction: float = 0.10,
     seed: int = 42,
-    grad_clip: float = 1.0,
+    grad_clip: float | None = 1.0,
+    optimizer: str = "adamw",
+    scheduler: str = "cosine",
     device: str | torch.device | None = None,
     log: Callable[[str], None] | None = print,
 ) -> FitReport:
     """
-    Fit `readout` (features [N, C, S, S] -> responses [N, n_neurons]) with AdamW, a
-    cosine schedule and mean squared error. A fixed-seed image-level split keeps
-    `val_fraction` of the images for validation; the readout of the epoch with the
-    highest mean validation correlation is restored at the end. `features` and
-    `responses` are used on their own device (put them on the GPU for speed), unless
-    `device` is given: each batch is then moved there, so the cached features can stay
-    on the CPU while the readout is on the GPU.
+    Fit `readout` (features [N, C, S, S] -> responses [N, n_neurons]) by minimising the
+    mean squared error. A fixed-seed image-level split keeps `val_fraction` of the
+    images for validation; the readout of the epoch with the highest mean validation
+    correlation is restored at the end. `features` and `responses` are used on their
+    own device (put them on the GPU for speed), unless `device` is given: each batch is
+    then moved there, so the cached features can stay on the CPU while the readout is
+    on the GPU.
+
+    `optimizer` is "adamw" or "adam" (both with `weight_decay`), `scheduler` is
+    "cosine" (annealed over `epochs`) or "plateau" (the learning rate halves after 10
+    epochs without a lower validation loss), and `grad_clip` is the largest gradient
+    norm (None: no clipping). The defaults are those of the Inception and ResNet-50
+    encoders of the paper; its ON-OFF encoders were fitted with "adam", "plateau", no
+    weight decay and no clipping (`configs/onoff.yaml`).
     """
+    if optimizer not in OPTIMIZERS:
+        raise ValueError(
+            f"optimizer must be one of {sorted(OPTIMIZERS)}, not {optimizer!r}"
+        )
+    if scheduler not in SCHEDULERS:
+        raise ValueError(f"scheduler must be one of {SCHEDULERS}, not {scheduler!r}")
     n = len(features)
     if len(responses) != n:
         raise ValueError(f"{n} feature maps but {len(responses)} response vectors")
@@ -99,10 +131,11 @@ def fit_readout_on_features(
     if log:
         log(f"  train/val split: {n_tr}/{n_val}")
 
-    optimizer = torch.optim.AdamW(
-        readout.parameters(), lr=lr, weight_decay=weight_decay
-    )
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    opt = OPTIMIZERS[optimizer](readout.parameters(), lr=lr, weight_decay=weight_decay)
+    if scheduler == "cosine":
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
+    else:
+        sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, patience=10, factor=0.5)
     report = FitReport(n_train=n_tr, n_val=n_val)
     best_val_corr, best_state = -float("inf"), None
 
@@ -117,10 +150,11 @@ def fit_readout_on_features(
                 x, y = x.to(device), y.to(device)
             pred = readout(x)
             loss = F.mse_loss(pred, y)
-            optimizer.zero_grad()
+            opt.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(readout.parameters(), grad_clip)
-            optimizer.step()
+            if grad_clip is not None:
+                torch.nn.utils.clip_grad_norm_(readout.parameters(), grad_clip)
+            opt.step()
             train_loss_sum += loss.item()
             n_batches += 1
         train_loss = train_loss_sum / n_batches
@@ -135,7 +169,10 @@ def fit_readout_on_features(
                 val_pred = readout(x)
                 val_loss = F.mse_loss(val_pred, y).item()
                 val_corr = correlation_per_neuron(val_pred, y).mean()
-        scheduler.step()
+        if scheduler == "cosine":
+            sched.step()
+        else:  # without validation images, the training loss
+            sched.step(val_loss if n_val else train_loss)
         for key, value in (
             ("epoch", epoch),
             ("train_loss", train_loss),

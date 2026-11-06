@@ -29,7 +29,8 @@ conditional diffusion model. The package also reproduces the macaque V1/V4 analy
 1. **Encoders** (`NeuralEncoder.fit_readout`; the paper's recipe is `multigeom.fit.train_encoder`). A frozen backbone
    (InceptionV3 truncated at `Conv2d_4a_3x3`, ResNet-50 truncated at
    `layer1.0`, or the ON-OFF front-end of Berardino et al.) followed by a
-   per-neuron Gaussian spatial-attention readout, fitted to the trial-averaged
+   readout (per-neuron Gaussian spatial attention, or one dense linear map for
+   ON-OFF), fitted to the trial-averaged
    responses of the 50 most reliable V1 or V4 channels of the THINGS
    Ventral-stream Spiking Dataset (Papale et al., 2025).
 2. **Synthetic responses** (`multigeom.diffusion.responses`). The encoder

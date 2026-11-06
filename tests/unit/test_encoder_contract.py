@@ -203,6 +203,30 @@ def test_R9_response_scale_warns(scale):
     assert any(w.startswith("R9") for w in r.warnings)
 
 
+def test_the_response_scale_is_measured_on_the_images_given():
+    """
+    Responses that average each quarter of the image vary little across noise images
+    and a lot across images made of four flat quarters: the noise check warns (R9, with
+    the hint), the check on the flat-quarter images does not.
+    """
+
+    class QuarterMeans(nn.Module):
+        def forward(self, x):
+            return F.adaptive_avg_pool2d(x, 2).flatten(1)  # [B, 4]
+
+    g = torch.Generator().manual_seed(0)
+    quarters = F.interpolate(torch.rand(12, 1, 2, 2, generator=g) * 2 - 1, size=64)
+    on_noise = validate_encoder(QuarterMeans(), purpose="training")
+    assert any(w.startswith("R9") and "images=" in w for w in on_noise.warnings)
+    on_images = validate_encoder(QuarterMeans(), purpose="training", images=quarters)
+    assert not any(w.startswith("R9") for w in on_images.warnings)
+    assert on_images.response_std == pytest.approx(
+        float(QuarterMeans()(quarters).std(0).mean())
+    )
+    with pytest.raises(ValueError, match="B >= 4"):
+        validate_encoder(QuarterMeans(), images=quarters[:2])
+
+
 # ── purpose: training needs fewer rules ─────────────────────────────────────
 def test_training_does_not_need_gradients_or_pure_inputs():
     class NoGrad(Toy):

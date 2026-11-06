@@ -93,6 +93,8 @@ An encoder predicts neural responses from images. The package represents it as a
      - the same over a Gaussian window of its own (position and width learned): the readout of the paper
    * - ``"factorized"``
      - the same over a window of any shape (one learned weight per location)
+   * - ``"dense"``
+     - a weighted sum of every feature at every location: the readout of the paper's ON-OFF encoders
 
 ``encoder.fit_readout`` is the one way to fit a readout, whatever the data: synthetic neurons, your own recordings, or the
 macaque recordings of the paper. The script of the paper, ``multigeom.fit.train_encoder`` (command ``multigeom train-encoder``,
@@ -218,8 +220,8 @@ The :doc:`demo notebooks <demos>` go through each step, with synthetic neural da
 The encoder contract
 ^^^^^^^^^^^^^^^^^^^^
 
-``validate_encoder`` runs a few forward and backward passes on random images and raises
-:class:`multigeom.EncoderContractError`, naming the rule and what to change, at the first violation.
+``validate_encoder`` runs a few forward and backward passes on random images, or on images that you give with ``images=``, and
+raises :class:`multigeom.EncoderContractError`, naming the rule and what to change, at the first violation.
 
 .. list-table::
    :header-rows: 1
@@ -244,11 +246,17 @@ The encoder contract
    * - R8
      - responses vary across images (warning)
    * - R9
-     - responses of order 1, for example z-scored, since the noise sigma is 0.22 (warning)
+     - responses of order 1, for example z-scored, since the noise sigma is 0.22 (warning); pass natural images with ``images=``
+       for a reliable measure
 
 Training the diffusion model on the encoder's responses needs R1 to R4, R6 and R9; estimating :math:`G(x)` and :math:`J(x)`
 needs all of them. The quality of the fit and the 64 x 64 grayscale natural-image domain are not checked. The diffusion
 model's conditioning layer is sized by N, so each encoder needs its own diffusion model.
+
+The paper's ON-OFF encoders raise the R9 warning. Across natural images their responses vary about five times less than the
+noise sigma (a standard deviation of about 0.05 against 0.22), while those of the Inception and ResNet-50 encoders vary about
+twice as much as sigma. This is how these fitted encoders behave (their test correlations are low); their diffusion models
+were trained with the same sigma, so the pipeline uses them unchanged.
 
 Geometry
 --------
@@ -306,7 +314,9 @@ Command line and settings
    multigeom compute-g --help
 
 Settings are YAML files packaged with the library (``estimator``, ``diffusion``, ``inception``, ``resnet50``, ``onoff``) and
-loaded by name with :func:`multigeom.config.load_config`.
+loaded by name with :func:`multigeom.config.load_config`. The ``train`` section of an encoder's settings is the recipe used to
+fit its readout: AdamW with a cosine schedule for Inception and ResNet-50, and Adam with a learning rate halved on a plateau of
+the validation loss for ON-OFF, as for the encoders of the paper. Each holds out 10% of the training images for validation.
 
 Working folders
 ---------------

@@ -69,7 +69,11 @@ from ..encoders import (
     _BaseEncoder,
     _FrozenBackbone,
 )
-from ..encoders.fitting import correlation_per_neuron, fit_readout_on_features
+from ..encoders.fitting import (
+    correlation_per_neuron,
+    fit_readout_on_features,
+    training_options,
+)
 from ..utils import get_device, provenance, set_seed
 
 INCEPTION_LAYERS = [
@@ -301,6 +305,7 @@ def sweep(
             batch_size=train_cfg.batch_size,
             val_fraction=train_cfg.validation_fraction,
             seed=seed,
+            **training_options(train_cfg),
             device=device,
             log=None,
         )
