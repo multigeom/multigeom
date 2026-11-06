@@ -5,6 +5,8 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0.dev4] - 2026-11-06
+
 ### Changed
 - The checkpoints of the paper are now on the Hugging Face repository `sazio/multigeom`, the default of `load_encoder`.
 - `OnOffEncoder` now has the dense linear readout of the paper, without dropout, so `load_encoder("onoff", area=...)` works.
