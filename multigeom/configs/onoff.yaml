@@ -1,22 +1,27 @@
 # ON-OFF encoder configuration.
 # Frozen Berardino-2017 ON-OFF front-end from the plenoptic library
 # (12-scalar cascade of difference-of-Gaussians + luminance/contrast gain
-# control) followed by a 50-neuron Gaussian spatial-attention readout
-# matching the deep-CNN encoders.
+# control) followed by one linear map from the flattened 8,192 features to the
+# 50 neurons (409,650 parameters, no dropout).
 
 encoder:
   name: onoff
   backbone: plenoptic_onoff
   kernel_size: 31            # → output shape (2, 64, 64) for 64x64 input
   n_neurons: 50
-  dropout: 0.25
+  dropout: 0.0
+  readout: dense             # "gaussian" rebuilds ON-OFF encoders of multigeom 0.1.0.dev3
 
+# The recipe of the paper's ON-OFF encoders, which differs from that of the
+# Inception and ResNet-50 encoders: Adam without weight decay, the learning rate
+# halved after 10 epochs without a lower validation loss, no gradient clipping.
 train:
-  optimizer: adamw
+  optimizer: adam
   lr: 3.0e-4
-  weight_decay: 1.0e-4
-  scheduler: cosine
-  batch_size: 64
-  epochs: 100
-  validation_fraction: 0.05  # 95/5 image-level train/val split (paper App. C.2)
+  weight_decay: 0.0
+  scheduler: plateau
+  grad_clip: null
+  batch_size: 128
+  epochs: 200
+  validation_fraction: 0.10  # 90/10 image-level train/val split (paper Appendix I.2)
   seed: 42

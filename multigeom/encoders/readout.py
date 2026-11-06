@@ -7,10 +7,12 @@ feature map of a backbone, [B, C, S, S], to one response per neuron, [B, N].
 * `LinearReadout`: average the feature map over space, then one linear map (the simplest
   baseline);
 * `FactorizedReadout`: each neuron has its own learned spatial window and its own
-  feature weights.
+  feature weights;
+* `DenseReadout`: one linear map from the flattened feature map to the neurons (the
+  readout of the paper's ON-OFF encoders).
 
-All three take `(n_neurons, n_channels, spatial, dropout)` and are registered by name
-("gaussian", "linear", "factorized"), so `NeuralEncoder(backbone, n_neurons,
+All four take `(n_neurons, n_channels, spatial, dropout)` and are registered by name
+("gaussian", "linear", "factorized", "dense"), so `NeuralEncoder(backbone, n_neurons,
 readout="linear")` builds one and a saved encoder can be reloaded. Register your own
 with `register_readout`.
 """
@@ -105,6 +107,29 @@ class LinearReadout(nn.Module):
     def forward(self, features: torch.Tensor) -> torch.Tensor:
         """features: [B, C, S, S] -> [B, N]"""
         return self.linear(self.dropout(features).mean(dim=(-2, -1)))
+
+
+@register_readout("dense")
+class DenseReadout(nn.Module):
+    """
+    One linear map from the flattened feature map to the neurons:
+
+        r̂(x) = W vec(φ(x)) + b,   W ∈ ℝ^{N × C·S·S}, b ∈ ℝ^N
+
+    The readout of the paper's ON-OFF encoders. Parameters: N · (C · S · S + 1).
+    """
+
+    def __init__(
+        self, n_neurons: int, n_channels: int, spatial: int, dropout: float = 0.0
+    ):
+        super().__init__()
+        self.n_neurons = n_neurons
+        self.dropout = nn.Dropout(p=dropout)
+        self.linear = nn.Linear(n_channels * spatial * spatial, n_neurons)
+
+    def forward(self, features: torch.Tensor) -> torch.Tensor:
+        """features: [B, C, S, S] -> [B, N]"""
+        return self.linear(self.dropout(features).flatten(start_dim=1))
 
 
 @register_readout("factorized")

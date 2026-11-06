@@ -1,8 +1,9 @@
 """
 The paper's recipe for fitting an encoder to macaque recordings: load the 50 most
 reliable channels of V1 or V4 from the THINGS Ventral-stream Spiking Dataset (Papale et
-al.), build a reference encoder (Inception, ResNet-50 or ON-OFF backbone, Gaussian
-readout), fit its readout and score it on the test images.
+al.), build a reference encoder (Inception or ResNet-50 backbone with a Gaussian
+readout, or the ON-OFF backbone with a dense one), fit its readout and score it on the
+test images.
 
 This module holds only what is specific to that dataset. The readout is fitted by
 `NeuralEncoder.fit_readout` (`multigeom.encoders.fitting`), the same method as for any
@@ -41,7 +42,7 @@ import torch
 from ..config import data_dir, load_config
 from ..datasets import CANONICAL_TRANSFORM
 from ..encoders import build_encoder
-from ..encoders.fitting import correlation_per_neuron
+from ..encoders.fitting import correlation_per_neuron, training_options
 from ..utils import count_parameters, get_device, provenance, set_seed
 from .tvsd import existing_image_mask, load_images, load_tvsd
 
@@ -194,6 +195,7 @@ def main(argv=None):
             batch_size=cfg.train.batch_size,
             val_fraction=cfg.train.validation_fraction,
             seed=cfg.train.seed,
+            **training_options(cfg.train),
             device=device,
         )
         history = report.history

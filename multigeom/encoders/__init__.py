@@ -4,11 +4,11 @@ readout fitted to neural data.
 
 * `NeuralEncoder` and its methods `predict`, `fit_readout`, `save`, `load`;
   `load_encoder` to get an encoder of the paper;
-* readouts (`GaussianReadout`, `LinearReadout`, `FactorizedReadout`) and the small
-  trainable `SmallCNNBackbone`;
+* readouts (`GaussianReadout`, `LinearReadout`, `FactorizedReadout`, `DenseReadout`)
+  and the small trainable `SmallCNNBackbone`;
 * `register_backbone` and `register_readout` to add your own;
 * the reference encoders of the paper (frozen Inception, ResNet-50 or ON-OFF backbone,
-  Gaussian readout) and `build_encoder`.
+  Gaussian readout, dense for ON-OFF) and `build_encoder`.
 
 Any other fitted PyTorch model can be used instead: see `multigeom.encoders.contract`
 for the contract it must satisfy.
@@ -26,6 +26,7 @@ __all__ = [
     "FitReport",
     "GaussianReadout",
     "LinearReadout",
+    "DenseReadout",
     "FactorizedReadout",
     "SmallCNNBackbone",
     "register_backbone",
@@ -49,9 +50,19 @@ _LAZY = {  # torchvision is imported only when the encoders themselves are asked
         "SmallCNNBackbone",
         "_FrozenBackbone",
     ),
-    "fitting": ("FitReport", "correlation_per_neuron", "fit_readout_on_features"),
+    "fitting": (
+        "FitReport",
+        "correlation_per_neuron",
+        "fit_readout_on_features",
+        "training_options",
+    ),
     "neural": ("NeuralEncoder", "load_encoder"),
-    "readout": ("FactorizedReadout", "GaussianReadout", "LinearReadout"),
+    "readout": (
+        "DenseReadout",
+        "FactorizedReadout",
+        "GaussianReadout",
+        "LinearReadout",
+    ),
     "reference": (
         "InceptionEncoder",
         "OnOffEncoder",

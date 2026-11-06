@@ -15,6 +15,7 @@ from multigeom import validate_encoder
 from multigeom.encoders import (
     BACKBONES,
     READOUTS,
+    DenseReadout,
     FactorizedReadout,
     GaussianReadout,
     LinearReadout,
@@ -23,7 +24,12 @@ from multigeom.encoders import (
     load_encoder,
     register_backbone,
 )
-from multigeom.encoders.fitting import correlation_per_neuron, fit_readout_on_features
+from multigeom.encoders.fitting import (
+    correlation_per_neuron,
+    fit_readout_on_features,
+    training_options,
+)
+from multigeom.config import load_config
 from multigeom.encoders.reference import REFERENCE_ENCODERS, _BaseEncoder
 
 N = 6
@@ -53,6 +59,7 @@ def images(n=24, seed=0):
         ("gaussian", GaussianReadout),
         ("linear", LinearReadout),
         ("factorized", FactorizedReadout),
+        ("dense", DenseReadout),
     ],
 )
 def test_readouts_are_registered_and_map_features_to_neurons(name, cls):
@@ -67,6 +74,13 @@ def test_linear_readout_is_a_linear_map_of_the_spatial_mean():
     torch.testing.assert_close(
         r(f), f.mean((-2, -1)) @ r.linear.weight.T + r.linear.bias
     )
+
+
+def test_dense_readout_is_a_linear_map_of_the_flattened_features():
+    r = DenseReadout(4, 3, 8).eval()
+    f = torch.randn(2, 3, 8, 8)
+    torch.testing.assert_close(r(f), f.flatten(1) @ r.linear.weight.T + r.linear.bias)
+    assert sum(p.numel() for p in r.parameters()) == 4 * (3 * 8 * 8 + 1)
 
 
 def test_factorized_readout_window_sums_to_one_and_counts_parameters():
@@ -202,7 +216,7 @@ def test_fit_returns_the_best_epoch_readout():
 
 
 # ── save, load ──────────────────────────────────────────────────────────────
-@pytest.mark.parametrize("readout", ["gaussian", "linear", "factorized"])
+@pytest.mark.parametrize("readout", ["gaussian", "linear", "factorized", "dense"])
 def test_save_and_load_round_trip(tmp_path, readout):
     enc = tiny_encoder(readout)
     enc.fit_readout(images(40), torch.randn(40, N), epochs=2, verbose=False)
@@ -316,6 +330,43 @@ def test_loading_a_checkpoint_of_the_paper_format(tmp_path, monkeypatch):
     torch.testing.assert_close(NeuralEncoder.load(new).predict(x), src.predict(x))
 
 
+def test_loading_a_dense_checkpoint_of_the_paper_format(tmp_path, monkeypatch):
+    """A dense readout has no `readout.mu`: the neurons are counted from its weights."""
+
+    class TinyBackbone(nn.Module):
+        out_channels, out_spatial = 2, 8
+
+        def __init__(self):
+            super().__init__()
+            self.conv = nn.Conv2d(1, 2, 3, stride=8, padding=1)
+
+        def forward(self, x):
+            return self.conv(x)
+
+    class TinyDenseRef(_BaseEncoder):
+        backbone_input_channels, backbone_input_range, reference_name = (
+            1,
+            (0.0, 1.0),
+            "tinydense",
+        )
+        reference_readout = "dense"
+
+        def __init__(self, n_neurons=50, dropout=0.0):
+            super().__init__(TinyBackbone(), n_neurons, dropout)
+
+    monkeypatch.setitem(REFERENCE_ENCODERS, "tinydense", TinyDenseRef)
+    src = TinyDenseRef(n_neurons=5)
+    legacy = {
+        "model_state_dict": src.state_dict(),
+        "config": {"area": "V1", "encoder": "tinydense"},
+    }
+    torch.save(legacy, tmp_path / "best_model.pt")
+    loaded = load_encoder(tmp_path / "best_model.pt")
+    x = images(3)
+    torch.testing.assert_close(loaded.predict(x), src.predict(x))
+    assert loaded.n_neurons == 5
+
+
 def test_a_checkpoint_without_architecture_is_explained(tmp_path):
     torch.save({"model_state_dict": {}}, tmp_path / "x.pt")
     with pytest.raises(ValueError, match="load_checkpoint"):
@@ -339,7 +390,7 @@ def test_load_encoder_downloads_the_checkpoint_of_a_name_and_area(
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", fake_download)
     loaded = load_encoder("inception", area="V4", revision="abc")
     assert calls == {
-        "repo_id": "steevelaquitaine/multigeom",
+        "repo_id": "sazio/multigeom",
         "filename": "encoders/inception/V4/best_model.pt",
         "revision": "abc",
     }
@@ -436,6 +487,147 @@ def test_the_shared_fitting_loop_reproduces_the_original_stage1_loop():
     _original_stage1_loop(b, feats, resp, 6, 1e-2, 1e-4, 32, 0.1, 2)
     for (k, va), vb in zip(a.state_dict().items(), b.state_dict().values()):
         torch.testing.assert_close(va, vb, msg=k)
+
+
+def _original_onoff_loop(readout, feats, resp, epochs, lr, batch_size, seed):
+    """
+    The loop that fitted the readout of the paper's ON-OFF encoders (Adam, learning rate
+    halved on a plateau of the validation loss, no clipping), for comparison.
+    """
+    import torch.nn.functional as F
+
+    n = len(feats)
+    n_val = min(n // 10, 2500)
+    perm = torch.randperm(n, generator=torch.Generator().manual_seed(seed))
+    tr_f, tr_r = feats[perm[: n - n_val]], resp[perm[: n - n_val]]
+    val_f, val_r = feats[perm[n - n_val :]], resp[perm[n - n_val :]]
+    opt = torch.optim.Adam(readout.parameters(), lr=lr)
+    sched = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, patience=10, factor=0.5)
+    best, best_state = -1, None
+    for _ in range(epochs):
+        readout.train()
+        p = torch.randperm(len(tr_f))
+        for i in range(0, len(tr_f), batch_size):
+            idx = p[i : i + batch_size]
+            loss = F.mse_loss(readout(tr_f[idx]), tr_r[idx])
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+        readout.eval()
+        with torch.no_grad():
+            val_pred = readout(val_f)
+            val_loss = F.mse_loss(val_pred, val_r).item()
+            corr = correlation_per_neuron(val_pred, val_r).mean()
+        sched.step(val_loss)
+        if corr > best:
+            best, best_state = (
+                corr,
+                {k: v.detach().cpu().clone() for k, v in readout.state_dict().items()},
+            )
+    readout.load_state_dict(best_state)
+
+
+def test_the_onoff_recipe_reproduces_the_original_onoff_loop():
+    """
+    With the settings of `configs/onoff.yaml`, the shared loop is the one that fitted
+    the paper's ON-OFF readouts; 30 epochs at a high learning rate reach the plateau.
+    """
+    feats, resp = torch.randn(120, 2, 8, 8), torch.randn(120, N)
+    a, b = DenseReadout(N, 2, 8), DenseReadout(N, 2, 8)
+    b.load_state_dict(a.state_dict())
+    torch.manual_seed(5)
+    report = fit_readout_on_features(
+        a,
+        feats,
+        resp,
+        epochs=30,
+        lr=5e-2,
+        weight_decay=0.0,
+        batch_size=32,
+        val_fraction=0.1,
+        seed=2,
+        **training_options(load_config("onoff").train),
+        log=None,
+    )
+    torch.manual_seed(5)
+    _original_onoff_loop(b, feats, resp, 30, 5e-2, 32, 2)
+    assert report.n_val == 12
+    for (k, va), vb in zip(a.state_dict().items(), b.state_dict().values()):
+        torch.testing.assert_close(va, vb, msg=k)
+
+
+def test_training_options_come_from_the_train_section():
+    assert training_options(load_config("onoff").train) == {
+        "optimizer": "adam",
+        "scheduler": "plateau",
+        "grad_clip": None,
+    }
+    assert training_options(load_config("inception").train) == {
+        "optimizer": "adamw",
+        "scheduler": "cosine",
+        "grad_clip": 1.0,
+    }
+    for name in ("inception", "resnet50", "onoff"):
+        assert load_config(name).train.validation_fraction == 0.10
+
+
+@pytest.mark.parametrize("option", [{"optimizer": "sgd"}, {"scheduler": "step"}])
+def test_an_unknown_optimizer_or_schedule_is_refused(option):
+    with pytest.raises(ValueError, match="must be one of"):
+        fit_readout_on_features(
+            DenseReadout(N, 2, 8), torch.randn(8, 2, 8, 8), torch.randn(8, N), **option
+        )
+
+
+def test_the_onoff_readout_of_an_old_checkpoint_is_read_off_its_weights():
+    """
+    ON-OFF configs of multigeom 0.1.0.dev3 do not name the readout, which was Gaussian;
+    a config that names it is left alone.
+    """
+    from multigeom.encoders.neural import _with_onoff_readout
+
+    old = {"reference": "onoff", "n_neurons": 50, "dropout": 0.25, "kernel_size": 31}
+    gaussian = {"readout.mu": torch.zeros(50, 2)}
+    dense = {"readout.linear.weight": torch.zeros(50, 8192)}
+    assert _with_onoff_readout(old, gaussian)["readout"] == "gaussian"
+    assert _with_onoff_readout(old, dense)["readout"] == "dense"
+    named = {**old, "readout": "dense"}
+    assert _with_onoff_readout(named, gaussian) == named
+    assert _with_onoff_readout({"reference": "inception"}, gaussian) == {
+        "reference": "inception"
+    }
+
+
+@pytest.mark.pretrained
+@pytest.mark.slow
+@pytest.mark.parametrize("fmt", ["save", "paper"])
+def test_an_onoff_encoder_with_a_gaussian_readout_still_loads(tmp_path, fmt):
+    """
+    An ON-OFF encoder saved by multigeom 0.1.0.dev3 (Gaussian readout, a config without
+    the readout) or in the paper's format with a Gaussian readout loads as it was.
+    """
+    pytest.importorskip("plenoptic")
+    from multigeom.encoders import OnOffEncoder
+
+    src = OnOffEncoder(n_neurons=5, readout="gaussian", dropout=0.25).eval()
+    if fmt == "save":
+        config = {
+            "architecture": {
+                "reference": "onoff",
+                "n_neurons": 5,
+                "dropout": 0.25,
+                "kernel_size": 31,
+            }
+        }
+    else:
+        config = {"encoder": "onoff", "area": "V1"}
+    path = tmp_path / "onoff.pt"
+    torch.save({"model_state_dict": src.state_dict(), "config": config}, path)
+    back = NeuralEncoder.load(path)
+    assert isinstance(back.readout, GaussianReadout)
+    x = images(4)
+    torch.testing.assert_close(back.predict(x), src.predict(x))
+    assert back.config["readout"] == "gaussian"
 
 
 def test_a_class_defined_again_replaces_its_registration():

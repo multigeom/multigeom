@@ -178,3 +178,12 @@ def test_pretrained_onoff_feature_shape():
     pytest.importorskip("plenoptic")
     enc = OnOffEncoder(n_neurons=50).eval()
     assert enc.features(torch.zeros(2, 1, 64, 64)).shape == (2, 2, 64, 64)
+
+
+@pytest.mark.pretrained
+@pytest.mark.slow
+def test_onoff_has_the_dense_readout_of_the_paper():
+    pytest.importorskip("plenoptic")
+    enc = OnOffEncoder(n_neurons=50)
+    assert set(enc.readout.state_dict()) == {"linear.weight", "linear.bias"}
+    assert sum(p.numel() for p in enc.readout.parameters()) == 409650

@@ -70,7 +70,7 @@ Demo data
 
 TinyImageNet (notebooks 1 and 2) and the other datasets (TVSD, THINGS images) and the trained checkpoints (notebooks 3 to 6) are described,
 with download scripts, in the `multigeom-tutorials README <https://github.com/multigeom/multigeom-tutorials#data-and-checkpoints-notebooks-1-to-6>`_.
-The checkpoints are on `Hugging Face <https://huggingface.co/steevelaquitaine/multigeom>`_.
+The checkpoints are on `Hugging Face <https://huggingface.co/sazio/multigeom>`_.
 
 Contributing
 ------------
