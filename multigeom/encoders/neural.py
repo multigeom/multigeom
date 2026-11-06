@@ -153,8 +153,11 @@ class NeuralEncoder(nn.Module):
         lr: float = 3e-4,
         weight_decay: float = 1e-4,
         batch_size: int = 64,
-        val_fraction: float = 0.05,
+        val_fraction: float = 0.10,
         seed: int = 42,
+        optimizer: str = "adamw",
+        scheduler: str = "cosine",
+        grad_clip: float | None = 1.0,
         device: str | torch.device | None = None,
         verbose: bool = True,
     ) -> FitReport:
@@ -163,10 +166,11 @@ class NeuralEncoder(nn.Module):
 
         The backbone is frozen first, its features are computed once for `images` [N, 1,
         64, 64], and the readout is trained on them to predict `responses` [N,
-        n_neurons] (AdamW, cosine schedule, mean squared error, a validation split of
-        `val_fraction` of the images). `seed` fixes the split and, through torch's
-        global generator, the order of the batches and the dropout, so a fit can be
-        repeated exactly. Returns a `FitReport`.
+        n_neurons] (mean squared error, a validation split of `val_fraction` of the
+        images; `optimizer`, `scheduler` and `grad_clip` as in
+        `fit_readout_on_features`). `seed` fixes the split and, through torch's global
+        generator, the order of the batches and the dropout, so a fit can be repeated
+        exactly. Returns a `FitReport`.
         """
         if responses.shape != (len(images), self.n_neurons):
             raise ValueError(
@@ -194,6 +198,9 @@ class NeuralEncoder(nn.Module):
             batch_size=batch_size,
             val_fraction=val_fraction,
             seed=seed,
+            grad_clip=grad_clip,
+            optimizer=optimizer,
+            scheduler=scheduler,
             log=print if verbose else None,
         )
         self.eval()
@@ -350,20 +357,35 @@ def _metadata_of(ckpt: dict) -> dict:
     return ({"area": area} if area else {}) | meta
 
 
+def _with_onoff_readout(config: dict, state: dict) -> dict:
+    """
+    The ON-OFF encoders of multigeom 0.1.0.dev3 and earlier had a Gaussian readout and
+    their configs do not name it: read it off the weights.
+    """
+    if str(config.get("reference", "")).lower() == "onoff" and "readout" not in config:
+        config = {**config, "readout": "gaussian" if "readout.mu" in state else "dense"}
+    return config
+
+
 def _encoder_from_checkpoint(ckpt: dict) -> NeuralEncoder:
     config = ckpt.get("config", {})
+    state = ckpt["model_state_dict"]
     if "architecture" in config:
-        return NeuralEncoder.from_config(config["architecture"])
+        return NeuralEncoder.from_config(
+            _with_onoff_readout(config["architecture"], state)
+        )
     if (
         "encoder" in config
     ):  # the checkpoints of the paper: {"encoder": name, "area": ...}
         from .reference import build_reference
 
-        state = ckpt["model_state_dict"]
         key = "readout.mu" if "readout.mu" in state else "readout.linear.weight"
         n_neurons = int(state[key].shape[0])
         return build_reference(
-            {"reference": str(config["encoder"]).lower(), "n_neurons": n_neurons}
+            _with_onoff_readout(
+                {"reference": str(config["encoder"]).lower(), "n_neurons": n_neurons},
+                state,
+            )
         )
     raise ValueError(
         "the checkpoint does not say which architecture it holds (no config); build "

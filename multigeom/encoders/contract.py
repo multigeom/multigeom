@@ -3,7 +3,8 @@ The encoder contract: what the pipeline requires of an encoder f: image -> respo
 and a check that enforces it.
 
 A user can bring any fitted PyTorch model, as long as it satisfies these rules.
-`validate_encoder` runs a few forward and backward passes on random images and raises
+`validate_encoder` runs a few forward and backward passes on random images (or on images
+that you give) and raises
 `EncoderContractError` (naming the rule and what to change) at the first violation;
 softer problems are returned as warnings.
 
@@ -92,12 +93,18 @@ def validate_encoder(
     n_images: int = 8,
     seed: int = 0,
     atol: float = 1e-5,
+    images: torch.Tensor | None = None,
 ) -> EncoderReport:
     """
     Check `encoder` against the contract. `purpose` is "training" (rules for training
     the diffusion model), "inference" or "all" (both). Raises EncoderContractError on a
     violation; warnings are in the report. The check puts the encoder in eval mode and
     leaves it there.
+
+    The checks run on `n_images` images of uniform noise in [-1, 1], or on `images`
+    ([B, 1, H, W] in [-1, 1], B >= 4) if given. The response scale of R8 and R9 is
+    measured on these images: give natural images (a few dozen) for a reliable R9,
+    since many encoders respond to noise images differently.
     """
     if purpose not in ("training", "inference", "all"):
         raise ValueError("purpose must be 'training', 'inference' or 'all'")
@@ -115,8 +122,16 @@ def validate_encoder(
             if any(True for _ in encoder.parameters())
             else torch.device("cpu")
         )
-    g = torch.Generator(device="cpu").manual_seed(seed)
-    x = (torch.rand(n_images, *image_shape, generator=g) * 2 - 1).to(device)
+    if images is None:
+        g = torch.Generator(device="cpu").manual_seed(seed)
+        x = (torch.rand(n_images, *image_shape, generator=g) * 2 - 1).to(device)
+        measured_on = "random noise images"
+    else:
+        x = torch.as_tensor(images, dtype=torch.float32).to(device)
+        if x.ndim != 4 or len(x) < 4:
+            raise ValueError("images must be a [B, 1, H, W] tensor with B >= 4")
+        n_images, image_shape = len(x), tuple(x.shape[1:])
+        measured_on = f"the {n_images} images given"
 
     with torch.no_grad():
         for value in (-1.0, 1.0):  # R2: the extremes
@@ -226,14 +241,17 @@ def validate_encoder(
         )
     mean_std = float(std.mean())
     if "R9" in rules and not (0.1 <= mean_std <= 10.0):
+        hint = (
+            " Noise images often give a different scale than natural images: pass "
+            "images= to measure it on natural images."
+            if images is None
+            else ""
+        )
         warnings.append(
-            f"R9: responses have std {mean_std:.3g} over random test images, while the "
-            "noise sigma is "
-            f"{sigma}; the pipeline expects responses of order 1 (for example "
-            "z-scored). "
-            "Rescale the model's output or set sigma accordingly. (Random noise images "
-            "only "
-            "approximate natural-image statistics.)"
+            f"R9: responses have std {mean_std:.3g} over {measured_on}, while the "
+            f"noise sigma is {sigma}; the pipeline expects responses of order 1 (for "
+            "example z-scored). Rescale the model's output or set sigma accordingly."
+            + hint
         )
     return EncoderReport(n_neurons=n, response_std=mean_std, warnings=warnings)
 
