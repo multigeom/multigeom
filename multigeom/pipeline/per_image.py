@@ -45,22 +45,22 @@ from ..config import load_config
 from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..diffusion.model import build_diffusion_model, build_scheduler
 from ..encoders import build_encoder
-from ..geometry.estimator import conditional_pair_estimate
+from ..geometry.estimator import estimate_g, resolve_method
 from ..geometry.fisher import fisher_eigendecomposition
 from ..utils import get_device, make_generator, provenance, set_seed
 
 
 def estimate_image(x, encoder, unet, alphas_cumprod, cfg, *, seed: int, device):
     """
-    G(x) and J(x) of one image `x` ([1, 1, 64, 64] in [-1, 1]): the conditional-pair
-    estimator (Algorithm 1) for G(x), with its own generator seeded with `seed` (so the
-    result does not depend on how images are split over runs), and the closed-form
-    Fisher information J(x). Returns (G output, J output or None if
-    `cfg.fisher_baseline.enabled` is off).
+    G(x) and J(x) of one image `x` ([1, 1, 64, 64] in [-1, 1]): the method of
+    `cfg.estimator` for G(x) (the conditional-pair estimator, Algorithm 1, by default),
+    with its own generator seeded with `seed` (so the result does not depend on how
+    images are split over runs), and the closed-form Fisher information J(x). Returns
+    (G output, J output or None if `cfg.fisher_baseline.enabled` is off).
     """
     x = x.to(device)
     sigma = float(cfg.monte_carlo.observation_noise_sigma)
-    g_out = conditional_pair_estimate(
+    g_out = estimate_g(
         image=x,
         encoder=encoder,
         unet=unet,
@@ -137,7 +137,7 @@ def estimate_images(
                 "J_eigenvectors": j_out.eigenvectors.cpu()
                 if j_out is not None
                 else None,
-                "estimator": "conditional_pair",
+                "estimator": resolve_method(cfg),
                 "sigma": sigma,
                 "elapsed_seconds": elapsed,
                 "diffusion_epoch": diffusion_epoch,

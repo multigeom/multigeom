@@ -54,7 +54,7 @@ from ..config import config_path, load_config
 from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
 from ..diffusion.model import build_diffusion_model, build_scheduler
 from ..encoders import build_encoder
-from ..geometry.estimator import conditional_pair_estimate
+from ..geometry.estimator import estimate_g
 from ..geometry.fisher import fisher_eigendecomposition
 from ..geometry.metric_field import (
     STEP_RULES,
@@ -171,7 +171,7 @@ def eigendecomposition(
 ):
     """Top-k eigenpairs (eigenvalues [k], eigenvectors [k, P]) of G(x) or J(x)."""
     if metric == "G":
-        out = conditional_pair_estimate(
+        out = estimate_g(
             image=x,
             encoder=encoder,
             unet=unet,
