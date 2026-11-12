@@ -1,0 +1,27 @@
+name: gh-traffic-stats
+
+# Save the daily clone and view counts of the GitHub Traffic API (which keeps only the last 14 days) to the orphan branch
+# _gh_traffic_stats, every day, so that the README badges show totals over the whole history. Scheduled workflows only run
+# from the default branch (main). Needs the repository secret GH_TRAFFIC_STATS_TOKEN: a fine-grained personal access token
+# for this repository only, with Repository permissions > Administration: Read (the default GITHUB_TOKEN cannot read
+# traffic). The action is pinned to the commit of its tag v1.0.0, because it receives that token.
+on:
+  schedule:
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-traffic-stats
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: gtapps/gh-traffic-stats@f05c995b41d817087f7f728dd1794af559d81471  # v1.0.0
+        with:
+          token: ${{ secrets.GH_TRAFFIC_STATS_TOKEN }}
