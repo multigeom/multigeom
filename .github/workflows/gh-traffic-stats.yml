@@ -5,8 +5,6 @@ name: gh-traffic-stats
 # from the default branch (main). Needs the repository secret GH_TRAFFIC_STATS_TOKEN: a fine-grained personal access token
 # for this repository only, with Repository permissions > Administration: Read (the default GITHUB_TOKEN cannot read
 # traffic). The action is pinned to the commit of its tag v1.0.0, because it receives that token.
-# The daily PyPI downloads (without mirrors) of pypistats.org, which keeps only the last 180 days, are saved to the same
-# branch: the README badge reads them from there rather than through shields.io, which pypistats rate-limits.
 on:
   schedule:
     - cron: "30 0 * * *"
@@ -27,45 +25,3 @@ jobs:
       - uses: gtapps/gh-traffic-stats@f05c995b41d817087f7f728dd1794af559d81471  # v1.0.0
         with:
           token: ${{ secrets.GH_TRAFFIC_STATS_TOKEN }}
-
-      # The PyPI downloads are saved even when the traffic step fails (an expired token, say).
-      - uses: actions/checkout@v4
-        if: ${{ !cancelled() }}
-        with:
-          ref: _gh_traffic_stats
-          path: pypi-data
-
-      - name: Save the daily PyPI downloads
-        if: ${{ !cancelled() }}
-        working-directory: pypi-data
-        run: |
-          python3 - <<'PY'
-          import json, pathlib, urllib.request
-
-          API = "https://pypistats.org/api/packages/multigeom"
-          path = pathlib.Path(".github/badges/pypi-history.json")
-
-          def get(endpoint):
-              request = urllib.request.Request(f"{API}/{endpoint}", headers={"User-Agent": "multigeom-badges"})
-              return json.load(urllib.request.urlopen(request, timeout=30))["data"]
-
-          # Merge by date: the days pypistats still has overwrite the saved ones, older days are kept.
-          history = json.loads(path.read_text()) if path.exists() else {"baseline": 0, "daily": {}}
-          for row in get("overall?mirrors=false"):
-              if row["category"] == "without_mirrors":
-                  history["daily"][row["date"]] = row["downloads"]
-          history["daily"] = dict(sorted(history["daily"].items()))
-          history["total"] = history["baseline"] + sum(history["daily"].values())
-          history["last_month"] = get("recent")["last_month"]
-          path.parent.mkdir(parents=True, exist_ok=True)
-          path.write_text(json.dumps(history, indent=2) + "\n")
-          print(f"pypi: {history['total']} total, {history['last_month']} last month, {len(history['daily'])} days")
-          PY
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/badges/pypi-history.json
-          if ! git diff --cached --quiet; then
-            git commit -m "update pypi downloads"
-            git pull --rebase
-            git push
-          fi
