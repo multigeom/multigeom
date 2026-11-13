@@ -7,7 +7,7 @@
 ![total clones](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmultigeom%2Fmultigeom%2F_gh_traffic_stats%2F.github%2Fbadges%2Fclones-history.json&query=%24.total&label=total%20clones&color=blue)
 ![cumulative daily unique cloners](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmultigeom%2Fmultigeom%2F_gh_traffic_stats%2F.github%2Fbadges%2Fclones-history.json&query=%24.total_uniques&label=cumulative%20daily%20unique%20cloners&color=blue)
 ![total views](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmultigeom%2Fmultigeom%2F_gh_traffic_stats%2F.github%2Fbadges%2Fviews-history.json&query=%24.total&label=total%20views&color=green)
-[![pypi downloads](https://img.shields.io/pypi/dm/multigeom?label=pypi%20downloads)](https://pypistats.org/packages/multigeom)
+[![total pypi downloads](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmultigeom%2Fmultigeom%2F_gh_traffic_stats%2F.github%2Fbadges%2Fpypi-history.json&query=%24.total&label=total%20pypi%20downloads&color=orange)](https://pypistats.org/packages/multigeom)
 
 Multi-scale information geometry of neural population codes, in Python.
 
