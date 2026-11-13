@@ -5,7 +5,7 @@
 # multigeom
 
 ![unique clones](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmultigeom%2Fmultigeom%2F_gh_traffic_stats%2F.github%2Fbadges%2Fclones-history.json&query=%24.total_uniques&label=unique%20clones&color=blue)
-[![total pypi downloads](https://static.pepy.tech/personalized-badge/multigeom?period=total&units=none&left_color=grey&right_color=orange&left_text=total%20pypi%20downloads)](https://pepy.tech/projects/multigeom)
+[![downloads](https://static.pepy.tech/personalized-badge/multigeom?period=total&units=none&left_color=grey&right_color=orange&left_text=downloads)](https://pepy.tech/projects/multigeom)
 
 Multi-scale information geometry of neural population codes, in Python.
 
