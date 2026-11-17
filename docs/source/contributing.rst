@@ -104,6 +104,10 @@ Pull requests
 * Add or update tests for what you change, and keep the unit tests passing.
 * Keep commits focused, with messages that say why the change is made.
 
+Do not delete the ``_gh_traffic_stats`` branch. The daily *gh-traffic-stats* workflow saves the repository's clone and view
+counts there; GitHub keeps only the last 14 days, so this branch is the only copy of the older history, and the README's
+"unique clones" badge reads from it. A ruleset blocks its deletion and force-pushes.
+
 Releases
 --------
 
