@@ -8,7 +8,8 @@ every integral is a Riemann sum on the two grids. All quantities are in nats (na
 logarithms). `to_bits` converts them to bits.
 
 The specific surprise and the stimulus-specific information are the stimulus-specific
-measures compared with the local information in Azeglio et al. (NeurIPS 2025).
+measures compared with the local information in Laquitaine, Azeglio et al. (NeurIPS
+2025).
 """
 
 from __future__ import annotations

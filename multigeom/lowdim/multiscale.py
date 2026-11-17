@@ -14,9 +14,9 @@ variance t gives the per-scale term (phi_t * J_t)(x), and
 
     G(x) = int_0^inf (phi_t * J_t)(x) dt,    i(x) = G(x) / 2,
 
-where i(x) is the local information of Azeglio et al. (NeurIPS 2025). Its prior
-average is the mutual information I(R; X) in nats. J and J_t are in 1 / (stimulus
-unit)^2 and t in (stimulus unit)^2, so G has no unit: it is twice the local
+where i(x) is the local information of Laquitaine, Azeglio et al. (NeurIPS 2025). Its
+prior average is the mutual information I(R; X) in nats. J and J_t are in 1 /
+(stimulus unit)^2 and t in (stimulus unit)^2, so G has no unit: it is twice the local
 information, in nats, and a change of the stimulus unit leaves it unchanged.
 
 Discretisation. p(r | x) is evaluated on the response grid of

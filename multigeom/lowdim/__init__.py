@@ -11,9 +11,9 @@ estimate of the identity I(R; X) = (1/2) E[Tr G].
 
 All functions take tensors or NumPy arrays, return tensors with the dtype and device
 of the input tensors (float64 by default), and report information in nats
-(`to_bits` converts). The definitions are those of Azeglio et al. (NeurIPS 2025) for
-the local information and of Azeglio, Laquitaine, Ferrari, Chalk (NeurIPS 2026, arXiv
-2605.06304) for the multi-scale Fisher information.
+(`to_bits` converts). The definitions are those of Laquitaine, Azeglio et al.
+(NeurIPS 2025) for the local information and of Azeglio, Laquitaine, Ferrari, Chalk
+(NeurIPS 2026, arXiv 2605.06304) for the multi-scale Fisher information.
 """
 
 from .length import cumulative_distance, distance
