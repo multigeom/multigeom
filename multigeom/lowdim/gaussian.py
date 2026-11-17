@@ -14,11 +14,34 @@ stimulus:
 
     G = logm(Sigma^-1 + J) - logm(Sigma^-1).
 
-When Sigma and J commute, G = sum_i ln(1 + s_i j_i) e_i e_i^T with s_i and j_i their
-eigenvalues along the shared eigenvectors e_i. The trace of G is
-ln det(I + Sigma J), twice the mutual information I(R; X) in nats. The closed form of
-G agrees with the trapezoid rule for the t integral at the precision of the rule, also
-when Sigma and J do not commute (see the unit tests).
+Derivation. Write P = Sigma^-1 and s = 1 / t. Then C_t = (P + s I)^-1 and
+M_t = s C_t. The identity C - (C^-1 + J)^-1 = C J (I + C J)^-1 C turns the formula
+for J_t into
+
+    J_t = s^2 [(P + s I)^-1 - (P + J + s I)^-1].
+
+With dt = -ds / s^2,
+
+    G = int_0^inf [(P + s I)^-1 - (P + J + s I)^-1] ds.
+
+For a symmetric positive definite matrix A,
+
+    logm(A) = int_0^inf [(1 + s)^-1 I - (A + s I)^-1] ds,
+
+which is the scalar integral ln a = int_0^inf [1 / (1 + s) - 1 / (a + s)] ds applied
+to each eigenvalue of A. Subtracting this representation for A = P from the one for
+A = P + J gives the closed form. No step needs Sigma and J to commute. For integral
+representations of the matrix logarithm see N. J. Higham, Functions of Matrices:
+Theory and Computation, SIAM (2008), chapter 11.
+
+The paper states the commuting case: when Sigma and J commute,
+G = sum_i ln(1 + lambda_i j_i) e_i e_i^T with lambda_i and j_i their eigenvalues along
+the shared eigenvectors e_i. The trace of G is ln det(I + Sigma J), twice the mutual
+information I(R; X) in nats; I(R; X) = (1/2) ln det(I + Sigma J) is the mutual
+information of the Gaussian channel (T. M. Cover and J. A. Thomas, Elements of
+Information Theory, 2nd edition, Wiley, 2006, chapter 9). The closed form of G agrees
+with the trapezoid rule for the t integral at the precision of the rule, also when
+Sigma and J do not commute (see the unit tests).
 """
 
 from __future__ import annotations
