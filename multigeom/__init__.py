@@ -25,6 +25,17 @@ diffusion model of `multigeom.diffusion`):
         the conditional diffusion model of an encoder: train it on its responses
     compute_g(image, encoder, unet, ...)
         the multi-scale Fisher metric G(x) (needs the trained diffusion model)
+    compute_g_per_scale(image, encoder, unet, ...)
+        the integrand of G(x) at each noise level: its top eigenpairs per scale
+    compute_env_per_scale(image, unet, ...)
+        the stimulus features (1/t) E[Cov(X | x_t)] at each noise level, from the
+        unconditional model: their top eigenpairs per scale
+    compute_env_spectrum(images, unet, ...)
+        the envelope spectrum: the error of the unconditional denoiser per unit of
+        noise variance, against log t
+    compute_coding_spectrum(images, encoder, unet, ...)
+        the coding spectrum: what the responses take off that error, whose integral
+        gives the mutual information I(R; X)
 
 `multigeom.analysis`: information-geometric analyses of the metrics:
 
@@ -46,7 +57,19 @@ from .encoders.contract import (
     validate_encoder,
 )
 from .analysis import bures_wasserstein, subspace_alignment
-from .geometry import EstimatorOutput, FisherOutput, compute_fisher, compute_g
+from .geometry import (
+    EstimatorOutput,
+    FisherOutput,
+    PerScaleOutput,
+    compute_fisher,
+    CodingSpectrumOutput,
+    SpectrumOutput,
+    compute_coding_spectrum,
+    compute_env_per_scale,
+    compute_env_spectrum,
+    compute_g,
+    compute_g_per_scale,
+)
 
 __version__ = "0.1.0.dev4"
 
@@ -59,10 +82,17 @@ __all__ = [
     "load_encoder",
     "compute_fisher",
     "compute_g",
+    "compute_g_per_scale",
+    "compute_env_per_scale",
+    "compute_env_spectrum",
+    "compute_coding_spectrum",
     "subspace_alignment",
     "bures_wasserstein",
     "FisherOutput",
     "EstimatorOutput",
+    "PerScaleOutput",
+    "SpectrumOutput",
+    "CodingSpectrumOutput",
     "__version__",
 ]
 

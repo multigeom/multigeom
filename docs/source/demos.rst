@@ -58,6 +58,31 @@ These notebooks need the datasets, the trained checkpoints of the paper and a GP
    * - 6 Bures-Wasserstein distance
      - Fig. 6 (appendix)
      - the outputs of notebook 4, a CPU, minutes
+   * - 7 Leading eigenvectors of G(x) at each noise level
+     - :math:`M_t(x)`, the integrand of :math:`G(x)`, at each noise level (``compute_g_per_scale``)
+     - data, checkpoints, a GPU, about 6 min
+   * - 8 Stimulus features at each noise level
+     - :math:`M^{\rm env}_t(x) = \frac{1}{t}\,\mathbb{E}[\mathrm{Cov}(X \mid x_t)]` next to :math:`M_t(x)` (``compute_env_per_scale``)
+     - data, checkpoints, a GPU, about 20 min
+   * - 9 Envelope spectrum
+     - :math:`\rho^{\rm env}(\tau)`, the error of the unconditional denoiser per unit of noise variance (``compute_env_spectrum``)
+     - data, checkpoints, a GPU, a few minutes
+   * - 10 Coding spectrum
+     - :math:`\rho(\tau)` of V1 and V4 and :math:`\frac{1}{2}\int \rho\, d\tau = I(R; X)` (``compute_coding_spectrum``)
+     - data, checkpoints, a GPU, about 7 min
+
+Beyond the paper
+----------------
+
+Analyses that build on the models of the paper. They need the datasets, the trained checkpoints and a GPU.
+
+.. nbgallery::
+   :name: demo-gallery-beyond
+
+   demo_notebooks/7_eigenvectors_of_G_per_scale
+   demo_notebooks/8_stimulus_features_per_scale
+   demo_notebooks/9_envelope_spectrum
+   demo_notebooks/10_coding_spectrum
 
 Installation
 ------------

@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 import torch
+import torch.nn as nn
 
 # diffusers imports transformers, which imports TensorFlow/JAX when installed;
 # that is slow and can hang. The pipeline is torch-only.
@@ -121,3 +122,115 @@ def write_fake_tvsd(
         "oracle": oracle,
         "paths": paths,
     }
+
+
+# ── mock diffusion networks with known posterior means (stimulus features, spectrum) ──
+MOCK_N_NEURONS = 3  # the size of their null token
+
+
+class GaussianPriorUNet(nn.Module):
+    """
+    ε(x_t, t, r) of the posterior mean of a zero-mean Gaussian prior of covariance
+    C = U diag(c) Uᵀ, x̂(y) = U diag(c / (c + t)) Uᵀ y; records the responses it is
+    given.
+    """
+
+    n_neurons = MOCK_N_NEURONS
+
+    def __init__(self, alphas_cumprod: torch.Tensor, U: torch.Tensor, c: torch.Tensor):
+        super().__init__()
+        self.register_buffer("ab", alphas_cumprod.float())
+        self.register_buffer("U", U.float())
+        self.register_buffer("c", c.float())
+        self.responses: list[torch.Tensor] = []
+
+    def forward(self, x_t, t, r):
+        self.responses.append(r.detach().clone())
+        ab = self.ab[t].view(-1, 1)
+        noise_variance = (1 - ab) / ab
+        y = x_t.flatten(1) / ab.sqrt()
+        gains = self.c / (self.c + noise_variance)  # [B, P]
+        x_hat = ((y @ self.U) * gains) @ self.U.T
+        eps = (x_t.flatten(1) - ab.sqrt() * x_hat) / (1 - ab).sqrt()
+        return eps.view_as(x_t)
+
+
+class ConstantMeanUNet(nn.Module):
+    """ε of a posterior mean that ignores x_t: x̂ = 0, so ε = x_t / √(1 − ᾱ)."""
+
+    n_neurons = MOCK_N_NEURONS
+
+    def __init__(self, alphas_cumprod: torch.Tensor):
+        super().__init__()
+        self.register_buffer("ab", alphas_cumprod.float())
+
+    def forward(self, x_t, t, r):
+        return x_t / (1 - self.ab[t]).sqrt().view(-1, 1, 1, 1)
+
+
+class NoNoiseUNet(nn.Module):
+    """ε = 0: the posterior mean is the noisy image itself, x̂ = y, so M = I."""
+
+    n_neurons = MOCK_N_NEURONS
+
+    def forward(self, x_t, t, r):
+        return torch.zeros_like(x_t)
+
+
+def gaussian_prior(n_pixels: int, seed: int = 0) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    A random orthogonal basis U [P, P] and a spectrum c [P] decaying by halves from 2
+    (float64): the covariance C = U diag(c) Uᵀ of a Gaussian prior for the mocks above.
+    """
+    generator = torch.Generator().manual_seed(seed)
+    basis = torch.randn(n_pixels, n_pixels, generator=generator, dtype=torch.float64)
+    U, _ = torch.linalg.qr(basis)
+    c = 2.0 * 0.5 ** torch.arange(n_pixels, dtype=torch.float64)
+    return U, c
+
+
+class LinearGaussianUNet(nn.Module):
+    """
+    ε(x_t, t, r) of the exact posterior means of a linear-Gaussian model: prior
+    x ~ N(0, C), responses r = A x + σ ξ, noisy image y = x_t / √ᾱ (variance-exploding).
+    The null token gives E[x | y]; a response gives E[x | y, r].
+    """
+
+    def __init__(self, alphas_cumprod, prior, readout, sigma: float):
+        super().__init__()
+        self.register_buffer("ab", alphas_cumprod.double())
+        self.register_buffer("prior_precision", torch.linalg.inv(prior.double()))
+        self.register_buffer("readout", readout.double())
+        self.sigma = float(sigma)
+        self.n_neurons = readout.shape[0]
+
+    def forward(self, x_t, t, r):
+        ab = self.ab[t].view(-1, 1)
+        noise_variance = (1 - ab) / ab
+        y = x_t.flatten(1).double() / ab.sqrt()
+
+        # the posterior precision and evidence: the prior and y, plus r unless null
+        has_response = r.any(dim=1).double().view(-1, 1)
+        identity = torch.eye(y.shape[1], dtype=torch.float64)
+        likelihood = self.readout.T @ self.readout / self.sigma**2
+        precision = self.prior_precision + identity / noise_variance.view(-1, 1, 1)
+        precision = precision + has_response.view(-1, 1, 1) * likelihood
+        evidence = y / noise_variance
+        evidence = evidence + has_response * (r.double() @ self.readout) / self.sigma**2
+
+        # the posterior mean, and the noise prediction Tweedie's formula turns into it
+        x_hat = torch.linalg.solve(precision, evidence.unsqueeze(-1)).squeeze(-1)
+        eps = (x_t.flatten(1).double() - ab.sqrt() * x_hat) / (1 - ab).sqrt()
+        return eps.view_as(x_t).to(x_t.dtype)
+
+
+class LinearEncoder(nn.Module):
+    """The responses A x of the linear-Gaussian model, without their noise."""
+
+    def __init__(self, readout):
+        super().__init__()
+        self.register_buffer("readout", readout.float())
+        self.n_neurons = readout.shape[0]
+
+    def forward(self, images):
+        return images.flatten(1) @ self.readout.T

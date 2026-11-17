@@ -34,8 +34,6 @@ class ConditionalPair:
         self.device = device
         self.generator = generator
         self.sigma = float(cfg.monte_carlo.observation_noise_sigma)
-        batch_size = int(cfg.monte_carlo.batch_size)
-        self.null_token = torch.zeros(batch_size, encoder.n_neurons, device=device)
 
     def sample_rows(self, x_t: torch.Tensor, t: torch.Tensor, t_j: int) -> torch.Tensor:
         """
@@ -45,8 +43,10 @@ class ConditionalPair:
         sqrt_ab = float(self.alphas_cumprod[t_j].sqrt())
         sqrt_1m = float((1.0 - self.alphas_cumprod[t_j]).sqrt())
 
-        # Line 7-9: unconditional posterior mean via Tweedie + null-token pass
-        eps_u = self.unet(x_t, t, self.null_token)
+        # Line 7-9: unconditional posterior mean via Tweedie + null-token pass (a null
+        # token for each noisy image, so batches can have any size)
+        null_token = torch.zeros(len(x_t), self.encoder.n_neurons, device=self.device)
+        eps_u = self.unet(x_t, t, null_token)
         x_hat = (x_t - sqrt_1m * eps_u) / sqrt_ab
         x_hat = x_hat.clamp(-1.0, 1.0)
 

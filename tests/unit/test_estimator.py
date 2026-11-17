@@ -33,6 +33,8 @@ from multigeom.geometry.estimator import (  # noqa: E402
     _build_log_tau_grid,
     _trapezoid_weights,
     conditional_pair_estimate,
+    estimate_g,
+    estimate_g_per_scale,
 )
 from conftest import estimator_cfg, linear_beta_alphas_cumprod  # noqa: E402
 
@@ -266,6 +268,117 @@ def test_raises_on_multi_image_batch():
     )
     with pytest.raises(ValueError):
         conditional_pair_estimate(
+            torch.zeros(2, 1, H, W),
+            RecordingEncoder(),
+            AffineUNet(A, torch.zeros(1, 1, H, W), ab),
+            ab,
+            cfg,
+            torch.device("cpu"),
+        )
+
+
+# ── M_τ(x) at each noise level (estimate_g_per_scale) ─────────────────────
+# Without the weights w_j, the rows of one noise level give M_τ = σ² A Aᵀ, whatever τ:
+# its eigenvalues are σ² s_i² at every level, and its eigenvectors span the columns of
+# U. The Monte-Carlo relative error of one level's eigenvalues is about sqrt(2/N_MC) ≈
+# 3% with 2000 samples; the tolerance is 15%.
+PER_SCALE_GRID = list(range(100, 901, 200))  # five noise levels
+
+
+@pytest.fixture(scope="module")
+def affine_per_scale():
+    # the affine problem: mock network, recording encoder, clean image
+    A, U, s = _affine_problem(seed=0)
+    rng = np.random.default_rng(1)
+    c = torch.from_numpy(rng.uniform(-1.5, 1.5, (1, 1, H, W))).float()
+    image = torch.from_numpy(rng.uniform(-1, 1, (1, 1, H, W))).float()
+    ab = _alphas32()
+
+    # 2000 samples at each of the five noise levels, five eigenpairs kept
+    cfg = estimator_cfg(
+        n_samples=2000,
+        batch_size=500,
+        start=100,
+        stop=900,
+        step=200,
+        sigma=SIGMA,
+        top_k=5,
+    )
+
+    # M_τ(x) at each level, and G(x) from the same random draws (same seed)
+    args = (
+        image,
+        RecordingEncoder(),
+        AffineUNet(A, c, ab),
+        ab,
+        cfg,
+        torch.device("cpu"),
+    )
+    per_scale = estimate_g_per_scale(
+        *args, generator=torch.Generator().manual_seed(123)
+    )
+    g = estimate_g(*args, generator=torch.Generator().manual_seed(123))
+    return per_scale, g, U, s, ab
+
+
+def test_per_scale_grid_and_shapes(affine_per_scale):
+    out, _, _, _, ab = affine_per_scale
+
+    # one log τ_j per noise level, as for G(x)
+    torch.testing.assert_close(out.log_tau, _build_log_tau_grid(PER_SCALE_GRID, ab))
+
+    # five eigenpairs at each of the five levels
+    assert tuple(out.eigenvalues.shape) == (len(PER_SCALE_GRID), 5)
+    assert tuple(out.eigenvectors.shape) == (len(PER_SCALE_GRID), 5, P)
+
+
+def test_per_scale_eigenvalues_match_sigma2_s2_at_every_level(affine_per_scale):
+    out, _, _, s, _ = affine_per_scale
+
+    # σ² s_i² at every level: no weight w_j
+    expected = np.broadcast_to(SIGMA**2 * s**2, (len(PER_SCALE_GRID), 3))
+    got = out.eigenvalues[:, :3].double().numpy()
+    np.testing.assert_allclose(got, expected, rtol=0.15)
+
+
+def test_per_scale_eigenvectors_span_the_columns_of_u(affine_per_scale):
+    out, _, U, _, _ = affine_per_scale
+
+    # the fraction of the three leading eigenvectors that lies in span(U), per level
+    inside = (out.eigenvectors[:, :3].double() @ U).pow(2).sum(dim=(1, 2)) / 3
+
+    # exact: the rows of D lie in span(U), there is no Monte-Carlo error here
+    torch.testing.assert_close(inside, torch.ones_like(inside), atol=1e-5, rtol=0)
+
+
+def test_weighted_sum_over_levels_is_g(affine_per_scale):
+    out, g, _, _, _ = affine_per_scale
+
+    # M_τ_j from its eigenpairs, at each level j (rank 3, so five eigenpairs are all)
+    values, vectors = out.eigenvalues.double(), out.eigenvectors.double()
+    m_levels = torch.einsum("jk,jkp,jkq->jpq", values, vectors, vectors)
+
+    # Σ_j w_j M_τ_j, with the trapezoid weights of G(x)
+    summed = torch.einsum(
+        "j,jpq->pq", _trapezoid_weights(out.log_tau.double()), m_levels
+    )
+
+    # G(x) from its eigenpairs: the same random draws, so the same matrix
+    g_vectors = g.eigenvectors.double()
+    g_matrix = g_vectors.T @ torch.diag(g.eigenvalues.double()) @ g_vectors
+    tolerance = 1e-5 * float(g.eigenvalues[0])
+    torch.testing.assert_close(summed, g_matrix, atol=tolerance, rtol=0)
+
+
+def test_per_scale_raises_on_multi_image_batch():
+    # the same checks as estimate_g: one image at a time
+    A, _, _ = _affine_problem()
+    ab = _alphas32()
+    cfg = estimator_cfg(
+        n_samples=10, batch_size=10, start=100, stop=300, step=100, sigma=SIGMA, top_k=2
+    )
+    with pytest.raises(ValueError):
+        estimate_g_per_scale(
             torch.zeros(2, 1, H, W),
             RecordingEncoder(),
             AffineUNet(A, torch.zeros(1, 1, H, W), ab),

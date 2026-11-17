@@ -13,7 +13,14 @@ def test_each_group_has_its_functions():
     assert {"load_encoder", "NeuralEncoder", "validate_encoder"} <= set(
         encoders.__all__
     )
-    assert {"compute_fisher", "compute_g"} <= set(geometry.__all__)
+    assert {
+        "compute_fisher",
+        "compute_g",
+        "compute_g_per_scale",
+        "compute_env_per_scale",
+        "compute_env_spectrum",
+        "compute_coding_spectrum",
+    } <= set(geometry.__all__)
     assert {"subspace_alignment", "bures_wasserstein"} <= set(analysis.__all__)
 
 
@@ -23,6 +30,10 @@ def test_the_top_level_names_are_the_same_objects():
     assert multigeom.validate_encoder is encoders.validate_encoder
     assert multigeom.compute_fisher is geometry.compute_fisher
     assert multigeom.compute_g is geometry.compute_g
+    assert multigeom.compute_g_per_scale is geometry.compute_g_per_scale
+    assert multigeom.compute_env_per_scale is geometry.compute_env_per_scale
+    assert multigeom.compute_env_spectrum is geometry.compute_env_spectrum
+    assert multigeom.compute_coding_spectrum is geometry.compute_coding_spectrum
     assert multigeom.subspace_alignment is analysis.subspace_alignment
     assert multigeom.bures_wasserstein is analysis.bures_wasserstein
 

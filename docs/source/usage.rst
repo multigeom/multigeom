@@ -28,6 +28,22 @@ The package does three things: it gives you **encoders** (models that predict ne
      - :func:`multigeom.geometry.compute_g`
      - Top eigenpairs of the multi-scale Fisher metric :math:`G(x)` of an image, for an encoder and its trained diffusion model
        (see ``multigeom.diffusion``: ``precompute_responses`` and ``train_diffusion``).
+   * - Geometry
+     - :func:`multigeom.geometry.compute_g_per_scale`
+     - Top eigenpairs of the integrand :math:`M_\tau(x)` of :math:`G(x) = \int M_\tau(x)\, d\log\tau` at each noise level
+       :math:`\tau` of the grid, from the same samples as ``compute_g``.
+   * - Geometry
+     - :func:`multigeom.geometry.compute_env_per_scale`
+     - Top eigenpairs of the stimulus features :math:`M^{\rm env}_\tau(x) = \frac{1}{\tau}\,\mathbb{E}[\mathrm{Cov}(X \mid x_\tau)]` at each
+       noise level, from the unconditional model (the null token of the diffusion model), by Jacobian-vector products on random probes.
+   * - Geometry
+     - :func:`multigeom.geometry.compute_env_spectrum`
+     - The envelope spectrum :math:`\rho^{\rm env}(\tau) = \mathbb{E}[\frac{1}{\tau}\lVert \hat x(x_\tau) - x \rVert^2]` of a set of images against
+       :math:`\log\tau`: an upper bound on the information density of the responses at each scale.
+   * - Geometry
+     - :func:`multigeom.geometry.compute_coding_spectrum`
+     - The coding spectrum :math:`\rho(\tau)`, what the responses take off that error, from stimulus–response pairs:
+       :math:`\frac{1}{2}\int \rho\, d\log\tau = I(R; X)`.
    * - Analysis
      - :func:`multigeom.analysis.subspace_alignment`
      - Subspace alignment of two sets of eigenvectors.

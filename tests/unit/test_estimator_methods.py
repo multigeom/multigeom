@@ -19,7 +19,12 @@ import torch
 import torch.nn as nn
 
 from conftest import estimator_cfg, linear_beta_alphas_cumprod
-from multigeom.geometry import available_methods, estimate_g, register_method
+from multigeom.geometry import (
+    available_methods,
+    estimate_g,
+    estimate_g_per_scale,
+    register_method,
+)
 from multigeom.geometry.estimator import (
     _build_log_tau_grid,
     conditional_pair_estimate,
@@ -87,10 +92,10 @@ def _cfg(**kwargs):
     return cfg
 
 
-def _run(method=None, cfg=None):
+def _run(method=None, cfg=None, estimate=estimate_g):
     ab = linear_beta_alphas_cumprod().float()
     image = torch.linspace(-1, 1, P).view(1, 1, H, W_IMG)
-    return estimate_g(
+    return estimate(
         image,
         TinyEncoder(),
         TinyUNet(),
@@ -145,6 +150,24 @@ def test_skeleton_weights_and_normalisation(registered):
     assert torch.allclose(vec.abs(), torch.full((P,), P**-0.5), atol=1e-5)
     half = _run(method="half_weight_rows")
     assert float(half.eigenvalues[0]) == pytest.approx(total * P / 2, rel=1e-5)
+
+
+def test_per_scale_skeleton_has_no_weights(registered):
+    """
+    Rows of ones give M_τ = (1 / norm) 1 1ᵀ at every noise level, whatever its weight
+    w_j: the only non-zero eigenvalue is P / norm, at every level.
+    """
+    # the number of noise levels of the grid
+    n_levels = len(range(GRID[0], GRID[1] + 1, GRID[2]))
+
+    # norm = 1: eigenvalue P at every level
+    out = _run(method="constant_rows", estimate=estimate_g_per_scale)
+    expected = torch.full((n_levels,), float(P))
+    torch.testing.assert_close(out.eigenvalues[:, 0], expected, rtol=1e-5, atol=0)
+
+    # norm = 2 (the conditional-pair normalisation): eigenvalue P / 2
+    half = _run(method="half_weight_rows", estimate=estimate_g_per_scale)
+    torch.testing.assert_close(half.eigenvalues[:, 0], expected / 2, rtol=1e-5, atol=0)
 
 
 def test_method_chosen_by_the_config_entry(registered):

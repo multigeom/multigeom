@@ -5,6 +5,25 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `compute_g_per_scale` (`multigeom.geometry.estimate_g_per_scale`): the top eigenpairs of the integrand of G(x) at each noise
+  level of the grid, M_τ(x) with G(x) = ∫ M_τ(x) d log τ, as a `PerScaleOutput` (log τ_j, eigenvalues [J, k], eigenvectors
+  [J, k, P]). It draws the same samples as `compute_g` for the same generator, so the M_τ_j weighted like the rows of G(x)
+  add up to G(x). Each M_τ(x) rests on the N_MC samples of one noise level, so its eigenvectors are noisier than those of G(x).
+- `compute_env_per_scale` (`multigeom.geometry.estimate_env_per_scale`): the top eigenpairs of the stimulus features
+  M_τ^env(x) = (1/τ) E[Cov(X | x_τ)] at each noise level, from the null token of the diffusion model, with central finite-difference
+  Jacobian-vector products on random probes, each averaged over `n_noisy` noisy images; the eigenvalues are the singular values of
+  the rows. They depend on the image statistics only (no encoder), and M_τ(x) ≤ M_τ^env(x) for exact posteriors. Where M_τ^env
+  is nearly flat (fine noise levels) the eigenvalues are biased up unless the number of probes is large.
+- `compute_env_spectrum` (`multigeom.geometry.estimate_env_spectrum`): the envelope spectrum ρ^env(τ) = E[(1/τ) ‖x̂(x_τ) − x‖²] of a
+  set of images at any DDPM steps, from the null token of the diffusion model (its noise-prediction error), as a `SpectrumOutput`
+  with the curve of each image; an upper bound on the information density of the responses at each scale.
+- `compute_coding_spectrum` (`multigeom.geometry.estimate_coding_spectrum`): the coding spectrum ρ(τ) = ρ^env(τ) −
+  E[(1/τ) ‖x̂(x_τ, r) − x‖²] from stimulus–response pairs (r = f(x) + σξ), whose integral ½ ∫ ρ d log τ is I(R; X), as a
+  `CodingSpectrumOutput` with, per image, the errors without and with the responses, what the responses change, and the trace of
+  what `compute_g_per_scale` estimates (responses drawn given the denoised image), to compare.
+- `ConditionalPair` makes its null token for each batch, so it accepts batches of any size (same results).
+
 ## [0.1.0.dev4] - 2026-11-06
 
 ### Changed

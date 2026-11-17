@@ -28,8 +28,15 @@ Geometry
 
    multigeom.geometry.compute_fisher
    multigeom.geometry.compute_g
+   multigeom.geometry.compute_g_per_scale
+   multigeom.geometry.compute_env_per_scale
+   multigeom.geometry.compute_env_spectrum
+   multigeom.geometry.compute_coding_spectrum
    multigeom.geometry.FisherOutput
    multigeom.geometry.EstimatorOutput
+   multigeom.geometry.PerScaleOutput
+   multigeom.geometry.SpectrumOutput
+   multigeom.geometry.CodingSpectrumOutput
 
 Analysis
 ~~~~~~~~
