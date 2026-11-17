@@ -33,10 +33,21 @@ diffusion model of `multigeom.diffusion`):
     bures_wasserstein(...)
         the Bures-Wasserstein distance between two reconstructed metrics
 
+`multigeom.lowdim`: the same quantities for one neuron and a one-dimensional stimulus,
+computed exactly on grids without a diffusion model (and the linear Gaussian code in
+any dimension, in closed form):
+
+    compute_fisher(x, tuning, sigma)
+        the Fisher information J(x) of one neuron
+    compute_g(x, tuning, prior, sigma, t)
+        the multi-scale Fisher information G(x) and the local information G(x) / 2
+    mutual_information(x, tuning, prior, sigma)
+        the mutual information I(R; X), in nats
+
 Install the core with `pip install multigeom`; the extra `[paper]` adds what reproducing
 the paper needs (the ON-OFF encoder and the TVSD loaders), and `[all]` also Jupyter and
-the Modal launcher. Subpackages: `encoders`, `geometry`, `analysis`, `diffusion`,
-`pipeline`, `datasets`, `fit`.
+the Modal launcher. Subpackages: `encoders`, `geometry`, `analysis`, `lowdim`,
+`diffusion`, `pipeline`, `datasets`, `fit`.
 """
 
 from .encoders.contract import (
