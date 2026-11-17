@@ -1,8 +1,29 @@
 Demo Notebooks
 ==============
 
-We provide a set of demo notebooks, from the basic blocks of the package to the figures of the paper. To run them you need a working
-Jupyter notebook server and a ``multigeom`` installation. Click a notebook to read it with its stored outputs.
+We provide demo notebooks in three groups. Foundations computes each quantity on one neuron and a one-dimensional stimulus.
+Getting started applies the package to encoders of images. Reproduce the paper redraws the figures of the paper. To run them you
+need a working Jupyter notebook server and a ``multigeom`` installation. Click a notebook to read it with its stored outputs.
+
+Foundations
+-----------
+
+Eight notebooks that build the posterior, the mutual information, the Fisher information :math:`J(x)` and the multi-scale Fisher
+information :math:`G(x)` on one neuron. Its response to a stimulus :math:`x` on :math:`[-3, 3]` is its mean response at :math:`x`
+(the tuning curve) plus Gaussian noise. Every quantity is computed exactly on a grid by ``multigeom.lowdim``. The notebooks need
+no dataset, no diffusion model and no GPU, and each runs in seconds on a CPU.
+
+.. nbgallery::
+   :name: demo-gallery-foundations
+
+   demo_notebooks/f1_what_one_response_tells_you
+   demo_notebooks/f2_entropy_and_mutual_information
+   demo_notebooks/f3_fisher_information
+   demo_notebooks/f4_from_fisher_to_geometry
+   demo_notebooks/f5_noise_as_a_ruler
+   demo_notebooks/f6_which_stimuli_carry_the_information
+   demo_notebooks/f7_multiscale_fisher_information
+   demo_notebooks/f8_geometry_gives_back_the_information
 
 Getting started
 ---------------
@@ -37,6 +58,30 @@ These notebooks need the datasets, the trained checkpoints of the paper and a GP
    * - Notebook
      - What it does
      - Needs
+   * - F1 What one response tells you
+     - the response distribution :math:`p(r \mid x)` and the posterior :math:`p(x \mid r)` of one response, ``posterior``
+     - a CPU, seconds
+   * - F2 Entropy and mutual information
+     - the bits removed by one response, :math:`I(R; X)` of three neurons, ``entropy``, ``mutual_information``
+     - a CPU, seconds
+   * - F3 Fisher information
+     - :math:`J(x)` with ``compute_fisher``, the score, the Cramér-Rao bound
+     - a CPU, seconds
+   * - F4 From Fisher to geometry
+     - Fisher distances, the :math:`2 \times 2` Fisher matrix, ``cumulative_distance``, ``fisher_from_jacobian``
+     - a CPU, seconds
+   * - F5 Noise as a ruler
+     - blur, the best guess of a stimulus from its blurred version, the information at each blur level
+     - a CPU, seconds
+   * - F6 Which stimuli carry the information?
+     - the blurred code, the local information :math:`i(x)`, a test of locality, ``blurred_code``, ``compute_g``
+     - a CPU, seconds
+   * - F7 The multi-scale Fisher information
+     - :math:`G(x)` of three neurons with ``compute_g``, the contribution of each blur level, G distances
+     - a CPU, seconds
+   * - F8 The geometry gives back the information
+     - :math:`I(R; X) = \tfrac{1}{2}\,\mathbb{E}[\operatorname{Tr} G]`, ``gaussian_g``, ``nearest_neighbour_information``
+     - a CPU, seconds
    * - 0 Use an encoder that is already fitted
      - load an encoder of the paper, predict responses, compute :math:`J(x)`
      - a CPU, a minute (Colab works)

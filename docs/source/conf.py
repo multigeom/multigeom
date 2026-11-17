@@ -112,6 +112,17 @@ nbsphinx_thumbnails = {
     "demo_notebooks/4_subspace_alignment": THUMBNAILS + "subspace_alignment.png",
     "demo_notebooks/5_local_metric_field": THUMBNAILS + "local_metric_field.png",
     "demo_notebooks/6_bures_wasserstein": THUMBNAILS + "bures_wasserstein.png",
+    "demo_notebooks/f1_what_one_response_tells_you": THUMBNAILS + "f1_posterior.png",
+    "demo_notebooks/f2_entropy_and_mutual_information": THUMBNAILS
+    + "f2_mutual_information.png",
+    "demo_notebooks/f3_fisher_information": THUMBNAILS + "f3_fisher_information.png",
+    "demo_notebooks/f4_from_fisher_to_geometry": THUMBNAILS + "f4_fisher_ruler.png",
+    "demo_notebooks/f5_noise_as_a_ruler": THUMBNAILS + "f5_information_per_scale.png",
+    "demo_notebooks/f6_which_stimuli_carry_the_information": THUMBNAILS
+    + "f6_local_information.png",
+    "demo_notebooks/f7_multiscale_fisher_information": THUMBNAILS + "f7_scale_map.png",
+    "demo_notebooks/f8_geometry_gives_back_the_information": THUMBNAILS
+    + "f8_identity.png",
 }
 
 # Navigation on the left only, as in the CEBRA docs: the section pages and the headings
