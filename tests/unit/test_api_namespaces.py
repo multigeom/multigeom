@@ -39,8 +39,8 @@ def test_importing_the_package_stays_light():
     import sys
 
     code = (
-        "import sys, multigeom; assert 'torchvision' not in sys.modules and "
-        "'matplotlib' not in sys.modules"
+        "import sys, multigeom, multigeom.lowdim; assert not {'torchvision', "
+        "'matplotlib', 'diffusers'} & set(sys.modules)"
     )
     assert (
         subprocess.run([sys.executable, "-c", code], capture_output=True).returncode

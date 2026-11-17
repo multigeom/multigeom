@@ -5,6 +5,14 @@ version numbers follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `multigeom.lowdim`: the Fisher information, the multi-scale Fisher information G(x), the local information G(x) / 2 and
+  the mutual information of one neuron with Gaussian noise and a one-dimensional stimulus, computed exactly on grids without
+  a diffusion model (`compute_g`, `compute_fisher`, `mutual_information`, `specific_surprise`,
+  `stimulus_specific_information`, `blurred_code`, `distance`). Also the linear Gaussian code in any dimension in closed
+  form (`gaussian_g`, `gaussian_information`) and the nearest-neighbour estimate of I(R; X) = (1/2) E[Tr G]
+  (`nearest_neighbour_information`). Pure functions on tensors, float64 by default, on the CPU or a GPU.
+
 ## [0.1.0.dev4] - 2026-11-06
 
 ### Changed
