@@ -4,7 +4,7 @@ API Docs
 Public API
 ----------
 
-The functions and classes of the three groups. The main ones are also available directly from ``multigeom`` (for example
+The functions and classes of each group. The main ones are also available directly from ``multigeom`` (for example
 ``multigeom.compute_fisher``).
 
 Encoders
@@ -32,6 +32,9 @@ Geometry
    multigeom.geometry.compute_env_per_scale
    multigeom.geometry.compute_env_spectrum
    multigeom.geometry.compute_coding_spectrum
+   multigeom.geometry.compute_fisher_per_cell
+   multigeom.geometry.compute_gaussian_env
+   multigeom.geometry.compute_prior_variances
    multigeom.geometry.FisherOutput
    multigeom.geometry.EstimatorOutput
    multigeom.geometry.PerScaleOutput
@@ -46,6 +49,24 @@ Analysis
 
    multigeom.analysis.subspace_alignment
    multigeom.analysis.bures_wasserstein
+   multigeom.analysis.align_signs
+   multigeom.analysis.compute_normalized
+   multigeom.analysis.compute_information
+   multigeom.analysis.compute_bootstrap
+   multigeom.analysis.compute_band
+
+Plotting
+~~~~~~~~
+
+The figures of the estimates at each noise scale (needs matplotlib; importing
+``multigeom.plotting`` sets the style of the paper).
+
+.. autosummary::
+   :toctree: api/generated
+
+   multigeom.plotting.plot_per_scale
+   multigeom.plotting.plot_env_spectrum
+   multigeom.plotting.plot_coding_spectrum
 
 Module reference
 ----------------

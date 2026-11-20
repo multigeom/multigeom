@@ -1,7 +1,7 @@
 """
-Shared utilities: RNG seeding, provenance records, device selection, a progress line and
-showing a figure in a notebook. Configuration loading and project paths are in
-`multigeom.config`.
+Shared utilities: RNG seeding, provenance records, device selection, a progress line,
+showing a figure in a notebook, and storing and reloading computed results.
+Configuration loading and project paths are in `multigeom.config`.
 """
 
 from __future__ import annotations
@@ -228,3 +228,15 @@ def show_figure(fig, dpi: int = 110) -> None:
 
     display(Image(data=figure_to_png(fig, dpi)))
     plt.close(fig)
+
+
+def save_intermediate(results: object, path: Path) -> None:
+    """Store computed results (tensors, dicts, outputs of multigeom) in `path`."""
+    # the folder, then the file
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(results, path)
+
+
+def load_intermediate(path: Path) -> object:
+    """Reload results stored by `save_intermediate`, on the CPU."""
+    return torch.load(path, map_location="cpu", weights_only=False)

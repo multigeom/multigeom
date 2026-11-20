@@ -104,3 +104,31 @@ class TinyImageNetDataset(Dataset):
         img = Image.open(self.image_paths[idx]).convert("RGB")
         x = self.transform(img)
         return (x, self.labels[idx]) if self.return_labels else x
+
+
+def load_test_images(n: int) -> torch.Tensor:
+    """
+    The first `n` TinyImageNet validation images in sorted file order, the test images
+    of the pipeline, [n, 1, 64, 64] in [-1, 1].
+    """
+    # the validation images, in the canonical transform
+    test_set = TinyImageNetDataset(split="val", transform=CANONICAL_TRANSFORM)
+    return torch.stack([test_set[index] for index in range(n)])
+
+
+def load_examples(params: dict, seed: int) -> dict:
+    """
+    The example images, [1, 1, 64, 64] in [-1, 1], each with the seed of its
+    Monte-Carlo draws: {name: (image, seed)}. `params` gives the file of the frog
+    ("frog", a training image) and the indices of the test images ("test_images"). The
+    frog has the seed `seed`; test image i has `seed` + i, as in the pipeline.
+    """
+    # the frog, a training image, read from its file
+    frog = CANONICAL_TRANSFORM(Image.open(params["frog"])).unsqueeze(0)
+    examples = {"frog": (frog, seed)}
+
+    # the test images (validation images), by their index
+    test_set = TinyImageNetDataset(split="val", transform=CANONICAL_TRANSFORM)
+    for index in params["test_images"]:
+        examples[f"img{index:04d}"] = (test_set[index].unsqueeze(0), seed + index)
+    return examples

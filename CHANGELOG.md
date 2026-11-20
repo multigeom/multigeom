@@ -22,6 +22,12 @@ version numbers follow [Semantic Versioning](https://semver.org/).
   E[(1/τ) ‖x̂(x_τ, r) − x‖²] from stimulus–response pairs (r = f(x) + σξ), whose integral ½ ∫ ρ d log τ is I(R; X), as a
   `CodingSpectrumOutput` with, per image, the errors without and with the responses, what the responses change, and the trace of
   what `compute_g_per_scale` estimates (responses drawn given the denoised image), to compare.
+- The helpers of the tutorials on the estimates at each noise scale (notebooks 7 to 11), moved from the tutorials repository:
+  `multigeom.plotting` (new; `plot_per_scale`, `plot_env_spectrum`, `plot_coding_spectrum`, and the style of the paper), the
+  analyses `align_signs`, `compute_normalized`, `compute_information`, `compute_bootstrap`, `compute_band` (`multigeom.analysis`),
+  `compute_fisher_per_cell`, `compute_gaussian_env`, `compute_prior_variances` (`multigeom.geometry`), `compute_rf_outline`
+  (`multigeom.encoders.receptive_field`), `load_examples`, `load_test_images` (`multigeom.datasets`), `compute_per_scale`,
+  `compute_env` (`multigeom.pipeline.per_scale`), and `save_intermediate`, `load_intermediate` (`multigeom.utils`).
 - `ConditionalPair` makes its null token for each batch, so it accepts batches of any size (same results).
 
 ## [0.1.0.dev4] - 2026-11-06

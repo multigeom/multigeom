@@ -12,13 +12,15 @@ from .synthetic import (
     make_synthetic_neural_data,
     noise_ceiling,
 )
-from .tinyimagenet import TinyImageNetDataset
+from .tinyimagenet import TinyImageNetDataset, load_examples, load_test_images
 from .transforms import CANONICAL_TRANSFORM, DEEP_TRANSFORM
 
 __all__ = [
     "CANONICAL_TRANSFORM",
     "DEEP_TRANSFORM",
     "TinyImageNetDataset",
+    "load_examples",
+    "load_test_images",
     "download_tinyimagenet",
     "download_tvsd",
     "download_things_images",

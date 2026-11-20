@@ -123,3 +123,29 @@ def fisher_eigendecomposition(
         eigenvalues=eigenvalues[:k].detach().cpu().clone(),
         eigenvectors=eigenvectors[:k].detach().cpu().clone(),
     )
+
+
+def compute_fisher_per_cell(
+    image: torch.Tensor, encoder: torch.nn.Module, sigma: float, device: torch.device
+) -> dict:
+    """
+    The Fisher information of the responses about one image [1, 1, 64, 64], per neuron
+    and in total. Neuron n's is J_n(x) = g_n g_nᵀ with g_n = ∇f_n(x) / σ: one pattern
+    ("cells" [n, P], g_n) and one eigenvalue ("cell_values" [n], ‖g_n‖²). Their sum is
+    J(x) = (1/σ²) J_fᵀ J_f, with eigenvectors "vectors" [n, P] and eigenvalues
+    "values" [n], largest first, from the SVD of the Jacobian J_f.
+    """
+    # the Jacobian of the responses with respect to the pixels [n, P], over σ
+    encoder.eval()
+    x = image.to(device)
+    jacobian = torch.autograd.functional.jacobian(lambda y: encoder(y)[0], x)
+    rows = jacobian.reshape(jacobian.shape[0], -1).double() / sigma
+
+    # each neuron's pattern and eigenvalue, then those of their total
+    _, singular, right = torch.linalg.svd(rows, full_matrices=False)
+    return {
+        "cells": rows.cpu().numpy(),
+        "cell_values": rows.pow(2).sum(dim=1).cpu().numpy(),
+        "vectors": right.cpu().numpy(),
+        "values": (singular**2).cpu().numpy(),
+    }

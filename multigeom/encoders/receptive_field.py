@@ -54,3 +54,17 @@ def readout_receptive_field(
         -(dy2.unsqueeze(2) + dx2.unsqueeze(1)) / (2.0 * sigma.view(-1, 1, 1) ** 2)
     )  # [N, R, R]
     return field.max(dim=0).values.numpy(), p.numpy()
+
+
+def compute_rf_outline(state: dict):
+    """
+    The region of the image that the neurons of an area cover, as in Fig. 3D of the
+    paper: from the state dict of its encoder, the largest of the neurons' normalised
+    Gaussian readouts at each point of the image [R, R], and the pixel coordinates of
+    those points [R]. Its contour at 0.5 outlines the region.
+    """
+    # the readout's parameters on the CPU (the encoder may be on a GPU)
+    readout = {
+        k: v.detach().cpu() for k, v in state.items() if k.startswith("readout.")
+    }
+    return readout_receptive_field(readout)

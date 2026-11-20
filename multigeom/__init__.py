@@ -47,7 +47,8 @@ diffusion model of `multigeom.diffusion`):
 Install the core with `pip install multigeom`; the extra `[paper]` adds what reproducing
 the paper needs (the ON-OFF encoder and the TVSD loaders), and `[all]` also Jupyter and
 the Modal launcher. Subpackages: `encoders`, `geometry`, `analysis`, `diffusion`,
-`pipeline`, `datasets`, `fit`.
+`pipeline`, `datasets`, `fit`, `plotting` (the figures; needs matplotlib, not imported
+by `import multigeom`).
 """
 
 from .encoders.contract import (

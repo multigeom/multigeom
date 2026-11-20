@@ -296,3 +296,34 @@ def estimate_coding_spectrum(
     }
     log_tau = _build_log_tau_grid(timesteps, alphas_cumprod).cpu()
     return CodingSpectrumOutput(log_tau=log_tau, **terms)
+
+
+def compute_prior_variances(images_per_class: int) -> torch.Tensor:
+    """
+    The variances of the TinyImageNet training images along their principal components,
+    largest first, [P] in float64: the eigenvalues of the pixel covariance of the first
+    `images_per_class` images of each of the 200 classes.
+    """
+    from ..datasets import CANONICAL_TRANSFORM, TinyImageNetDataset
+
+    # the training images, one row of pixels each
+    train = TinyImageNetDataset(
+        split="train", transform=CANONICAL_TRANSFORM, images_per_class=images_per_class
+    )
+    pixels = torch.stack([train[index] for index in range(len(train))]).flatten(1)
+
+    # the eigenvalues of their covariance, largest first (rounding can make 0 negative)
+    covariance = torch.cov(pixels.double().T)
+    return torch.linalg.eigvalsh(covariance).flip(0).clamp(min=0)
+
+
+def compute_gaussian_env(variances: torch.Tensor, log_t: torch.Tensor) -> torch.Tensor:
+    """
+    The envelope spectrum of a Gaussian prior with these `variances`, which is also the
+    error of the best linear denoiser (the Wiener filter) for any prior with them:
+    Σ_i c_i / (c_i + t) at each log t [J]. It bounds the true curve from above, and
+    tends to the number of pixels at fine levels and to Σ_i c_i / t at coarse ones.
+    """
+    # the noise variances, then the sum over the principal components
+    noise_variances = log_t.double().exp()[:, None]
+    return (variances[None, :] / (variances[None, :] + noise_variances)).sum(dim=1)
