@@ -28,6 +28,16 @@ version numbers follow [Semantic Versioning](https://semver.org/).
   `compute_fisher_per_cell`, `compute_gaussian_env`, `compute_prior_variances` (`multigeom.geometry`), `compute_rf_outline`
   (`multigeom.encoders.receptive_field`), `load_examples`, `load_test_images` (`multigeom.datasets`), `compute_per_scale`,
   `compute_env` (`multigeom.pipeline.per_scale`), and `save_intermediate`, `load_intermediate` (`multigeom.utils`).
+- Response noise models (`multigeom.geometry.noise`): `GaussianNoise(sigma)` (the default, unchanged draws) and
+  `PoissonNoise(gain, resp_mean, resp_std)` (spike counts n ~ Poisson(g λ), r = n / g standardised). The conditional-pair
+  estimator uses `cfg.monte_carlo.noise` when it is set; `fisher_eigendecomposition(..., noise=...)` gives the Fisher information
+  of that noise (Poisson: J(x) = g J_fᵀ diag(1/λ) J_f).
+- `multigeom.encoders.retina`: the retina mosaics and conditional diffusion models of open-retina's information geometry
+  (needs `openretina` with its `insilico.information_geometry` module): `load_retina(area, runs_dir, ...)`,
+  `load_retina_test_images`. The checkpoints follow the layout of V1 and V4: `runs/encoders/lorenzi/<area>/best_model.pt`
+  and `runs/diffusion/lorenzi/<area>/final_model.pt`, with areas such as `retina-W3_176-exp7`.
+- `multigeom.plotting.retina.plot_cell_summary`: one row per image, the image then the leading eigenvectors of G(x) or J(x)
+  with their shares, in the layout of open-retina's figures.
 - `ConditionalPair` makes its null token for each batch, so it accepts batches of any size (same results).
 
 ## [0.1.0.dev4] - 2026-11-06

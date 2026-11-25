@@ -12,6 +12,9 @@ import torch
 
 IMAGE_SIZE = 64
 AREA_COLORS = {"V1": "#0072B2", "V4": "#E69F00"}  # Fig. 3B-C scatter
+
+# the colours of the other populations (e.g. retina cell types), in the order drawn
+OTHER_COLORS = ("#009E73", "#D55E00", "#CC79A7", "#56B4E9")
 RF_COLORS = {"V1": "#56B4E9", "V4": "#E69F00"}  # Fig. 3D outlines (blue, yellow)
 EIGVEC_CMAP = "RdBu_r"
 
@@ -40,11 +43,13 @@ def as_numpy(x) -> np.ndarray:
 
 def show_eigenvector(ax: plt.Axes, v, cmap: str = EIGVEC_CMAP) -> None:
     """
-    Draw one eigenvector as a 64 x 64 image with a symmetric diverging colour scale,
-    clipped at the 99th percentile of abs(v) so a few extreme pixels do not wash out the
-    pattern.
+    Draw one eigenvector as a square image (64 x 64 for V1 and V4) with a symmetric
+    diverging colour scale, clipped at the 99th percentile of abs(v) so a few extreme
+    pixels do not wash out the pattern.
     """
-    img = as_numpy(v).reshape(IMAGE_SIZE, IMAGE_SIZE)
+    values = as_numpy(v)
+    side = int(round(values.size**0.5))
+    img = values.reshape(side, side)
     vmax = float(np.percentile(np.abs(img), 99.0)) + 1e-12
     ax.imshow(img, cmap=cmap, vmin=-vmax, vmax=vmax, interpolation="nearest")
     ax.set_xticks([])
@@ -67,3 +72,11 @@ def panel_label(
         ha="right",
         va="bottom",
     )
+
+
+def get_color(colors: dict, name: str, index: int) -> str:
+    """
+    The colour of population `name` in `colors`, or, for a population it does not
+    name, the `index`-th colour of OTHER_COLORS (`index`: its place among those drawn).
+    """
+    return colors.get(name, OTHER_COLORS[index % len(OTHER_COLORS)])

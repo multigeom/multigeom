@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import json
 import math
 import os
@@ -307,6 +308,22 @@ def train_diffusion(
         )
     )
     return history
+
+
+def train_unconditional(cfg, images: torch.Tensor, out_dir, **kwargs):
+    """
+    Train the diffusion model of `cfg` without responses: every training step sees the
+    null token (zero responses, no observation noise, no dropout to draw), so the model
+    is the unconditional model of the images `images` [N, 1, H, W], read as the null
+    token of the conditional models (`model(x_t, t, zeros(B, n_neurons))`), and the
+    code that uses the null token runs on it unchanged. `cfg` is copied, not modified;
+    `out_dir` and `kwargs` as in `train_diffusion`.
+    """
+    cfg = copy.deepcopy(cfg)
+    cfg.conditioning.observation_noise_sigma = 0.0
+    cfg.conditioning.cfg_dropout_rate = 0.0
+    responses = torch.zeros(len(images), int(cfg.conditioning.mlp_layers[0]))
+    return train_diffusion(cfg, images, responses, out_dir, **kwargs)
 
 
 def main(argv=None):

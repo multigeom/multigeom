@@ -18,7 +18,15 @@ from ..analysis.per_scale import (
     compute_information,
     compute_normalized,
 )
-from .style import AREA_COLORS, RF_COLORS, panel_label, plt, show_eigenvector
+from .style import (
+    AREA_COLORS,
+    RF_COLORS,
+    as_numpy,
+    get_color,
+    panel_label,
+    plt,
+    show_eigenvector,
+)
 
 # the colour of each block of eigenvectors: the areas, and the stimulus features
 BLOCK_COLORS = {**AREA_COLORS, "stimulus": "#4D4D4D"}
@@ -46,14 +54,15 @@ STIMULUS_LABEL = "eigenvalues\nof $M_t^{\\rm env}(x)$"
 
 def get_plot_data(image: torch.Tensor, records: dict) -> dict:
     """
-    The data of the figure of one image: the image [64, 64], tau = log t [J], and for
+    The data of the figure of one image: the image [H, W], tau = log t [J], and for
     each block its eigenvalues [J, k], the same over its largest leading eigenvalue
     ("normalized"), and its eigenvectors [J, k, P] with the signs of `align_signs`.
     `records` maps each block (an area, or "stimulus") to its PerScaleOutput.
     """
     # the image, and the noise levels (the same for every block)
     first = next(iter(records.values()))
-    data = {"image": image.reshape(64, 64).numpy(), "log_t": first.log_tau.numpy()}
+    side = image.shape[-1]
+    data = {"image": image.reshape(side, side).numpy(), "log_t": first.log_tau.numpy()}
 
     # the eigenvalues, raw and normalized, and the signed eigenvectors of each block
     for name, record in records.items():
@@ -135,8 +144,27 @@ def draw_row_label(
     )
 
 
+def crop_around_peak(pattern: np.ndarray, size: int) -> np.ndarray:
+    """The `size` x `size` window of the square image `pattern` (flattened) centred
+    on its largest |value|, moved inside the image if it would cross an edge,
+    flattened."""
+    side = int(round(pattern.size**0.5))
+    image = pattern.reshape(side, side)
+    row, column = np.unravel_index(np.abs(image).argmax(), image.shape)
+    top = int(np.clip(row - size // 2, 0, side - size))
+    left = int(np.clip(column - size // 2, 0, side - size))
+    return image[top : top + size, left : left + size].ravel()
+
+
 def draw_fisher_rows(
-    fig: plt.Figure, grid: GridSpec, top: int, fisher: dict, outlines: dict, label: str
+    fig: plt.Figure,
+    grid: GridSpec,
+    top: int,
+    fisher: dict,
+    outlines: dict,
+    label: str,
+    crop: int | None = None,
+    title: str = "J(x) per cells",
 ) -> None:
     """
     From row `top` of `grid` (the tiles start at its fourth column): a row with the
@@ -145,22 +173,31 @@ def draw_fisher_rows(
     pixel by pixel: the diagonal of J(x) = Σ_n g_n g_nᵀ, Σ_n g_n², the Fisher
     information at each pixel ("diag J(x)"); the outlines of `outlines` on every tile,
     `label` on the left, and a title above. `fisher` is the output of
-    `compute_fisher_per_cell`.
+    `compute_fisher_per_cell`, possibly shortened to its strongest cells with the
+    total stored as "diag" (then used instead of the sum over the stored cells). With
+    `crop`, each cell's tile shows only the `crop` x `crop` pixels around its peak
+    (without outlines), for cells much smaller than the image. `title` goes above the
+    rows.
     """
     # the neurons in order of their Fisher information, one tile each
     order = np.argsort(fisher["cell_values"])[::-1]
     n_tiles = min(grid.ncols - 3, len(order))
     for column in range(n_tiles):
         ax = fig.add_subplot(grid[top, 3 + column])
-        show_eigenvector(ax, fisher["cells"][order[column]])
-        draw_outlines(ax, outlines)
+        pattern = fisher["cells"][order[column]]
+        if crop:
+            show_eigenvector(ax, crop_around_peak(np.asarray(pattern), crop))
+        else:
+            show_eigenvector(ax, pattern)
+            draw_outlines(ax, outlines)
         if column == 0:
-            ax.set_ylabel("per cell", fontsize=8, rotation=0, ha="right", va="center")
+            name = f"per cell\n({crop} x {crop} px)" if crop else "per cell"
+            ax.set_ylabel(name, fontsize=8, rotation=0, ha="right", va="center")
             first = ax
 
     # the total over the cells, pixel by pixel: the diagonal of J(x), Σ_n g_n², as a
     # 64 x 64 image like the other tiles
-    total = (fisher["cells"] ** 2).sum(axis=0)
+    total = fisher["diag"] if "diag" in fisher else (fisher["cells"] ** 2).sum(axis=0)
     ax_total = fig.add_subplot(grid[top + 1, 3])
     show_eigenvector(ax_total, total)
     draw_outlines(ax_total, outlines)
@@ -168,16 +205,19 @@ def draw_fisher_rows(
 
     # the label of the two rows, left of their names, and their title above
     draw_row_label(fig, first, ax_total, label, dx=0.045)
-    draw_rows_title(fig, grid, top, "J(x) per cells")
+    draw_rows_title(fig, grid, top, title)
 
 
-def draw_rows_title(fig: plt.Figure, grid: GridSpec, row: int, title: str) -> None:
-    """`title` above row `row` of `grid`, centred over its tiles (4th column on)."""
+def draw_rows_title(
+    fig: plt.Figure, grid: GridSpec, row: int, title: str, pad: float = 0.0
+) -> None:
+    """`title` above row `row` of `grid`, centred over its tiles (4th column on),
+    `pad` inches higher (to clear the noise scales above the first row)."""
     left = grid[row, 3].get_position(fig)
     right = grid[row, grid.ncols - 1].get_position(fig)
     fig.text(
         (left.x0 + right.x1) / 2,
-        left.y1 + 0.003,
+        left.y1 + 0.003 + pad / fig.get_figheight(),
         title,
         fontsize=10,
         ha="center",
@@ -212,12 +252,12 @@ def draw_eigenvalues(
     """
     # one line per eigenvalue and block
     n_levels, n_eigvecs = data[names[0]][key].shape
-    for name in names:
+    for index, name in enumerate(names):
         for k in range(n_eigvecs):
             ax.plot(
                 np.arange(n_levels),
                 data[name][key][:, k],
-                color=BLOCK_COLORS[name],
+                color=get_color(BLOCK_COLORS, name, index),
                 lw=2.0 if k == 0 else 0.8,
                 alpha=1.0 if k == 0 else 0.6,
                 label=name if k == 0 else None,
@@ -251,6 +291,8 @@ def plot_per_scale(
     outlines: dict,
     fisher: dict | None = None,
     eigenvalues: bool = True,
+    stimulus: tuple = ("stimulus",),
+    images: dict | None = None,
 ) -> tuple[plt.Figure, dict]:
     """
     The figure of one image: the image (A); for each block of `records` (an area, or
@@ -263,8 +305,11 @@ def plot_per_scale(
     stimulus features, the outlines of every area. With `fisher` (area →
     `compute_fisher_per_cell`), two more rows under each area: the Fisher information
     of its neurons, one per tile, and the eigenvectors of their total. Without the
-    panels of eigenvalues if not `eigenvalues`. Returns the figure and the data it
-    shows.
+    panels of eigenvalues if not `eigenvalues`. `stimulus` names the blocks that are
+    stimulus features (their eigenvalues share their own panel, unnormalized), and
+    `images` (name → [1, 1, H, W]) more images drawn under A, each from −m to m, m the
+    99.5th percentile of its |values| (for images not in [-1, 1], such as whitened
+    ones). Returns the figure and the data it shows.
     """
     # the data drawn, its blocks, and the numbers of noise levels and eigenvectors
     data = get_plot_data(image, records)
@@ -276,10 +321,11 @@ def plot_per_scale(
 
     # the panels of eigenvalues: the stimulus features as they are, then the areas,
     # normalized to compare where along tau each one sits
-    areas = [name for name in names if name != "stimulus"]
-    panels = [(areas, "normalized", AREAS_LABEL)]
-    if "stimulus" in names:
-        panels.insert(0, (["stimulus"], "eigenvalues", STIMULUS_LABEL))
+    stimuli = [name for name in names if name in stimulus]
+    areas = [name for name in names if name not in stimulus]
+    panels = [(areas, "normalized", AREAS_LABEL)] if areas else []
+    if stimuli:
+        panels.insert(0, (stimuli, "eigenvalues", STIMULUS_LABEL))
     panels = panels if eigenvalues else []
 
     # the grid: the image on the left; for each block one row per eigenvector and one
@@ -314,21 +360,39 @@ def plot_per_scale(
     ax_image.axis("off")
     draw_outlines(ax_image, outlines)
 
+    # more images under it, each on its own symmetric scale
+    for index, (name, extra) in enumerate((images or {}).items()):
+        values = as_numpy(extra.reshape(extra.shape[-2:]))
+        limit = np.percentile(np.abs(values), 99.5)
+        ax_extra = fig.add_subplot(grid[2 * index + 2 : 2 * index + 4, 0:2])
+        ax_extra.imshow(values, cmap="gray", vmin=-limit, vmax=limit)
+        ax_extra.set_title(name, fontsize=10)
+        ax_extra.axis("off")
+
     # B, C, ...: the eigenvectors of each block, the first with the noise levels above,
     # with the outline of the area of the block, or of every area for the stimulus;
     # under an area, its Fisher rows if any
     first_tiles = []
     for block, name in enumerate(names):
-        shown = outlines if name == "stimulus" else {name: outlines[name]}
+        shown = outlines if name in stimulus else {}
+        shown = {name: outlines[name]} if name in outlines else shown
         label = f"{name}\nG(x)" if name in fisher else None
         tile = draw_block(fig, grid, tops[block], data, name, block == 0, shown, label)
         first_tiles.append(tile)
         if name in fisher:
-            draw_rows_title(fig, grid, tops[block], "G(x) per noise scale")
+            pad = 0.18 if block == 0 else 0.0
+            draw_rows_title(fig, grid, tops[block], "G(x) per noise scale", pad)
         if name in fisher:
             fisher_top = tops[block] + n_eigvecs + 1
-            fisher_label = f"{name}\nJ(x)"
-            draw_fisher_rows(fig, grid, fisher_top, fisher[name], shown, fisher_label)
+            # (without the name of the block if `params` says so: it labels the rows
+            # above, and a long label would run into the next block)
+            short = params.get("fisher_label_without_name", False)
+            fisher_label = "J(x)" if short else f"{name}\nJ(x)"
+            crop = params.get("fisher_crop")
+            title = params.get("fisher_title", "J(x) per cells")
+            draw_fisher_rows(
+                fig, grid, fisher_top, fisher[name], shown, fisher_label, crop, title
+            )
 
     # the panels of eigenvalues, in the columns of the tiles
     value_axes = []
@@ -342,8 +406,11 @@ def plot_per_scale(
     for letter, ax in zip("ABCDEFG", axes):
         panel_label(fig, ax, letter, dx=-0.01 if letter == "A" else -0.04)
 
-    # the title, on two lines
-    fig.suptitle(suptitle, fontsize=11, y=0.99)
+    # the title, on two lines, just above the noise scales of the first block (the
+    # figure's height is only estimated, so a title at the top of the figure can leave
+    # a gap)
+    top = max(ax.get_position().y1 for ax in fig.axes)
+    fig.suptitle(suptitle, fontsize=11, y=top + 0.55 / fig.get_figheight(), va="bottom")
     return fig, data
 
 
@@ -368,7 +435,7 @@ def plot_env_spectrum(
 
     # one panel: the band of the images, their mean, and the Gaussian bound
     fig, ax = plt.subplots(figsize=(6.5, 4.4), dpi=params["screen_dpi"])
-    color = SPECTRUM_COLORS[name]
+    color = get_color(SPECTRUM_COLORS, name, 0)
     low, high = data["band"]
     ax.fill_between(
         data["log_t"],
@@ -421,6 +488,7 @@ def plot_coding_spectrum(
     # the data drawn: the noise scales, the envelope, and per area ρ, ρ over its
     # maximum, their 95% bands, and ½ ∫ ρ dτ
     areas = list(spectra)
+    colors = {area: get_color(AREA_COLORS, area, i) for i, area in enumerate(areas)}
     log_t = spectra[areas[0]].log_tau.double()
     data = {"log_t": log_t.numpy()}
     data["env"] = spectra[areas[0]].env.double().mean(dim=0).numpy()
@@ -449,13 +517,13 @@ def plot_coding_spectrum(
         label=r"$\rho^{\rm env}(\tau)$ (above the axes at fine scales)",
     )
     for area in areas:
-        draw_band(ax_rho, data["log_t"], data[area]["rho_band"], AREA_COLORS[area])
+        draw_band(ax_rho, data["log_t"], data[area]["rho_band"], colors[area])
         ax_rho.plot(
             data["log_t"],
             data[area]["rho"],
             "o-",
             ms=3,
-            color=AREA_COLORS[area],
+            color=colors[area],
             lw=2,
             label=rf"$\rho(\tau)$ {area}: $\frac{{1}}{{2}}\int \rho\, d\tau$ = "
             f"{data[area]['information']:.1f} nats",
@@ -473,13 +541,13 @@ def plot_coding_spectrum(
     # B: each ρ over its own maximum, with its band, and the line ρ = 0
     for area in areas:
         band = data[area]["normalized_band"]
-        draw_band(ax_shape, data["log_t"], band, AREA_COLORS[area])
+        draw_band(ax_shape, data["log_t"], band, colors[area])
         ax_shape.plot(
             data["log_t"],
             data[area]["normalized"],
             "o-",
             ms=3,
-            color=AREA_COLORS[area],
+            color=colors[area],
             lw=2,
             label=area,
         )

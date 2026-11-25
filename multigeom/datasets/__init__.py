@@ -1,7 +1,8 @@
 """
 Data: TinyImageNet and the canonical image transform of the pipeline (images 64 x 64,
 one channel, in [-1, 1]), the functions that download the datasets (TinyImageNet, TVSD,
-THINGS images), and synthetic neural data with a known ground truth.
+THINGS images), synthetic neural data with a known ground truth, and the band-pass
+whitening of images.
 """
 
 from .download import download_things_images, download_tinyimagenet, download_tvsd
@@ -14,6 +15,11 @@ from .synthetic import (
 )
 from .tinyimagenet import TinyImageNetDataset, load_examples, load_test_images
 from .transforms import CANONICAL_TRANSFORM, DEEP_TRANSFORM
+from .whitening import (
+    WhiteningFilter,
+    estimate_power_spectrum,
+    fit_power_law,
+)
 
 __all__ = [
     "CANONICAL_TRANSFORM",
@@ -29,4 +35,7 @@ __all__ = [
     "noise_ceiling",
     "make_synthetic_experiment",
     "SyntheticExperiment",
+    "WhiteningFilter",
+    "estimate_power_spectrum",
+    "fit_power_law",
 ]

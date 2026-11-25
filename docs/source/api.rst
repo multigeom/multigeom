@@ -35,6 +35,8 @@ Geometry
    multigeom.geometry.compute_fisher_per_cell
    multigeom.geometry.compute_gaussian_env
    multigeom.geometry.compute_prior_variances
+   multigeom.geometry.GaussianNoise
+   multigeom.geometry.PoissonNoise
    multigeom.geometry.FisherOutput
    multigeom.geometry.EstimatorOutput
    multigeom.geometry.PerScaleOutput
@@ -67,6 +69,7 @@ The figures of the estimates at each noise scale (needs matplotlib; importing
    multigeom.plotting.plot_per_scale
    multigeom.plotting.plot_env_spectrum
    multigeom.plotting.plot_coding_spectrum
+   multigeom.plotting.retina.plot_cell_summary
 
 Module reference
 ----------------

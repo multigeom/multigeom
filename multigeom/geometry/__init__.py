@@ -30,6 +30,7 @@ from .spectrum import (
 from .spectrum import estimate_coding_spectrum as compute_coding_spectrum
 from .spectrum import estimate_env_spectrum as compute_env_spectrum
 from .methods import available_methods, register_method
+from .noise import GaussianNoise, PoissonNoise
 from .fisher import FisherOutput, compute_fisher_per_cell, fisher_eigendecomposition
 from .fisher import fisher_eigendecomposition as compute_fisher
 
@@ -43,6 +44,8 @@ __all__ = [
     "compute_fisher_per_cell",
     "compute_gaussian_env",
     "compute_prior_variances",
+    "GaussianNoise",
+    "PoissonNoise",
     "FisherOutput",
     "EstimatorOutput",
     "PerScaleOutput",

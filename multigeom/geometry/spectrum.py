@@ -33,6 +33,7 @@ from typing import Sequence
 import torch
 
 from .estimator import _build_log_tau_grid
+from .noise import GaussianNoise, PoissonNoise
 from .methods import ConditionalPair
 
 
@@ -180,7 +181,7 @@ def _level_terms(
     sampler: ConditionalPair,
     alphas_cumprod: torch.Tensor,
     t_j: int,
-    sigma: float,
+    response_noise: GaussianNoise | PoissonNoise,
     batch_size: int,
     generator: torch.Generator | None,
 ) -> dict:
@@ -200,8 +201,7 @@ def _level_terms(
         noise = torch.randn(clean.shape, device=device, generator=generator)
         x_t = sqrt_ab * clean + sqrt_1m * noise
         steps = torch.full((len(clean),), t_j, device=device, dtype=torch.long)
-        draws = torch.randn(mean.shape, device=device, generator=generator)
-        responses = mean + sigma * draws
+        responses = response_noise.sample(mean, generator)
 
         # the noise predictions without and with that response
         null = torch.zeros(len(clean), unet.n_neurons, device=device)
@@ -230,6 +230,7 @@ def estimate_coding_spectrum(
     n_noise: int = 8,
     batch_size: int = 400,
     generator: torch.Generator | None = None,
+    noise: GaussianNoise | PoissonNoise | None = None,
 ) -> CodingSpectrumOutput:
     """
     Compute the coding spectrum of `images` ([n, 1, H, W] in [-1, 1]) at the DDPM steps
@@ -238,6 +239,8 @@ def estimate_coding_spectrum(
     diffusion model `unet`: for each image and step, the four terms of
     `CodingSpectrumOutput`, each the mean over `n_noise` noisy versions, with a new
     response for each. `batch_size` and `generator` as in `compute_env_spectrum`.
+    `noise` replaces the Gaussian noise of σ by another noise of the responses
+    (`multigeom.geometry.noise`, e.g. Poisson for the retina models).
 
     Returns:
         CodingSpectrumOutput; its `rho` is ρ(τ), the note's eq. 7.
@@ -258,9 +261,11 @@ def estimate_coding_spectrum(
     pairs = images.repeat_interleave(n_noise, dim=0)
     pair_means = means.repeat_interleave(n_noise, dim=0)
 
-    # the responses drawn given the denoised image, as `compute_g_per_scale` draws them
+    # the noise of the responses, and the responses drawn given the denoised image, as
+    # `compute_g_per_scale` draws them
+    noise = noise or GaussianNoise(sigma)
     settings = SimpleNamespace(
-        monte_carlo=SimpleNamespace(observation_noise_sigma=sigma)
+        monte_carlo=SimpleNamespace(observation_noise_sigma=sigma, noise=noise)
     )
     sampler = ConditionalPair(
         image=images[:1],
@@ -281,7 +286,7 @@ def estimate_coding_spectrum(
             sampler,
             alphas_cumprod,
             t_j,
-            sigma,
+            noise,
             batch_size,
             generator,
         )

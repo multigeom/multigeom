@@ -82,6 +82,7 @@ from ..geometry.estimator import (  # noqa: E402
     conditional_pair_estimate,
 )
 from ..config import load_config  # noqa: E402
+from ..diffusion.denoise import compute_denoised  # noqa: E402
 from ..utils import get_device, make_generator, provenance  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
@@ -143,8 +144,10 @@ def unconditional_conditional_estimate(
         for _ in range(N_MC // B):
             z = torch.randn(B, 1, H, W, device=device, generator=generator)
             x_t = sqrt_ab * image + sqrt_1m * z
-            eps_u = unet(x_t, t_tensor, null_token)  # reused below
-            x_hat = ((x_t - sqrt_1m * eps_u) / sqrt_ab).clamp(-1.0, 1.0)
+            # the denoised image, and the null-token noise reused below
+            x_hat, eps_u = compute_denoised(
+                unet, x_t, t_j, alphas_cumprod, null_token, clamp=True
+            )
             mu = encoder(x_hat)
             xi = torch.randn(
                 mu.shape, device=device, dtype=mu.dtype, generator=generator

@@ -222,6 +222,47 @@ def test_train_diffusion_runs_on_a_tiny_model_and_resumes(tmp_path):
         )
 
 
+def test_train_unconditional_trains_on_the_null_token_only(tmp_path, monkeypatch):
+    """Verify that train_unconditional passes zero responses, without observation
+    noise or dropout, to train_diffusion, leaves the config it is given unchanged, and
+    trains a model that loads into the conditional architecture."""
+    import copy
+
+    from multigeom.config import load_config
+    from multigeom.diffusion import train as train_module
+    from multigeom.diffusion.model import build_diffusion_model
+
+    cfg = load_config("diffusion")
+    cfg.unet.block_channels = [32, 32, 32, 32]
+    cfg.unet.layers_per_block = 1
+    cfg.unet.cross_attention_dim = 8
+    cfg.conditioning.mlp_layers = [5, 8, 8, 8]
+    cfg.train.epochs, cfg.train.batch_size, cfg.train.warmup_steps = 1, 4, 1
+    before = copy.deepcopy(cfg)
+
+    seen = {}
+    original = train_module.train_diffusion
+
+    def spy(cfg_used, images_used, responses, out_dir, **kwargs):
+        seen.update(cfg=cfg_used, responses=responses)
+        return original(cfg_used, images_used, responses, out_dir, **kwargs)
+
+    monkeypatch.setattr(train_module, "train_diffusion", spy)
+    history = train_module.train_unconditional(
+        cfg, images(8), tmp_path, device="cpu", num_workers=0, log=None
+    )
+    assert history["epoch"] == [1]
+    assert torch.equal(seen["responses"], torch.zeros(8, 5))
+    assert seen["cfg"].conditioning.observation_noise_sigma == 0.0
+    assert seen["cfg"].conditioning.cfg_dropout_rate == 0.0
+    assert cfg.conditioning.observation_noise_sigma == (
+        before.conditioning.observation_noise_sigma
+    )
+    model = build_diffusion_model(cfg)
+    ckpt = torch.load(tmp_path / "final_model.pt", weights_only=False)
+    model.load_state_dict(ckpt["model_state_dict"])
+
+
 # ── the whole synthetic experiment in one call ──────────────────────────────
 def test_make_synthetic_experiment_splits_the_images_like_the_manual_recipe(tmp_path):
     from multigeom.datasets import make_synthetic_experiment

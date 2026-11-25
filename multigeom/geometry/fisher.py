@@ -50,9 +50,12 @@ def fisher_eigendecomposition(
     top_k: int = 50,
     device: torch.device | None = None,
     validate: bool = True,
+    noise=None,
 ) -> FisherOutput:
     """
-    Compute the top-k eigenpairs of J(x) = (1/σ²) J_{f_φ}ᵀ J_{f_φ}.
+    Compute the top-k eigenpairs of J(x) = (1/σ²) J_{f_φ}ᵀ J_{f_φ}, or, with another
+    `noise` (`multigeom.geometry.noise`), of J(x) = J_{f_φ}ᵀ diag(w²) J_{f_φ} with the
+    weights w of that noise (Poisson: w_n² = g / λ_n, λ = f_φ(x) the rates).
 
     Args: image: [1, 1, 64, 64] in [-1, 1] (canonical pipeline coords). encoder: f_φ —
     an `nn.Module` satisfying the contract of `multigeom.encoders.contract` (any user
@@ -112,10 +115,15 @@ def fisher_eigendecomposition(
             responses[0, i].backward(retain_graph=(i < n_neurons - 1))
             J_f[i] = x.grad.detach().reshape(-1).clone()
 
+    # with another noise than the Gaussian of σ: each neuron's row weighted by the
+    # noise, so that J(x) is the Gram matrix of the weighted rows
+    if noise is not None:
+        J_f = J_f * noise.fisher_weights(responses.detach()[0]).unsqueeze(1)
+
     # SVD of the n × P Jacobian (n ≪ P → "thin" SVD).
     # If J_f = U S Vᵀ, then J_fᵀ J_f = V S² Vᵀ.
     U, S, Vh = torch.linalg.svd(J_f, full_matrices=False)
-    eigenvalues = (S**2) / (sigma**2)
+    eigenvalues = (S**2) / (sigma**2) if noise is None else S**2
     eigenvectors = Vh  # [n_neurons, P]
 
     k = min(top_k, n_neurons)
@@ -126,20 +134,32 @@ def fisher_eigendecomposition(
 
 
 def compute_fisher_per_cell(
-    image: torch.Tensor, encoder: torch.nn.Module, sigma: float, device: torch.device
+    image: torch.Tensor,
+    encoder: torch.nn.Module,
+    sigma: float,
+    device: torch.device,
+    noise=None,
 ) -> dict:
     """
     The Fisher information of the responses about one image [1, 1, 64, 64], per neuron
     and in total. Neuron n's is J_n(x) = g_n g_nᵀ with g_n = ∇f_n(x) / σ: one pattern
     ("cells" [n, P], g_n) and one eigenvalue ("cell_values" [n], ‖g_n‖²). Their sum is
     J(x) = (1/σ²) J_fᵀ J_f, with eigenvectors "vectors" [n, P] and eigenvalues
-    "values" [n], largest first, from the SVD of the Jacobian J_f.
+    "values" [n], largest first, from the SVD of the Jacobian J_f. With another noise
+    than the Gaussian of σ, `noise` (`multigeom.geometry.noise`), g_n = w_n ∇f_n(x)
+    with the weight w_n of that noise (Poisson: w_n² = g / λ_n, λ = f(x) the rates).
     """
     # the Jacobian of the responses with respect to the pixels [n, P], over σ
     encoder.eval()
     x = image.to(device)
     jacobian = torch.autograd.functional.jacobian(lambda y: encoder(y)[0], x)
     rows = jacobian.reshape(jacobian.shape[0], -1).double() / sigma
+
+    # with another noise: each neuron's row weighted by that noise instead
+    if noise is not None:
+        with torch.no_grad():
+            weights = noise.fisher_weights(encoder(x)[0]).double()
+        rows = jacobian.reshape(jacobian.shape[0], -1).double() * weights[:, None]
 
     # each neuron's pattern and eigenvalue, then those of their total
     _, singular, right = torch.linalg.svd(rows, full_matrices=False)
