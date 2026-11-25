@@ -221,12 +221,12 @@ def compute_retina_prior_variances(
     return variances.double().cpu()
 
 
-def load_retina_images(models: SimpleNamespace, files: list) -> torch.Tensor:
+def load_stimulus_frames(files: list, size: int = CANVAS) -> torch.Tensor:
     """
-    The image files `files` prepared as open-retina prepares its images, [n, 1, 120,
-    120] in the diffusion model's units: grayscale, resized to 120 x 120 (bilinear),
-    standardised together to mean 0 and std 1, clipped to [-2.4, 2.5], then mapped by
-    the normalizer of `models` and padded.
+    The image files `files` prepared as open-retina prepares its stimuli, [n, 1, size,
+    size] in the units of the recorded stimuli (and of the retina encoders' inputs):
+    grayscale, resized (bilinear), standardised together to mean 0 and std 1, and
+    clipped to [-2.4, 2.5].
     """
     import numpy as np
     from PIL import Image
@@ -236,7 +236,7 @@ def load_retina_images(models: SimpleNamespace, files: list) -> torch.Tensor:
         [
             torch.from_numpy(
                 np.asarray(
-                    Image.open(f).convert("L").resize((CANVAS, CANVAS), Image.BILINEAR),
+                    Image.open(f).convert("L").resize((size, size), Image.BILINEAR),
                     dtype=np.float32,
                 )
                 / 255.0
@@ -245,7 +245,16 @@ def load_retina_images(models: SimpleNamespace, files: list) -> torch.Tensor:
         ]
     )
 
-    # standardised together and clipped, then in the diffusion model's units
+    # standardised together, and clipped
     frames = (frames - frames.mean()) / frames.std().clamp(min=1e-6)
-    frames = frames.clamp(-2.4, 2.5)
+    return frames.clamp(-2.4, 2.5)
+
+
+def load_retina_images(models: SimpleNamespace, files: list) -> torch.Tensor:
+    """
+    The image files `files` prepared as open-retina prepares its images, [n, 1, 120,
+    120] in the diffusion model's units: `load_stimulus_frames`, then mapped by the
+    normalizer of `models` and padded.
+    """
+    frames = load_stimulus_frames(files)
     return models.pad.pad(models.normalizer.to_diffusion(frames), value=0.0)

@@ -5,6 +5,8 @@ figures (`run_example._plot_cell_summary`), so that they can be compared with th
     plot_cell_summary   one row per image: the image, then the leading eigenvectors of
                         a metric (G(x) or J(x)), each with its share of the eigenvalues
     plot_cell_counts    the number of recorded cells of each type, per experiment
+    plot_mosaic_fisher  per mosaic, the Fisher information of its strongest cells
+                        and its total per pixel, diag J(x), about one image
     plot_cell_responses one row per recorded cell: a test clip's images, the spike
                         counts of its repeats, their mean rate, and the mean rate over
                         the training clips
@@ -17,7 +19,7 @@ import torch
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 
-from .style import plt
+from .style import as_numpy, plt
 
 
 def get_summary_data(images: torch.Tensor, eigenpairs: list, n_eig: int) -> dict:
@@ -221,3 +223,59 @@ def plot_cell_responses(
         ax.set_xlabel("time from the adapting image's onset (ms)", fontsize=8)
     fig.tight_layout()
     return fig, drawn
+
+
+def plot_mosaic_fisher(
+    image: torch.Tensor, fisher: dict, params: dict, title: str, suptitle: str = ""
+) -> tuple[plt.Figure, dict]:
+    """
+    The Fisher information of mosaics about one image: the image (top), then for each
+    mosaic of `fisher` (name → `compute_fisher_per_cell`, possibly shortened with its
+    total as "diag") the Fisher information of its strongest cells, one per tile ("per
+    cell", the pixels around each cell's peak if `params["fisher_crop"]`), and below
+    it their total per pixel, diag J(x), on the whole image; the rows of
+    `plot_per_scale`. Returns the figure and the totals drawn ({name: [H * W]}).
+    """
+    from .per_scale import FISHER_GAP, draw_fisher_rows
+
+    # two rows per mosaic, a gap before each; the image on the left
+    n_tiles = params.get("n_fisher_tiles", 24)
+    heights = [2.0]
+    for _ in fisher:
+        heights += [FISHER_GAP, 1.0, 1.0]
+    fig = plt.figure(
+        figsize=(16.5, 0.75 * sum(heights) + 0.9), dpi=params["screen_dpi"]
+    )
+    grid = fig.add_gridspec(
+        len(heights),
+        3 + n_tiles,
+        height_ratios=heights,
+        width_ratios=[1, 1, 1.6] + [1] * n_tiles,
+        hspace=0.08,
+        wspace=0.06,
+    )
+    ax_image = fig.add_subplot(grid[0, 2:4])
+    ax_image.imshow(as_numpy(image).reshape(image.shape[-2:]), cmap="gray")
+    ax_image.set_title(title, fontsize=10)
+    ax_image.axis("off")
+
+    # each mosaic: its Fisher rows, labelled with its name
+    totals = {}
+    for k, (name, record) in enumerate(fisher.items()):
+        draw_fisher_rows(
+            fig,
+            grid,
+            3 * k + 2,
+            record,
+            {},
+            f"{name}\nJ(x)",
+            params.get("fisher_crop"),
+            params.get("fisher_title", "J(x) per cells of the mosaic"),
+        )
+        totals[name] = record.get("diag", (record["cells"] ** 2).sum(axis=0))
+    if suptitle:
+        top = max(ax.get_position().y1 for ax in fig.axes)
+        fig.suptitle(
+            suptitle, fontsize=11, y=top + 0.5 / fig.get_figheight(), va="bottom"
+        )
+    return fig, totals
