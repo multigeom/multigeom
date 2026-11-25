@@ -7,6 +7,7 @@ import matplotlib.
 """
 
 from .per_scale import plot_coding_spectrum, plot_env_spectrum, plot_per_scale
+from .retina import plot_cell_counts, plot_cell_responses
 from .sampling import get_trajectory_scales, plot_posterior_samples
 from .whitening import (
     plot_denoised,
@@ -35,4 +36,6 @@ __all__ = [
     "plot_denoised",
     "plot_posterior_samples",
     "get_trajectory_scales",
+    "plot_cell_counts",
+    "plot_cell_responses",
 ]

@@ -15,6 +15,7 @@ from .synthetic import (
 )
 from .tinyimagenet import TinyImageNetDataset, load_examples, load_test_images
 from .transforms import CANONICAL_TRANSFORM, DEEP_TRANSFORM
+from .lorenzi import list_lorenzi_cells, load_lorenzi_cell
 from .whitening import (
     WhiteningFilter,
     estimate_power_spectrum,
@@ -36,6 +37,8 @@ __all__ = [
     "make_synthetic_experiment",
     "SyntheticExperiment",
     "WhiteningFilter",
+    "list_lorenzi_cells",
+    "load_lorenzi_cell",
     "estimate_power_spectrum",
     "fit_power_law",
 ]
